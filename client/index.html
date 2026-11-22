@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Souqly — Every shop, one souq</title>
+    <meta
+      name="description"
+      content="Souqly is a multi-vendor marketplace where independent shops sell side by side. Discover trusted sellers, pay cash on delivery and track every order. Every shop, one souq."
+    />
+    <meta name="theme-color" content="#0E5E5A" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0F1716" media="(prefers-color-scheme: dark)" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <meta property="og:site_name" content="Souqly" />
+    <meta property="og:image" content="/og-default.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <script>
+      // Apply saved theme + language before first paint (no flash of wrong theme or direction).
+      // Mirrors the persisted zustand store "souqly-ui" (src/stores/ui.ts).
+      (function () {
+        try {
+          var raw = localStorage.getItem('souqly-ui');
+          var s = raw ? JSON.parse(raw).state || {} : {};
+          var theme = s.theme || 'system';
+          var dark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+          if (dark) document.documentElement.classList.add('dark');
+          var lang = s.language || (navigator.language || 'en').slice(0, 2);
+          if (lang !== 'ur' && lang !== 'ar') lang = 'en';
+          document.documentElement.lang = lang;
+          document.documentElement.dir = lang === 'en' ? 'ltr' : 'rtl';
+        } catch (e) {}
+      })();
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Noto+Nastaliq+Urdu:wght@400;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Readex+Pro:wght@300;400;500;600;700&display=swap"
+    />
+  </head>
+  <body>
+    <div id="root"></div>
+    <noscript>Souqly needs JavaScript enabled to run.</noscript>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

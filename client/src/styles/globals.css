@@ -1,0 +1,113 @@
+@import './tokens.css';
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  body {
+    @apply bg-bg font-sans text-fg;
+    min-height: 100dvh;
+  }
+  html[lang='ar'] body {
+    @apply font-arabic;
+  }
+  /* Nastaliq needs generous vertical room or its descenders collide. */
+  html[lang='ur'] body {
+    @apply font-urdu;
+    line-height: 2;
+  }
+  html[lang='ur'] body * {
+    line-height: 1.95;
+  }
+  html[lang='ur'] .latin,
+  html[lang='ar'] .latin {
+    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  }
+  ::selection {
+    background: rgb(var(--accent) / 0.35);
+  }
+  :focus-visible {
+    outline: 2px solid rgb(var(--ring));
+    outline-offset: 2px;
+  }
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(var(--border-strong)) transparent;
+  }
+  *::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  *::-webkit-scrollbar-thumb {
+    background: rgb(var(--border-strong));
+    border-radius: 999px;
+    border: 3px solid rgb(var(--bg));
+  }
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}
+
+@layer components {
+  .skeleton {
+    background: linear-gradient(90deg, rgb(var(--surface-2)) 0%, rgb(var(--surface-3)) 40%, rgb(var(--surface-2)) 80%);
+    background-size: 200% 100%;
+    @apply animate-shimmer rounded-md;
+  }
+  /* Decorative souq-arch lattice used on hero and auth panels. */
+  .souq-pattern {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='72' viewBox='0 0 56 72'%3E%3Cpath d='M8 72V38C8 24 17 14 28 7c11 7 20 17 20 31v34' fill='none' stroke='%23F2A93B' stroke-opacity='.2' stroke-width='1.5'/%3E%3Ccircle cx='28' cy='22' r='1.8' fill='%23F2A93B' fill-opacity='.35'/%3E%3C/svg%3E");
+    background-size: 56px 72px;
+  }
+  .link {
+    @apply font-medium text-primary-700 underline-offset-4 hover:underline;
+  }
+}
+
+@layer utilities {
+  [dir='rtl'] .flip-rtl {
+    transform: scaleX(-1);
+  }
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Leaflet tiles look harsh in dark mode; soften them. */
+.dark .leaflet-tile-pane {
+  filter: brightness(0.75) contrast(1.1) saturate(0.8);
+}
+.leaflet-container {
+  font: inherit;
+}

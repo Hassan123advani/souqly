@@ -1,0 +1,598 @@
+{
+  "brand": { "tagline": "Every shop, one souq" },
+  "common": {
+    "loading": "Loading…",
+    "retry": "Try again",
+    "close": "Close",
+    "cancel": "Cancel",
+    "saveChanges": "Save changes",
+    "saved": "Saved",
+    "edit": "Edit",
+    "delete": "Delete",
+    "copy": "Copy",
+    "copied": "Copied to clipboard",
+    "moreActions": "More actions",
+    "backToTop": "Back to top",
+    "skipToContent": "Skip to content",
+    "offline": "You're offline. Some things may not load until you reconnect."
+  },
+  "nav": {
+    "home": "Home",
+    "categories": "Categories",
+    "cart": "Cart",
+    "cartCount": "Cart ({{count}} items)",
+    "chat": "Chat",
+    "account": "Account",
+    "wishlist": "Wishlist",
+    "primary": "Main navigation",
+    "utility": "Shortcuts",
+    "breadcrumbs": "Breadcrumbs",
+    "sellerCenter": "Seller Center",
+    "adminPanel": "Admin Panel"
+  },
+  "header": {
+    "search": "Search",
+    "searchLabel": "Search Souqly",
+    "searchPlaceholder": "Search products, brands and shops",
+    "language": "Language",
+    "theme": "Theme",
+    "signIn": "Sign in",
+    "accountMenu": "Account menu",
+    "logout": "Log out"
+  },
+  "theme": { "light": "Light", "dark": "Dark", "system": "Match device" },
+  "mode": {
+    "label": "Shopping mode",
+    "buyer": "Buyer",
+    "seller": "Seller",
+    "nowBuyer": "You're in buyer mode",
+    "nowSeller": "Welcome to your Seller Center",
+    "switchPromptTitle": "You're in buyer mode",
+    "switchPromptBody": "Switch to seller mode to manage your shop, orders and products.",
+    "switchToSeller": "Switch to seller mode"
+  },
+  "footer": {
+    "souqly": "Souqly",
+    "support": "Support",
+    "policies": "Policies",
+    "about": "About Souqly",
+    "sell": "Sell on Souqly",
+    "help": "Help centre",
+    "addresses": "Delivery addresses",
+    "terms": "Terms of Use",
+    "privacy": "Privacy Policy",
+    "blurb": "Souqly brings independent shops together in one trusted marketplace — browse many sellers, pay once, and track every parcel to your door.",
+    "appTitle": "Install Souqly.",
+    "appBody": "Add Souqly to your home screen from your browser menu for an app-like experience — no download needed.",
+    "weAccept": "We accept",
+    "copyright": "© {{year}} Souqly. All rights reserved."
+  },
+  "payments": { "cod": "Cash on delivery", "jazzcash": "JazzCash", "easypaisa": "Easypaisa", "card": "Card", "wallet": "Souqly Wallet" },
+  "price": { "was": "Was {{price}}" },
+  "rating": { "label": "Rated {{value}} out of 5" },
+  "countdown": { "d": "days", "h": "hours", "m": "minutes", "s": "seconds" },
+  "pagination": { "label": "Pagination", "prev": "Previous page", "next": "Next page", "loadMore": "Load more" },
+  "form": {
+    "email": "Email",
+    "password": "Password",
+    "fullName": "Full name",
+    "phone": "Phone number",
+    "referralCode": "Referral code (optional)",
+    "currentPassword": "Current password",
+    "newPassword": "New password",
+    "confirmPassword": "Confirm new password",
+    "newEmail": "New email",
+    "country": "Country",
+    "city": "City",
+    "area": "Area / neighbourhood",
+    "line1": "Street address",
+    "line2": "Apartment, floor, landmark (optional)",
+    "postalCode": "Postal code",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password",
+    "strength": {
+      "hint": "Use 8+ characters",
+      "0": "Too short",
+      "1": "Weak",
+      "2": "Fair",
+      "3": "Good",
+      "4": "Strong"
+    }
+  },
+  "validation": {
+    "required": "This field is required",
+    "tooShort": "Use at least {{min}} characters",
+    "tooLong": "Use at most {{max}} characters",
+    "format": "This doesn't look right — please check it",
+    "email": "Enter a valid email address",
+    "passwordMin": "Use at least 8 characters",
+    "passwordLetter": "Include at least one letter",
+    "passwordNumber": "Include at least one number",
+    "passwordRequired": "Password is required",
+    "passwordMismatch": "Passwords do not match",
+    "passwordSame": "New password must be different from the current one",
+    "phone": "Enter a valid number with country code, e.g. +923001234567",
+    "nameShort": "Name is too short",
+    "code": "Enter the 6-digit code",
+    "terms": "Please accept the Terms and Privacy Policy to continue"
+  },
+  "errors": {
+    "title": "Something went wrong",
+    "GENERIC": "Something went wrong. Please try again.",
+    "NETWORK": "We can't reach Souqly right now. Check your connection and try again.",
+    "SERVER": "Our servers hit a snag. Please try again in a moment.",
+    "INVALID_CREDENTIALS": "That email and password don't match. Please try again.",
+    "ACCOUNT_LOCKED": "Too many failed attempts. For your safety this account is locked for 15 minutes.",
+    "ACCOUNT_BLOCKED": "This account has been suspended. Please contact Souqly support.",
+    "TOTP_REQUIRED": "Enter the code from your authenticator app.",
+    "INVALID_TOTP": "That code didn't work. Check your authenticator app and try again.",
+    "EMAIL_TAKEN": "An account with this email already exists.",
+    "OWNS_STORE": "You own an active store. Close or transfer it from Seller Center before deleting your account.",
+    "NEEDS_STORE": "You need a store before you can use seller mode.",
+    "RATE_LIMITED": "You're going a little fast. Please wait a moment and try again.",
+    "INVALID_OTP": "That code is incorrect or has expired.",
+    "INVALID_TOKEN": "This link is invalid or has expired.",
+    "UNAUTHORIZED": "Please sign in to continue.",
+    "NOT_FOUND": "We couldn't find what you were looking for.",
+    "FORBIDDEN": "You don't have permission to view this page.",
+    "FORBIDDEN_TITLE": "Access restricted"
+  },
+  "crash": {
+    "title": "This page tripped over a lantern",
+    "body": "Something unexpected happened. Reloading usually fixes it — your cart and account are safe.",
+    "reload": "Reload page",
+    "home": "Go to home"
+  },
+  "notFound": {
+    "title": "This stall is empty",
+    "body": "The page you're looking for has moved or never existed. Let's get you back to the souq.",
+    "home": "Back to home",
+    "help": "Visit help centre"
+  },
+  "coming": {
+    "releaseTitle": "Coming in this release",
+    "backHome": "Back to home",
+    "sellInstead": "Sell on Souqly",
+    "categories": { "title": "Categories are being stocked", "body": "Our sellers are arranging their shelves. Browse by category very soon — fashion, home, electronics, beauty and more." },
+    "search": { "title": "Search is warming up", "body": "Soon you'll find any product, brand or shop in one search — even with typos. Thanks for your patience." },
+    "cart": { "title": "Your cart is on its way", "body": "Shopping across many shops with one checkout is almost ready. Items you add will appear here." },
+    "wishlist": { "title": "Wishlist coming soon", "body": "Save products you love and get notified when they go on sale." },
+    "chat": { "title": "Chat with sellers, soon", "body": "Ask questions, negotiate on bulk orders and track replies — right here in Souqly." }
+  },
+  "home": {
+    "metaDescription": "Shop from independent sellers across Pakistan and the Gulf on Souqly. Cash on delivery, verified shops and easy returns.",
+    "hero": {
+      "eyebrow": "The souq is opening",
+      "title": "Welcome to Souqly — every shop, one souq.",
+      "body": "Discover independent shops side by side, pay once at checkout, and track every parcel to your door. Shelves are being stocked right now.",
+      "ctaShop": "Start exploring",
+      "ctaSell": "Open your shop"
+    },
+    "trust": {
+      "cod": "Cash on delivery",
+      "codBody": "Pay when your order arrives.",
+      "verified": "Verified sellers",
+      "verifiedBody": "Every shop is reviewed by our team.",
+      "returns": "Easy returns",
+      "returnsBody": "Request a return from your orders page.",
+      "chat": "Talk to sellers",
+      "chatBody": "Ask before you buy, directly."
+    },
+    "categories": { "eyebrow": "Browse", "title": "Shop by category" },
+    "deals": { "eyebrow": "Today only", "title": "Lantern deals", "body": "Hand-picked discounts from shops across the souq, refreshed daily." },
+    "shops": { "eyebrow": "Meet the makers", "title": "Featured shops", "body": "Independent sellers our community loves." },
+    "forYou": { "eyebrow": "Picked for you", "title": "Just for you" },
+    "sellCta": {
+      "title": "Have a shop? Bring it to the souq.",
+      "body": "Open your store in minutes, reach buyers across the country and get paid on a clear schedule. No setup fees.",
+      "cta": "Start selling"
+    }
+  },
+  "authPanel": {
+    "point1": "Hundreds of verified independent shops",
+    "point2": "Pay cash on delivery, or online when you prefer",
+    "point3": "Track every parcel from shop to door"
+  },
+  "auth": {
+    "or": "or",
+    "google": "Continue with Google",
+    "back": "Back",
+    "backToLogin": "Back to sign in",
+    "forgotLink": "Forgot password?",
+    "loggedOut": "You've been signed out",
+    "welcomeBack": "Welcome back, {{name}}!",
+    "welcomeNew": "Welcome to Souqly!",
+    "lockedTitle": "Account temporarily locked",
+    "blockedTitle": "Account suspended",
+    "login": {
+      "title": "Sign in to Souqly",
+      "subtitle": "Welcome back to the souq.",
+      "tabEmail": "Email",
+      "tabPhone": "Phone (OTP)",
+      "submit": "Sign in",
+      "noAccount": "New to Souqly?",
+      "createOne": "Create an account"
+    },
+    "totp": {
+      "title": "Two-step verification",
+      "body": "Enter the 6-digit code from your authenticator app to finish signing in.",
+      "verify": "Verify and sign in"
+    },
+    "otp": {
+      "phoneHint": "Include your country code, e.g. +92 300 1234567",
+      "send": "Send code",
+      "sent": "We've sent you a code",
+      "enterCode": "Enter the 6-digit code we sent to",
+      "verify": "Verify and continue",
+      "resend": "Resend code",
+      "resendIn": "Resend in {{s}}s",
+      "changeNumber": "Change number",
+      "codeLabel": "One-time code",
+      "digit": "Digit {{n}}",
+      "devHint": "Development mode — your code is"
+    },
+    "signup": {
+      "title": "Create your account",
+      "subtitle": "Join Souqly to shop, save favourites and track orders.",
+      "submit": "Create account",
+      "success": "Your account is ready. Check your email to verify it.",
+      "referralHint": "Got a code from a friend? You'll both earn coins.",
+      "termsPrefix": "I agree to the",
+      "and": "and",
+      "haveAccount": "Already have an account?"
+    },
+    "forgot": {
+      "title": "Reset your password",
+      "subtitle": "Enter your account email and we'll send you a secure reset link.",
+      "submit": "Send reset link",
+      "sentTitle": "Check your inbox",
+      "sentBody": "If an account exists, a reset link is on its way to",
+      "sentHint": "The link expires soon. Don't forget to check your spam folder."
+    },
+    "reset": {
+      "title": "Choose a new password",
+      "subtitle": "Pick something strong that you don't use anywhere else.",
+      "submit": "Update password",
+      "doneTitle": "Password updated",
+      "doneBody": "For your safety we've signed you out everywhere. Sign in with your new password.",
+      "invalidTitle": "This link has expired",
+      "invalidBody": "Reset links can only be used once and expire after a short time.",
+      "requestNew": "Request a new link"
+    },
+    "verify": {
+      "title": "Verify email",
+      "checking": "Verifying your email…",
+      "doneTitle": "Email verified",
+      "doneBody": "Thanks! Your email is confirmed and your account is fully set up.",
+      "failedTitle": "We couldn't verify your email",
+      "failedHint": "You can request a fresh link from your account page.",
+      "missingTitle": "Verification link is incomplete",
+      "missingBody": "Open the link from your email again, or request a new one from your account page.",
+      "continue": "Continue",
+      "startShopping": "Start shopping"
+    }
+  },
+  "account": {
+    "verified": "Verified",
+    "unverified": "Not verified",
+    "memberSince": "Member since {{date}}",
+    "nav": {
+      "label": "Account sections",
+      "profile": "Profile",
+      "addresses": "Addresses",
+      "security": "Login & security",
+      "preferences": "Preferences",
+      "privacy": "Privacy & data"
+    },
+    "verifyEmail": {
+      "title": "Please verify your email",
+      "body": "We sent a verification link to {{email}}. Verifying helps protect your account and orders.",
+      "resend": "Resend link",
+      "sent": "A new verification link is on its way",
+      "sentShort": "Link sent"
+    },
+    "stats": { "wallet": "Wallet balance", "coins": "Souqly coins", "referral": "Your referral code" },
+    "profile": {
+      "title": "Personal details",
+      "subtitle": "This is how sellers and riders will see you.",
+      "photo": "Profile photo",
+      "photoHint": "JPG, PNG or WebP, up to 2 MB.",
+      "upload": "Upload photo",
+      "changePhoto": "Change photo",
+      "avatarSaved": "Profile photo updated",
+      "avatarType": "Please choose a JPG, PNG or WebP image",
+      "avatarSize": "That image is larger than 2 MB",
+      "phoneHint": "Used for delivery updates and phone sign-in.",
+      "emailHint": "To change your email, go to Login & security.",
+      "copyReferral": "Copy referral link",
+      "referralCopied": "Referral link copied — share it with friends!"
+    },
+    "addresses": {
+      "title": "Delivery addresses",
+      "subtitle": "Save the places you shop for, so checkout takes seconds.",
+      "add": "Add address",
+      "addTitle": "Add a new address",
+      "editTitle": "Edit address",
+      "formHint": "Drop a pin so riders can find you faster.",
+      "label": "Address label",
+      "labels": { "Home": "Home", "Work": "Work", "Other": "Other" },
+      "line1Placeholder": "House 12, Street 4, Block B",
+      "pin": "Pin your exact location",
+      "pinned": "Pinned",
+      "makeDefault": "Use as my default delivery address",
+      "save": "Save address",
+      "added": "Address added",
+      "updated": "Address updated",
+      "deleted": "Address removed",
+      "default": "Default",
+      "setDefault": "Set as default",
+      "defaultSet": "Default address updated",
+      "emptyTitle": "No saved addresses yet",
+      "emptyBody": "Add your home or office so your next checkout is a single tap.",
+      "deleteTitle": "Remove this address?",
+      "deleteBody": "You can always add it again later."
+    }
+  },
+  "map": {
+    "useMyLocation": "Use my location",
+    "hint": "Tap the map or drag the pin to your door.",
+    "denied": "We couldn't get your location. Please allow location access or place the pin manually.",
+    "unsupported": "Your browser doesn't support location."
+  },
+  "countries": { "PK": "Pakistan", "SA": "Saudi Arabia", "AE": "United Arab Emirates" },
+  "currencies": { "PKR": "Pakistani rupee", "SAR": "Saudi riyal", "AED": "UAE dirham", "USD": "US dollar" },
+  "security": {
+    "bannerTitle": "For your security, change the default password",
+    "bannerBody": "This account still uses a temporary password. Set your own now to keep it safe.",
+    "bannerCta": "Change password",
+    "bannerDismiss": "Remind me later",
+    "password": {
+      "title": "Password",
+      "subtitle": "Use a strong password you don't use on other sites.",
+      "submit": "Update password",
+      "changed": "Password updated. Other devices have been signed out.",
+      "wrongCurrent": "Your current password is incorrect",
+      "othersSignedOut": "Changing your password signs you out on all other devices."
+    },
+    "email": {
+      "title": "Email address",
+      "current": "Current:",
+      "submit": "Change email",
+      "hint": "We'll send a verification link to the new address. Until you verify it, some features may be limited.",
+      "sent": "Check {{email}} to confirm your new address"
+    },
+    "twofa": {
+      "title": "Two-step verification",
+      "subtitle": "Add a code from an authenticator app every time you sign in.",
+      "on": "On",
+      "off": "Off",
+      "onBody": "Your account is protected with an authenticator app. You'll need a code to sign in on new devices.",
+      "offBody": "Protect your account with Google Authenticator, Microsoft Authenticator or any TOTP app.",
+      "setup": "Set up",
+      "qrAlt": "QR code for your authenticator app",
+      "step1": "Open your authenticator app and add a new account.",
+      "step2": "Scan this QR code, or enter the key below.",
+      "step3": "Type the 6-digit code the app shows.",
+      "confirm": "Turn on",
+      "enabled": "Two-step verification is on",
+      "disable": "Turn off",
+      "disableTitle": "Turn off two-step verification?",
+      "disableBody": "Enter a current code from your app and your password to confirm.",
+      "disabled": "Two-step verification is off"
+    },
+    "sessions": {
+      "title": "Where you're signed in",
+      "subtitle": "Review devices that have access to your account.",
+      "thisDevice": "This device",
+      "lastActive": "Active {{when}}",
+      "revoke": "Sign out",
+      "revoked": "Device signed out",
+      "revokeOthers": "Sign out other devices",
+      "othersRevoked": "All other devices have been signed out",
+      "logoutAll": "Log out all devices",
+      "logoutAllTitle": "Log out everywhere?",
+      "logoutAllBody": "You'll be signed out on every device, including this one.",
+      "allRevoked": "Signed out on all devices",
+      "allHint": "Don't recognise a device? Sign it out and change your password.",
+      "empty": "No active sessions"
+    }
+  },
+  "prefs": {
+    "display": { "title": "Language & display", "subtitle": "Choose how Souqly looks and reads for you." },
+    "language": "Language",
+    "theme": "Theme",
+    "currency": "Currency",
+    "currencyHint": "Prices are shown in this currency where available.",
+    "mode": { "title": "Shopping mode", "subtitle": "Switch between shopping and running your shop." },
+    "notifications": {
+      "title": "Notifications",
+      "subtitle": "Pick how we keep you posted about orders and offers.",
+      "email": "Email",
+      "emailHint": "Order confirmations, receipts and account alerts.",
+      "sms": "SMS",
+      "smsHint": "Delivery updates on your phone.",
+      "push": "Push notifications",
+      "pushHint": "Instant updates in your browser or installed app.",
+      "marketing": "Offers & recommendations",
+      "marketingHint": "Sales, new shops and deals we think you'll like."
+    },
+    "privacy": {
+      "title": "Privacy",
+      "subtitle": "Control what others see and how we personalise Souqly.",
+      "showProfileInReviews": "Show my name and photo on reviews",
+      "showProfileInReviewsHint": "When off, your reviews show as \"Souqly shopper\".",
+      "personalizedRecommendations": "Personalised recommendations",
+      "personalizedRecommendationsHint": "Use my browsing and orders to suggest products."
+    }
+  },
+  "dataPage": {
+    "export": {
+      "title": "Download your data",
+      "subtitle": "Get a copy of the personal data Souqly holds about you, as a JSON file.",
+      "items": ["Profile and preferences", "Saved addresses", "Orders and reviews", "Sign-in history"],
+      "cta": "Download my data",
+      "done": "Your data download has started"
+    },
+    "delete": {
+      "title": "Delete account",
+      "subtitle": "Permanently close your Souqly account.",
+      "consequences": [
+        "Your profile, addresses and wishlist will be erased.",
+        "Order records are kept anonymised where the law requires.",
+        "Coins and wallet balance will be forfeited.",
+        "This cannot be undone."
+      ],
+      "cta": "Delete my account",
+      "modalTitle": "Delete your account permanently?",
+      "modalBody": "This signs you out everywhere and erases your personal data.",
+      "typeLabel": "Type DELETE to confirm",
+      "typeHint": "Capital letters, exactly as shown.",
+      "confirmCta": "Delete forever",
+      "done": "Your account has been deleted. We're sorry to see you go.",
+      "ownsStoreTitle": "You still own a store"
+    }
+  },
+  "dash": {
+    "backToShop": "Back to marketplace",
+    "collapse": "Collapse sidebar",
+    "expand": "Expand sidebar",
+    "openMenu": "Open menu"
+  },
+  "seller": {
+    "nav": {
+      "dashboard": "Dashboard",
+      "products": "Products",
+      "inventory": "Inventory",
+      "orders": "Orders",
+      "marketing": "Marketing",
+      "chat": "Chat",
+      "finance": "Finance",
+      "analytics": "Analytics",
+      "staff": "Team",
+      "settings": "Store settings"
+    },
+    "home": {
+      "greeting": "Salaam, {{name}}",
+      "storeLine": "Managing {{store}}",
+      "coming": "Your dashboard with sales, orders and stock alerts arrives with the Seller Center release."
+    }
+  },
+  "storeStatus": { "pending": "Pending review", "approved": "Live", "rejected": "Needs changes", "suspended": "Suspended" },
+  "onboarding": {
+    "eyebrow": "Become a seller",
+    "title": "Open your shop on Souqly",
+    "body": "{{name}}, turn your passion into a business. Souqly gives your shop a storefront, payments, delivery and customers — all in one place.",
+    "prepareTitle": "What you'll need",
+    "prepareBody": "Have these ready and setup takes about ten minutes.",
+    "checklist": ["Your shop name and a logo", "CNIC or business registration", "A bank account or mobile wallet for payouts", "Photos and prices of a few products"],
+    "start": "Start setting up my shop",
+    "soonTitle": "Store setup opens soon",
+    "soonBody": "We're putting the final touches on the seller wizard. You'll be able to open your shop from this page in the next release.",
+    "learnMore": "Learn about selling",
+    "keepShopping": "Keep shopping"
+  },
+  "admin": {
+    "nav": {
+      "overview": "Overview",
+      "users": "Users",
+      "stores": "Stores",
+      "products": "Products",
+      "orders": "Orders",
+      "disputes": "Disputes",
+      "finance": "Finance",
+      "cms": "Content",
+      "settings": "Settings",
+      "profile": "My profile",
+      "security": "Security"
+    },
+    "home": {
+      "greeting": "Welcome, {{name}}",
+      "role": "Your role",
+      "permissions": "Permissions",
+      "security": "Account security",
+      "secure": "Protected",
+      "needsAttention": "Needs attention",
+      "review": "Review",
+      "coming": "Platform metrics, moderation queues and reports arrive with the Admin release."
+    },
+    "securityIntro": "Staff accounts can see sensitive data. Keep yours locked down with a strong password and two-step verification."
+  },
+  "static": {
+    "updated": "Last updated: November 2026",
+    "about": {
+      "title": "About Souqly",
+      "intro": "Souqly is a marketplace built on an old idea: the souq, where many independent traders share one busy street and shoppers find everything in one walk.",
+      "sections": [
+        { "h": "Why we built Souqly", "p": "Small shops make the best things — but online, they are scattered across social pages and chat groups, and buyers can't tell who to trust. Souqly gives every shop a proper storefront and gives every shopper one safe place to buy from many of them." },
+        { "h": "Every shop, one souq", "p": "On Souqly you can fill one cart from several shops and check out once. Each shop ships its part of your order, and you can follow every parcel from a single orders page." },
+        { "h": "Trust is the product", "p": "Sellers are reviewed before they go live, ratings come only from real orders, and cash on delivery is available across the country. If something goes wrong, our support team steps in." },
+        { "h": "Made for Pakistan and the Gulf", "p": "Souqly speaks English, Urdu and Arabic, shows prices in your currency, and works smoothly on mobile data. Install it to your home screen and it feels like an app." }
+      ]
+    },
+    "terms": {
+      "title": "Terms of Use",
+      "intro": "These terms explain the rules for using Souqly as a shopper or as a seller. By creating an account you agree to them.",
+      "sections": [
+        { "h": "Your account", "p": "You must give accurate information and keep your password safe. You are responsible for activity on your account. You can close your account at any time from Privacy & data." },
+        { "h": "Buying on Souqly", "p": "Each product is sold by the shop that lists it. Souqly runs the marketplace, processes payments and helps resolve disputes, but the seller is responsible for the product, its description and delivery." },
+        { "h": "Selling on Souqly", "p": "Sellers must list only items they are allowed to sell, describe them honestly, ship on time and honour returns under our returns policy. Commissions and fees are shown in Seller Center before you agree to them." },
+        { "h": "Prohibited conduct", "p": "Counterfeits, illegal or dangerous goods, fake reviews, harassment and attempts to move payments off Souqly are not allowed and can lead to suspension." },
+        { "h": "Liability and changes", "p": "Souqly is provided as is. We may update these terms; if a change is significant we will tell you before it takes effect." }
+      ]
+    },
+    "privacy": {
+      "title": "Privacy Policy",
+      "intro": "We collect only what we need to run the marketplace, protect your account and deliver your orders — and we never sell your personal data.",
+      "sections": [
+        { "h": "What we collect", "p": "Your name, contact details, delivery addresses, orders, and basic device information such as browser type and IP address used to keep your account secure." },
+        { "h": "How we use it", "p": "To process and deliver orders, let sellers fulfil them, prevent fraud, provide support and — only if you allow it — personalise recommendations and send offers." },
+        { "h": "What sellers see", "p": "A seller only receives the details needed to fulfil your order with them: your name, delivery address and phone number." },
+        { "h": "Your choices", "p": "You can change notification and privacy settings, download your data or delete your account at any time from your account pages." },
+        { "h": "Security", "p": "Passwords are stored hashed, sessions can be reviewed and revoked, and two-step verification is available for every account." }
+      ]
+    },
+    "help": {
+      "title": "Help centre",
+      "intro": "Answers to the questions shoppers and sellers ask us most.",
+      "faqTitle": "Frequently asked questions",
+      "faqs": [
+        { "q": "How does cash on delivery work?", "a": "Choose Cash on delivery at checkout and pay the rider when your parcel arrives. Please keep the exact amount ready where possible." },
+        { "q": "Why did my order arrive in more than one parcel?", "a": "On Souqly you can buy from several shops at once. Each shop packs and ships its own items, so you may receive more than one parcel. You can track each one from your orders page." },
+        { "q": "How do I return an item?", "a": "Open the order, choose Request a return, and tell us what went wrong. The seller will respond, and our team steps in if you can't agree." },
+        { "q": "I forgot my password. What do I do?", "a": "Use Forgot password on the sign-in page. We'll email you a secure link that works once. You can also sign in with a one-time code sent to your phone." },
+        { "q": "How do I keep my account secure?", "a": "Use a unique password, turn on two-step verification in Login & security, and sign out of devices you don't recognise." },
+        { "q": "How do I start selling?", "a": "Switch to seller mode from your account menu, or visit Sell on Souqly. You'll set up your shop name, payout details and first products." }
+      ],
+      "chatTitle": "Chat with the seller",
+      "chatBody": "For questions about a product or delivery, message the shop directly from the product or order page.",
+      "emailTitle": "Email Souqly support",
+      "emailBody": "For account, payment or safety issues, write to us and we'll reply within one working day.",
+      "sellerTitle": "Seller support",
+      "sellerBody": "Running a shop? Learn how selling on Souqly works.",
+      "sellerCta": "Selling on Souqly"
+    },
+    "sell": {
+      "eyebrow": "Sell on Souqly",
+      "title": "Your shop deserves a bigger street.",
+      "intro": "Join a marketplace built for independent sellers. List your products, reach shoppers nationwide and get paid on a clear schedule.",
+      "cta": "Open your shop",
+      "whyEyebrow": "Why Souqly",
+      "whyTitle": "Everything a growing shop needs",
+      "benefits": {
+        "fees": { "title": "Fair, simple fees", "body": "No setup fee. A clear commission only when you make a sale." },
+        "cod": { "title": "Cash on delivery built in", "body": "Reach buyers who prefer to pay at the door, with delivery handled for you." },
+        "chat": { "title": "Talk to your customers", "body": "Answer questions and share offers in real-time chat." },
+        "insights": { "title": "Know what sells", "body": "See your sales, best sellers and stock alerts in one dashboard." },
+        "team": { "title": "Bring your team", "body": "Invite staff with their own roles — inventory, orders, marketing or cashier." },
+        "payouts": { "title": "Reliable payouts", "body": "Transparent statements and scheduled payouts to your bank or wallet." }
+      },
+      "stepsEyebrow": "How it works",
+      "stepsTitle": "Open your shop in three steps",
+      "steps": {
+        "1": { "title": "Create your shop", "body": "Choose a name, upload your logo and tell buyers what you sell." },
+        "2": { "title": "Add your products", "body": "Photos, prices, sizes and stock — with helpful tips as you go." },
+        "3": { "title": "Start selling", "body": "Once approved, your shop goes live and orders arrive in Seller Center." }
+      }
+    }
+  }
+}

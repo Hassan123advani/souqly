@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <style>
+    .arch { fill: #0E5E5A; }
+    @media (prefers-color-scheme: dark) { .arch { fill: #1A7A73; } }
+  </style>
+  <path class="arch" d="M9 57.5V30.5C9 17.6 18.6 8.6 32 2.5c13.4 6.1 23 15.1 23 28v27c0 2.2-1.8 4-4 4H13c-2.2 0-4-1.8-4-4Z"/>
+  <path d="M41.5 27c-2.6-4-17.5-5-17.5 3.6 0 8.4 17 6 17 15.1 0 8.6-15.6 8.6-18.5 3.6" fill="none" stroke="#F2A93B" stroke-width="6.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="32" cy="15" r="3" fill="#F2A93B"/>
+</svg>

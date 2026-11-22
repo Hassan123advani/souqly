@@ -1,0 +1,11 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "composite": true,
+    "lib": ["ES2022"],
+    "types": ["node"],
+    "emitDeclarationOnly": true,
+    "outDir": "node_modules/.tmp/tsconfig.node"
+  },
+  "include": ["vite.config.ts", "tailwind.config.ts"]
+}
