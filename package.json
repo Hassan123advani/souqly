@@ -1,0 +1,22 @@
+{
+  "name": "souqly",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Souqly (سوقلي) — Every shop, one souq. Multi-vendor marketplace.",
+  "workspaces": ["shared", "server", "client", "e2e"],
+  "scripts": {
+    "dev": "concurrently -n server,client -c cyan,magenta \"npm run dev -w server\" \"npm run dev -w client\"",
+    "build": "npm run build -w server && npm run build -w client",
+    "start": "npm run start -w server",
+    "seed": "npm run seed -w server",
+    "seed:clear": "npm run seed:clear -w server",
+    "test": "npm run test -w shared && npm run test -w server",
+    "test:e2e": "npm run test -w e2e",
+    "typecheck": "npm run typecheck -w shared && npm run typecheck -w server && npm run typecheck -w client",
+    "lint": "eslint . --max-warnings=0"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0"
+  },
+  "engines": { "node": ">=20" }
+}
