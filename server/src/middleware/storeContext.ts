@@ -30,6 +30,12 @@ export const storeContext: RequestHandler = (req, _res, next) => {
 
     const store = await Store.findById(member.storeId);
     if (!store) throw new AppError(403, 'STORE_FORBIDDEN', 'Store not found');
+    // Pending stores may set up their catalog; suspended / rejected stores are locked out of the Seller Center.
+    if (store.status === 'suspended' || store.status === 'rejected') {
+      throw new AppError(403, 'STORE_SUSPENDED', 'This store is suspended or was not approved. Contact Souqly support.', {
+        status: store.status,
+      });
+    }
 
     req.store = store;
     req.storeMember = member;

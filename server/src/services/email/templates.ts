@@ -81,3 +81,56 @@ export function orderPlaced(name: string, orderNumber: string, totalFormatted: s
     text: `Hi ${name},\n\nYour order ${orderNumber} has been placed. Total: ${totalFormatted}.\nTrack it: ${url}`,
   };
 }
+
+export type SecurityEvent = 'two_factor_enabled' | 'two_factor_disabled' | 'recovery_code_used' | 'email_changed' | 'phone_changed';
+
+const SECURITY_COPY: Record<SecurityEvent, { subject: string; title: string; body: string }> = {
+  two_factor_enabled: {
+    subject: 'Two-factor authentication was turned on',
+    title: 'Two-factor authentication is on',
+    body: 'Two-factor authentication was just turned on for your Souqly account.',
+  },
+  two_factor_disabled: {
+    subject: 'Two-factor authentication was turned off',
+    title: 'Two-factor authentication is off',
+    body: 'Two-factor authentication was just turned off for your Souqly account.',
+  },
+  recovery_code_used: {
+    subject: 'A recovery code was used to sign in',
+    title: 'Recovery code used',
+    body: 'One of your two-factor recovery codes was just used to sign in to your Souqly account.',
+  },
+  email_changed: {
+    subject: 'Your Souqly email address was changed',
+    title: 'Email address changed',
+    body: 'The email address of your Souqly account was just changed and this address will no longer receive account emails.',
+  },
+  phone_changed: {
+    subject: 'Your Souqly phone number was changed',
+    title: 'Phone number changed',
+    body: 'The phone number of your Souqly account was just changed.',
+  },
+};
+
+/** Masks an address for notices: `ab***@example.com`. */
+export function maskEmail(email: string): string {
+  const [local = '', domain = ''] = email.split('@');
+  return `${local.slice(0, 2)}***@${domain}`;
+}
+
+/** "Was this you?" notice for security-sensitive account changes. Contains no links with tokens. */
+export function securityNotice(name: string, event: SecurityEvent, opts: { newEmail?: string } = {}): Rendered {
+  const c = SECURITY_COPY[event];
+  const extra = opts.newEmail ? `New address: ${maskEmail(opts.newEmail)}.` : '';
+  const warn = 'If this was not you, reset your password right away and contact Souqly support.';
+  const url = `${env.CLIENT_URL}/account/security`;
+  return {
+    subject: c.subject,
+    html: layout({
+      title: c.title,
+      bodyHtml: p(`Hi ${esc(name)},`) + p(esc(c.body)) + (extra ? p(esc(extra)) : '') + p(esc(warn)),
+      cta: { label: 'Review account security', url },
+    }),
+    text: `Hi ${name},\n\n${c.body}${extra ? `\n${extra}` : ''}\n\n${warn}\n${url}`,
+  };
+}

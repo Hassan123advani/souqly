@@ -41,6 +41,7 @@ export async function toMeUser(user: UserLike, opts: { impersonatorId?: string }
     name: user.name,
     email: user.email ?? '',
     ...(user.phone ? { phone: user.phone } : {}),
+    ...(user.pendingPhone ? { pendingPhone: user.pendingPhone } : {}),
     ...(user.avatar?.url ? { avatarUrl: user.avatar.url } : {}),
     emailVerified: !!user.emailVerified,
     phoneVerified: !!user.phoneVerified,

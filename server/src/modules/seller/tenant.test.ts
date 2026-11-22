@@ -71,7 +71,7 @@ beforeAll(async () => {
     { storeId: sA._id, userId: uc!._id, role: 'CASHIER' },
   ]);
   categoryId = String((await makeCategoryTree()).sub._id);
-  const res = await request(app).post(api('/seller/products')).set('Cookie', cookieB).send(body({ title: 'Store B Kurta' }));
+  const res = await request(app).post(api('/seller/products')).set('X-Requested-With', 'XMLHttpRequest').set('Cookie', cookieB).send(body({ title: 'Store B Kurta' }));
   expect(res.status).toBe(201);
   productB = res.body.data.id;
 });
@@ -80,7 +80,7 @@ afterAll(() => setStorage(undefined));
 
 describe('seller products CRUD', () => {
   it('creates a sanitized draft with derived fields', async () => {
-    const res = await request(app).post(api('/seller/products')).set('Cookie', cookieA).send(body());
+    const res = await request(app).post(api('/seller/products')).set('X-Requested-With', 'XMLHttpRequest').set('Cookie', cookieA).send(body());
     expect(res.status).toBe(201);
     const p = res.body.data;
     expect(p).toMatchObject({ status: 'draft', priceMin: 300_000, priceMax: 320_000, discountPct: 25, totalStock: 14 });
@@ -93,48 +93,48 @@ describe('seller products CRUD', () => {
   });
 
   it('ignores storeId in the body (strict schema → 400) and always uses req.store', async () => {
-    const res = await request(app).post(api('/seller/products')).set('Cookie', cookieA).send(body({ storeId: storeB }));
+    const res = await request(app).post(api('/seller/products')).set('X-Requested-With', 'XMLHttpRequest').set('Cookie', cookieA).send(body({ storeId: storeB }));
     expect(res.status).toBe(400);
     expect(await Product.countDocuments({ storeId: storeB, title: 'Embroidered Lawn Suit' })).toBe(0);
   });
 
   it('validates variants against options and rejects foreign media', async () => {
     const bad = body({ variants: [{ options: { color: 'Green', size: 'S' }, price: 1000, stock: 1 }] });
-    expect((await request(app).post(api('/seller/products')).set('Cookie', cookieA).send(bad)).status).toBe(400);
+    expect((await request(app).post(api('/seller/products')).set('X-Requested-With', 'XMLHttpRequest').set('Cookie', cookieA).send(bad)).status).toBe(400);
     const evil = body({ images: [{ url: 'https://evil.example.com/x.png', key: 'x' }] });
-    const res = await request(app).post(api('/seller/products')).set('Cookie', cookieA).send(evil);
+    const res = await request(app).post(api('/seller/products')).set('X-Requested-With', 'XMLHttpRequest').set('Cookie', cookieA).send(evil);
     expect(res.status).toBe(400);
     expect(res.body.error.code).toBe('INVALID_MEDIA');
   });
 
   it('updates, duplicates, publishes and deletes own products', async () => {
-    const created = await request(app).post(api('/seller/products')).set('Cookie', cookieA).send(body({ title: 'To Edit' }));
+    const created = await request(app).post(api('/seller/products')).set('X-Requested-With', 'XMLHttpRequest').set('Cookie', cookieA).send(body({ title: 'To Edit' }));
     const id = created.body.data.id;
     const variantId = created.body.data.variants[0].id;
     const patch = await request(app)
       .patch(api(`/seller/products/${id}`))
-      .set('Cookie', cookieA)
+      .set('X-Requested-With', 'XMLHttpRequest').set('Cookie', cookieA)
       .send({ title: 'Edited Title', variants: [{ id: variantId, options: { color: 'Red', size: 'S' }, price: 250_000, stock: 9 }] });
     expect(patch.status).toBe(200);
     expect(patch.body.data).toMatchObject({ title: 'Edited Title', priceMin: 250_000, totalStock: 9 });
     expect(patch.body.data.variants[0].id).toBe(variantId);
 
-    const dup = await request(app).post(api(`/seller/products/${id}/duplicate`)).set('Cookie', cookieA);
+    const dup = await request(app).post(api(`/seller/products/${id}/duplicate`)).set('X-Requested-With', 'XMLHttpRequest').set('Cookie', cookieA);
     expect(dup.status).toBe(201);
     expect(dup.body.data).toMatchObject({ title: 'Edited Title (Copy)', status: 'draft' });
     expect(dup.body.data.slug).not.toBe(patch.body.data.slug);
 
-    const pub = await request(app).post(api(`/seller/products/${id}/publish`)).set('Cookie', cookieA);
+    const pub = await request(app).post(api(`/seller/products/${id}/publish`)).set('X-Requested-With', 'XMLHttpRequest').set('Cookie', cookieA);
     expect(pub.body.data.status).toBe('pending_review'); // store A is not trusted
-    const pubB = await request(app).post(api(`/seller/products/${productB}/publish`)).set('Cookie', cookieB);
+    const pubB = await request(app).post(api(`/seller/products/${productB}/publish`)).set('X-Requested-With', 'XMLHttpRequest').set('Cookie', cookieB);
     expect(pubB.body.data.status).toBe('published'); // Mall store → auto-published
 
-    expect((await request(app).delete(api(`/seller/products/${id}`)).set('Cookie', cookieA)).status).toBe(204);
-    expect((await request(app).get(api(`/seller/products/${id}`)).set('Cookie', cookieA)).status).toBe(404);
+    expect((await request(app).delete(api(`/seller/products/${id}`)).set('X-Requested-With', 'XMLHttpRequest').set('Cookie', cookieA)).status).toBe(204);
+    expect((await request(app).get(api(`/seller/products/${id}`)).set('X-Requested-With', 'XMLHttpRequest').set('Cookie', cookieA)).status).toBe(404);
   });
 
   it('lists only the current store products', async () => {
-    const res = await request(app).get(api('/seller/products?limit=100')).set('Cookie', cookieA);
+    const res = await request(app).get(api('/seller/products?limit=100')).set('X-Requested-With', 'XMLHttpRequest').set('Cookie', cookieA);
     expect(res.status).toBe(200);
     expect(res.body.data.map((p: { id: string }) => p.id)).not.toContain(productB);
   });
@@ -142,7 +142,7 @@ describe('seller products CRUD', () => {
 
 describe('tenant isolation', () => {
   it('owner of store A cannot GET, PATCH, DELETE, duplicate or publish store B product', async () => {
-    const r = (m: 'get' | 'patch' | 'delete' | 'post', path: string) => request(app)[m](api(path)).set('Cookie', cookieA);
+    const r = (m: 'get' | 'patch' | 'delete' | 'post', path: string) => request(app)[m](api(path)).set('X-Requested-With', 'XMLHttpRequest').set('Cookie', cookieA);
     expect((await r('get', `/seller/products/${productB}`)).status).toBe(404);
     expect((await r('patch', `/seller/products/${productB}`).send({ title: 'Hacked title' })).status).toBe(404);
     expect((await r('delete', `/seller/products/${productB}`)).status).toBe(404);
@@ -154,13 +154,13 @@ describe('tenant isolation', () => {
   });
 
   it('x-store-id of a foreign store is refused', async () => {
-    const res = await request(app).get(api(`/seller/products/${productB}`)).set('Cookie', cookieA).set('x-store-id', storeB);
+    const res = await request(app).get(api(`/seller/products/${productB}`)).set('X-Requested-With', 'XMLHttpRequest').set('Cookie', cookieA).set('x-store-id', storeB);
     expect(res.status).toBe(403);
   });
 
   it('enforces store permissions (cashier can view, not manage)', async () => {
-    expect((await request(app).get(api('/seller/products')).set('Cookie', cookieCashier)).status).toBe(200);
-    expect((await request(app).post(api('/seller/products')).set('Cookie', cookieCashier).send(body())).status).toBe(403);
+    expect((await request(app).get(api('/seller/products')).set('X-Requested-With', 'XMLHttpRequest').set('Cookie', cookieCashier)).status).toBe(200);
+    expect((await request(app).post(api('/seller/products')).set('X-Requested-With', 'XMLHttpRequest').set('Cookie', cookieCashier).send(body())).status).toBe(403);
     expect((await request(app).get(api('/seller/products'))).status).toBe(401);
     expect(storeA).not.toBe(storeB);
   });
@@ -168,7 +168,7 @@ describe('tenant isolation', () => {
 
 describe('POST /seller/uploads', () => {
   it('accepts a real PNG', async () => {
-    const res = await request(app).post(api('/seller/uploads')).set('Cookie', cookieA).attach('file', PNG, { filename: 'a.png', contentType: 'image/png' });
+    const res = await request(app).post(api('/seller/uploads')).set('X-Requested-With', 'XMLHttpRequest').set('Cookie', cookieA).attach('file', PNG, { filename: 'a.png', contentType: 'image/png' });
     expect(res.status).toBe(201);
     expect(res.body.data).toMatchObject({ kind: 'image', mimetype: 'image/png' });
     expect(res.body.data.key).toContain(`stores/${storeA}/images`);
@@ -176,23 +176,23 @@ describe('POST /seller/uploads', () => {
 
   it('rejects a fake .png that contains text', async () => {
     const fake = Buffer.from('<html><script>alert(1)</script></html>');
-    const res = await request(app).post(api('/seller/uploads')).set('Cookie', cookieA).attach('file', fake, { filename: 'evil.png', contentType: 'image/png' });
+    const res = await request(app).post(api('/seller/uploads')).set('X-Requested-With', 'XMLHttpRequest').set('Cookie', cookieA).attach('file', fake, { filename: 'evil.png', contentType: 'image/png' });
     expect(res.status).toBe(400);
     expect(res.body.error.code).toBe('INVALID_FILE_TYPE');
   });
 
   it('accepts webm video and rejects images over 5 MB', async () => {
     const webm = Buffer.concat([Buffer.from([0x1a, 0x45, 0xdf, 0xa3]), Buffer.alloc(100)]);
-    const v = await request(app).post(api('/seller/uploads')).set('Cookie', cookieA).attach('file', webm, { filename: 'v.webm', contentType: 'video/webm' });
+    const v = await request(app).post(api('/seller/uploads')).set('X-Requested-With', 'XMLHttpRequest').set('Cookie', cookieA).attach('file', webm, { filename: 'v.webm', contentType: 'video/webm' });
     expect(v.status).toBe(201);
     expect(v.body.data.kind).toBe('video');
     const big = Buffer.concat([PNG, Buffer.alloc(5 * 1024 * 1024)]);
-    const r = await request(app).post(api('/seller/uploads')).set('Cookie', cookieA).attach('file', big, { filename: 'big.png', contentType: 'image/png' });
+    const r = await request(app).post(api('/seller/uploads')).set('X-Requested-With', 'XMLHttpRequest').set('Cookie', cookieA).attach('file', big, { filename: 'big.png', contentType: 'image/png' });
     expect(r.status).toBe(413);
   });
 
   it('requires products.manage', async () => {
-    const res = await request(app).post(api('/seller/uploads')).set('Cookie', cookieCashier).attach('file', PNG, { filename: 'a.png', contentType: 'image/png' });
+    const res = await request(app).post(api('/seller/uploads')).set('X-Requested-With', 'XMLHttpRequest').set('Cookie', cookieCashier).attach('file', PNG, { filename: 'a.png', contentType: 'image/png' });
     expect(res.status).toBe(403);
   });
 });

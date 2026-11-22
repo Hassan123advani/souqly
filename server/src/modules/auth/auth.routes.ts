@@ -1,5 +1,6 @@
 import {
   forgotPasswordSchema,
+  googleTwoFactorSchema,
   loginSchema,
   otpRequestSchema,
   otpVerifySchema,
@@ -8,9 +9,9 @@ import {
   verifyEmailSchema,
 } from '@souqly/shared';
 import { Router } from 'express';
-import { z } from 'zod';
 import { AppError } from '../../lib/AppError';
 import { asyncHandler } from '../../lib/asyncHandler';
+import { logger } from '../../lib/logger';
 import { requireAuth, resolveAccessToken } from '../../middleware/auth';
 import { rateLimits } from '../../middleware/rateLimit';
 import { validate } from '../../middleware/validate';
@@ -96,7 +97,7 @@ authRouter.get(
 
 authRouter.post(
   '/otp/request',
-  rateLimits.otp,
+  rateLimits.otpRequest,
   validate({ body: otpRequestSchema }),
   asyncHandler(async (req, res) => {
     res.json({ data: await auth.requestOtp(req.body.phone) });
@@ -105,8 +106,8 @@ authRouter.post(
 
 authRouter.post(
   '/otp/verify',
-  rateLimits.otp,
-  validate({ body: otpVerifySchema.extend({ totp: z.string().regex(/^\d{6}$/).optional() }) }),
+  rateLimits.otpVerify,
+  validate({ body: otpVerifySchema }),
   asyncHandler(async (req, res) => {
     const { user, isNew } = await auth.verifyOtp(req.body.phone, req.body.code, req.body.totp, req);
     await auth.startSession(req, res, user._id);
@@ -143,10 +144,11 @@ authRouter.post(
   '/forgot-password',
   rateLimits.passwordReset,
   validate({ body: forgotPasswordSchema }),
-  asyncHandler(async (req, res) => {
-    await auth.forgotPassword(req.body.email);
+  (req, res) => {
+    // Fire-and-forget: the response time must not reveal whether the account exists.
+    auth.forgotPassword(req.body.email).catch((err: unknown) => logger.error({ err }, 'forgot-password failed'));
     res.json({ data: { sent: true } });
-  }),
+  },
 );
 
 authRouter.post(
@@ -157,6 +159,18 @@ authRouter.post(
     await auth.resetPassword(req.body.token, req.body.password, req);
     clearAuthCookies(res);
     res.json({ data: { reset: true } });
+  }),
+);
+
+/** Second step of Google sign-in when the account has 2FA (ticket from /login?google2fa=...). */
+authRouter.post(
+  '/google/2fa',
+  rateLimits.google2fa,
+  validate({ body: googleTwoFactorSchema }),
+  asyncHandler(async (req, res) => {
+    const user = await auth.completeGoogle2fa(req.body.ticket, req.body.totp, req);
+    await auth.startSession(req, res, user._id);
+    res.json({ data: { user: await toMeUser(user) } });
   }),
 );
 

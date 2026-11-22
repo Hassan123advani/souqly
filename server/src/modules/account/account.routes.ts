@@ -4,19 +4,23 @@ import {
   changePasswordSchema,
   deleteAccountSchema,
   objectIdSchema,
+  phoneVerifySchema,
   revokeAllSessionsSchema,
   switchModeSchema,
   twoFactorDisableSchema,
   twoFactorEnableSchema,
+  twoFactorSetupSchema,
   updatePreferencesSchema,
   updateProfileSchema,
 } from '@souqly/shared';
-import { Router } from 'express';
+import { Router, type RequestHandler } from 'express';
 import multer from 'multer';
 import { z } from 'zod';
 import { AppError } from '../../lib/AppError';
 import { asyncHandler } from '../../lib/asyncHandler';
 import { requireAuth } from '../../middleware/auth';
+import { forbidWhileImpersonating } from '../../middleware/impersonation';
+import { rateLimits } from '../../middleware/rateLimit';
 import { validate } from '../../middleware/validate';
 import { User } from '../users/user.model';
 import { toMeUser } from '../users/user.service';
@@ -35,6 +39,19 @@ const upload = multer({
   },
 });
 
+/** Phone changes send an SMS and are a credential change: rate limited and blocked while impersonating. */
+const whenPhoneChanges =
+  (...handlers: RequestHandler[]): RequestHandler =>
+  (req, res, next) => {
+    if ((req.body as { phone?: unknown } | undefined)?.phone === undefined) return next();
+    const run = (i: number): void => {
+      const h = handlers[i];
+      if (!h) return next();
+      h(req, res, (err?: unknown) => (err ? next(err) : run(i + 1)));
+    };
+    run(0);
+  };
+
 const me = async (userId: string, impersonatorId?: string) => {
   const user = await User.findById(userId);
   if (!user) throw new AppError(401, 'UNAUTHENTICATED', 'Please log in to continue');
@@ -52,9 +69,33 @@ accountRouter.get(
 accountRouter.patch(
   '/profile',
   validate({ body: updateProfileSchema }),
+  whenPhoneChanges(forbidWhileImpersonating, rateLimits.accountOtp),
   asyncHandler(async (req, res) => {
-    const user = await account.updateProfile(req.user!.id, req.body);
-    res.json({ data: { user: await toMeUser(user, { impersonatorId: req.user!.impersonatorId }) } });
+    const { user, phoneVerification } = await account.updateProfile(req, req.body);
+    res.json({
+      data: { user: await toMeUser(user, { impersonatorId: req.user!.impersonatorId }), ...(phoneVerification ? { phoneVerification } : {}) },
+    });
+  }),
+);
+
+accountRouter.post(
+  '/phone/verify',
+  forbidWhileImpersonating,
+  rateLimits.accountOtp,
+  validate({ body: phoneVerifySchema }),
+  asyncHandler(async (req, res) => {
+    const user = await account.verifyPhoneChange(req, req.body.code);
+    res.json({ data: { user: await toMeUser(user) } });
+  }),
+);
+
+// ---- re-auth for passwordless accounts ----
+accountRouter.post(
+  '/reauth/otp',
+  forbidWhileImpersonating,
+  rateLimits.accountOtp,
+  asyncHandler(async (req, res) => {
+    res.json({ data: await account.requestReauthOtp(req.user!.id) });
   }),
 );
 
@@ -79,6 +120,7 @@ accountRouter.patch(
 // ---- password / email ----
 accountRouter.post(
   '/change-password',
+  forbidWhileImpersonating,
   validate({ body: changePasswordSchema }),
   asyncHandler(async (req, res) => {
     const revokedSessions = await account.changePassword(req, req.body.currentPassword, req.body.newPassword);
@@ -88,10 +130,11 @@ accountRouter.post(
 
 accountRouter.post(
   '/change-email',
+  forbidWhileImpersonating,
   validate({ body: changeEmailSchema }),
   asyncHandler(async (req, res) => {
-    await account.changeEmail(req, req.body.newEmail, req.body.password);
-    res.json({ data: { changed: true, verificationSent: true } });
+    const revokedSessions = await account.changeEmail(req, req.body.newEmail, req.body.password);
+    res.json({ data: { changed: true, verificationSent: true, revokedSessions } });
   }),
 );
 
@@ -105,6 +148,7 @@ accountRouter.get(
 
 accountRouter.post(
   '/sessions/revoke-all',
+  forbidWhileImpersonating,
   validate({ body: revokeAllSessionsSchema }),
   asyncHandler(async (req, res) => {
     const revoked = await account.revokeAll(req, res, req.body.includeCurrent);
@@ -121,28 +165,32 @@ accountRouter.delete(
   }),
 );
 
-// ---- 2FA ----
+// ---- 2FA (re-auth required; never while impersonating) ----
 accountRouter.post(
   '/2fa/setup',
+  forbidWhileImpersonating,
+  validate({ body: twoFactorSetupSchema }),
   asyncHandler(async (req, res) => {
-    res.json({ data: await account.setupTwoFactor(req.user!.id) });
+    res.json({ data: await account.setupTwoFactor(req, req.body) });
   }),
 );
 
 accountRouter.post(
   '/2fa/enable',
+  forbidWhileImpersonating,
   validate({ body: twoFactorEnableSchema }),
   asyncHandler(async (req, res) => {
-    await account.enableTwoFactor(req, req.body.code);
-    res.json({ data: { enabled: true } });
+    const { recoveryCodes } = await account.enableTwoFactor(req, req.body);
+    res.json({ data: { enabled: true, recoveryCodes } });
   }),
 );
 
 accountRouter.post(
   '/2fa/disable',
+  forbidWhileImpersonating,
   validate({ body: twoFactorDisableSchema }),
   asyncHandler(async (req, res) => {
-    await account.disableTwoFactor(req, req.body.code, req.body.password);
+    await account.disableTwoFactor(req, req.body);
     res.json({ data: { enabled: false } });
   }),
 );
@@ -212,10 +260,10 @@ accountRouter.get(
 
 accountRouter.delete(
   '/',
+  forbidWhileImpersonating,
   validate({ body: deleteAccountSchema }),
   asyncHandler(async (req, res) => {
-    if (req.user!.impersonatorId) throw new AppError(403, 'IMPERSONATION_FORBIDDEN', 'Not allowed while impersonating');
-    await account.deleteAccount(req, res, req.body.password);
+    await account.deleteAccount(req, res, req.body);
     res.status(204).end();
   }),
 );

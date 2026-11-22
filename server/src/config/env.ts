@@ -29,7 +29,42 @@ const bool = () =>
     z.boolean().optional(),
   );
 
-const schema = z
+const trustProxy = () =>
+  z.preprocess(
+    (v) => {
+      const b = blankToUndefined(v);
+      if (b === undefined) return false;
+      const s = String(b).trim();
+      const lower = s.toLowerCase();
+      if (['false', '0', 'no', 'off'].includes(lower)) return false;
+      if (['true', 'yes', 'on'].includes(lower)) return true;
+      if (/^\d+$/.test(s)) return Number(s);
+      return s; // e.g. "loopback" or a comma-separated list of proxy IPs / CIDRs
+    },
+    z.union([z.boolean(), z.number().int().min(0), z.string()]),
+  );
+
+/** Passwords that must never protect the production Super Admin. */
+const WEAK_ADMIN_PASSWORDS = new Set(['souqly123', 'souqly1234', 'password', 'password123', 'admin123', 'admin1234', 'demo1234', '12345678', '123456789012']);
+export const DEFAULT_ADMIN_PASSWORD = 'souqly123';
+
+/** True when the Super Admin password is the default, on a deny-list, or shorter than 12 characters. */
+export function isWeakAdminPassword(password: string): boolean {
+  const lower = password.toLowerCase();
+  return password.length < 12 || WEAK_ADMIN_PASSWORDS.has(lower) || lower.includes(DEFAULT_ADMIN_PASSWORD);
+}
+
+/** True when every host of a mongodb:// URI is the local machine (mongodb+srv is always remote). */
+export function isLocalMongoUri(uri: string): boolean {
+  const m = /^mongodb:\/\/(?:[^@/]*@)?([^/?]+)/i.exec(uri.trim());
+  if (!m) return false;
+  return m[1]!.split(',').every((hostPort) => {
+    const host = hostPort.startsWith('[') ? hostPort.slice(0, hostPort.indexOf(']') + 1) : hostPort.split(':')[0]!;
+    return ['localhost', '::1', '[::1]'].includes(host.toLowerCase()) || /^127\.\d+\.\d+\.\d+$/.test(host);
+  });
+}
+
+export const envSchema = z
   .object({
     NODE_ENV: z.preprocess(blankToUndefined, z.enum(['development', 'test', 'production']).default('development')),
     PORT: int(4000),
@@ -40,8 +75,12 @@ const schema = z
     JWT_REFRESH_SECRET: str(),
     DATA_ENCRYPTION_KEY: str(),
     COOKIE_SECURE: bool(),
+    /** Express `trust proxy`: false (default), a hop count, or proxy IPs/CIDRs. Never `true` in production. */
+    TRUST_PROXY: trustProxy(),
+    /** Return OTP codes in API responses when no SMS provider is configured (local development only). */
+    DEV_OTP_ECHO: z.preprocess((v) => bool().parse(v) ?? false, z.boolean()),
     ADMIN_EMAIL: strDefault('souqly@gmail.com'),
-    ADMIN_PASSWORD: strDefault('souqly123'),
+    ADMIN_PASSWORD: strDefault(DEFAULT_ADMIN_PASSWORD),
     ADMIN_NAME: strDefault('Souqly Admin'),
     CLOUDINARY_CLOUD_NAME: str(),
     CLOUDINARY_API_KEY: str(),
@@ -72,17 +111,35 @@ const schema = z
     LOG_LEVEL: z.preprocess(blankToUndefined, z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).optional()),
   })
   .superRefine((e, ctx) => {
-    if (e.NODE_ENV !== 'production') return;
-    for (const key of ['MONGODB_URI', 'JWT_ACCESS_SECRET', 'JWT_REFRESH_SECRET'] as const) {
-      if (!e[key]) ctx.addIssue({ code: z.ZodIssueCode.custom, path: [key], message: `${key} is required in production` });
+    const issue = (path: string, message: string) => ctx.addIssue({ code: z.ZodIssueCode.custom, path: [path], message });
+    if (e.NODE_ENV !== 'production') {
+      if (e.DEV_OTP_ECHO && e.MONGODB_URI && !isLocalMongoUri(e.MONGODB_URI)) {
+        issue('DEV_OTP_ECHO', 'DEV_OTP_ECHO must not be enabled against a non-local MONGODB_URI (real users would get their OTPs echoed)');
+      }
+      return;
     }
-    for (const key of ['JWT_ACCESS_SECRET', 'JWT_REFRESH_SECRET'] as const) {
+    for (const key of ['MONGODB_URI', 'JWT_ACCESS_SECRET', 'JWT_REFRESH_SECRET', 'DATA_ENCRYPTION_KEY'] as const) {
+      if (!e[key]) issue(key, `${key} is required in production`);
+    }
+    for (const key of ['JWT_ACCESS_SECRET', 'JWT_REFRESH_SECRET', 'DATA_ENCRYPTION_KEY'] as const) {
       const v = e[key];
-      if (v && v.length < 32) ctx.addIssue({ code: z.ZodIssueCode.custom, path: [key], message: `${key} must be at least 32 characters` });
+      if (v && v.length < 32) issue(key, `${key} must be at least 32 characters`);
     }
+    if (isWeakAdminPassword(e.ADMIN_PASSWORD)) {
+      issue('ADMIN_PASSWORD', 'ADMIN_PASSWORD must be set to a strong value (12+ characters, not the default) in production');
+    }
+    if (e.DEV_OTP_ECHO) issue('DEV_OTP_ECHO', 'DEV_OTP_ECHO must be off in production');
+    if (e.TRUST_PROXY === true) issue('TRUST_PROXY', 'TRUST_PROXY=true trusts any X-Forwarded-For; use a hop count (e.g. 1) or proxy IPs');
   });
 
-const parsed = schema.safeParse(process.env);
+export type ParsedEnv = z.infer<typeof envSchema>;
+
+/** Validates a raw environment (exported for tests). */
+export function parseEnv(raw: Record<string, string | undefined>) {
+  return envSchema.safeParse(raw);
+}
+
+const parsed = parseEnv(process.env);
 if (!parsed.success) {
   const lines = parsed.error.issues.map((i) => `  - ${i.path.join('.')}: ${i.message}`).join('\n');
   // Logger depends on env, so plain console here.
@@ -100,6 +157,18 @@ function secretOrRandom(name: string, value: string | undefined): string {
 
 const JWT_ACCESS_SECRET = secretOrRandom('JWT_ACCESS_SECRET', e.JWT_ACCESS_SECRET);
 const JWT_REFRESH_SECRET = secretOrRandom('JWT_REFRESH_SECRET', e.JWT_REFRESH_SECRET);
+if (e.NODE_ENV === 'development' && e.MONGODB_URI && !isLocalMongoUri(e.MONGODB_URI)) {
+  const line = '!'.repeat(78);
+  console.error(
+    `[31m${line}
+[souqly] NODE_ENV=development is pointing at a NON-LOCAL MongoDB.
+` +
+      `  Development defaults (verbose logs, generated secrets, dev-only helpers) must never run against real data.
+` +
+      `  Set NODE_ENV=production for real deployments.
+${line}[0m`,
+  );
+}
 if (generatedSecrets.length && e.NODE_ENV === 'development') {
   console.warn(
     `\x1b[33m[souqly] WARNING: ${generatedSecrets.join(', ')} not set — generated random secrets for this boot. ` +

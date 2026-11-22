@@ -1,17 +1,101 @@
-import { Router } from 'express';
+import { Router, type Request, type Response } from 'express';
+import { Types } from 'mongoose';
 import { env, integrations } from '../../config/env';
 import { asyncHandler } from '../../lib/asyncHandler';
 import { randomToken, safeEqual } from '../../lib/crypto';
 import { logger } from '../../lib/logger';
 import { audit } from '../audit/audit.service';
-import { User } from '../users/user.model';
+import { User, type UserDoc } from '../users/user.model';
 import { generateReferralCode } from '../users/user.service';
-import { startSession } from './auth.service';
+import { issueGoogle2faTicket, revokeAllSessions, startSession } from './auth.service';
+import { Otp } from './otp.model';
+import { Token } from './token.model';
 
 const STATE_COOKIE = 'sq_oauth_state';
 const CALLBACK_PATH = '/api/v1/auth/google/callback';
 
 type GoogleIdToken = { iss: string; aud: string; sub: string; email?: string; email_verified?: boolean; name?: string; exp: number };
+export type GoogleProfile = { sub: string; email: string; name?: string };
+
+/**
+ * An existing account whose email was never verified may have been registered by someone else
+ * (squatting the victim's address). Before Google links it, everything that party could still use is
+ * wiped: password, 2FA, phone, sessions and outstanding tokens/OTPs.
+ */
+async function resetUntrustedAccount(user: UserDoc, req: Request): Promise<void> {
+  const now = new Date();
+  await User.updateOne(
+    { _id: user._id },
+    {
+      $set: { 'twoFactor.enabled': false, phoneVerified: false, failedLoginCount: 0 },
+      $unset: {
+        passwordHash: 1,
+        phone: 1,
+        pendingPhone: 1,
+        lockUntil: 1,
+        'twoFactor.secretEncrypted': 1,
+        'twoFactor.pendingSecretEncrypted': 1,
+        'twoFactor.recoveryCodes': 1,
+        'twoFactor.lastStep': 1,
+      },
+    },
+  );
+  const revokedSessions = await revokeAllSessions(user._id);
+  await Token.updateMany({ userId: user._id, usedAt: null }, { $set: { usedAt: now } });
+  await Otp.deleteMany({ userId: user._id });
+  await audit({
+    action: 'auth.google_link_reset',
+    actorId: user._id,
+    targetType: 'User',
+    targetId: user._id,
+    meta: { revokedSessions, hadPassword: !!user.passwordHash, hadTwoFactor: !!user.twoFactor?.enabled },
+    req,
+  });
+  logger.warn({ userId: String(user._id) }, 'Google login linked to an unverified account; account credentials were reset');
+}
+
+/**
+ * Resolves the Google profile to a user (link / create) and returns where to redirect the browser.
+ * With 2FA on, NO session is created: the client gets `/login?google2fa=<ticket>` and must call
+ * POST /auth/google/2fa with the ticket and a TOTP / recovery code.
+ */
+export async function handleGoogleProfile(req: Request, res: Response, profile: GoogleProfile): Promise<string> {
+  const fail = (reason: string) => `${env.CLIENT_URL}/login?error=${encodeURIComponent(reason)}`;
+  const email = profile.email.toLowerCase();
+
+  let user = await User.findOne({ googleId: profile.sub, status: { $ne: 'deleted' } });
+  if (!user) {
+    const existing = await User.findOne({ email, status: { $ne: 'deleted' } }).select('+passwordHash');
+    if (existing) {
+      if (existing.status === 'blocked') return fail('blocked');
+      if (existing.emailVerified !== true) await resetUntrustedAccount(existing, req);
+      await User.updateOne({ _id: existing._id }, { $set: { googleId: profile.sub, emailVerified: true } });
+      await audit({ action: 'auth.google_linked', actorId: existing._id, targetType: 'User', targetId: existing._id, req });
+      user = await User.findById(existing._id);
+      if (!user) return fail('google_profile');
+    } else {
+      user = await User.create({
+        name: (profile.name ?? email.split('@')[0] ?? 'Souqly Shopper').slice(0, 80),
+        email,
+        emailVerified: true,
+        googleId: profile.sub,
+        referralCode: await generateReferralCode(),
+      });
+    }
+  }
+  if (user.status === 'blocked') return fail('blocked');
+
+  if (user.twoFactor?.enabled) {
+    const ticket = await issueGoogle2faTicket(user._id as Types.ObjectId);
+    await audit({ action: 'auth.google_2fa_challenge', actorId: user._id, req });
+    return `${env.CLIENT_URL}/login?google2fa=${encodeURIComponent(ticket)}`;
+  }
+  user.lastLoginAt = new Date();
+  await user.save();
+  await startSession(req, res, user._id);
+  await audit({ action: 'auth.login', actorId: user._id, meta: { method: 'google' }, req });
+  return env.CLIENT_URL;
+}
 
 /** Google OAuth (authorization code flow). Routes return 404 unless GOOGLE_CLIENT_ID/SECRET are set. */
 export const googleRouter = Router();
@@ -85,29 +169,6 @@ googleRouter.get(
     ) {
       return fail('google_profile');
     }
-    const email = payload.email.toLowerCase();
-
-    let user = await User.findOne({ googleId: payload.sub, status: { $ne: 'deleted' } });
-    if (!user) {
-      user = await User.findOne({ email, status: { $ne: 'deleted' } });
-      if (user) {
-        user.googleId = payload.sub;
-        user.emailVerified = true;
-      } else {
-        user = new User({
-          name: (payload.name ?? email.split('@')[0] ?? 'Souqly Shopper').slice(0, 80),
-          email,
-          emailVerified: true,
-          googleId: payload.sub,
-          referralCode: await generateReferralCode(),
-        });
-      }
-    }
-    if (user.status === 'blocked') return fail('blocked');
-    user.lastLoginAt = new Date();
-    await user.save();
-    await startSession(req, res, user._id);
-    await audit({ action: 'auth.login', actorId: user._id, meta: { method: 'google' }, req });
-    res.redirect(env.CLIENT_URL);
+    res.redirect(await handleGoogleProfile(req, res, { sub: payload.sub, email: payload.email, name: payload.name }));
   }),
 );

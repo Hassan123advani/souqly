@@ -1,15 +1,28 @@
-import { isTest } from '../../config/env';
+import { isProd, isTest } from '../../config/env';
 import type { EmailMessage, EmailService } from './index';
+import { maskEmail } from './templates';
 
 /** Last emails "sent" by the console fallback (tests read tokens from here). */
 export const consoleOutbox: EmailMessage[] = [];
 const MAX_OUTBOX = 50;
 
-/** Dev fallback: prints emails to the terminal in a box. */
+/**
+ * Dev fallback: prints emails to the terminal in a box. In production (no SMTP) the body is REDACTED:
+ * reset / verification links are bearer secrets and must never reach log files.
+ */
 export class ConsoleEmailService implements EmailService {
   readonly name = 'console' as const;
+  private readonly redact: boolean;
+
+  constructor(opts: { redact?: boolean } = {}) {
+    this.redact = opts.redact ?? isProd;
+  }
 
   async send(msg: EmailMessage): Promise<void> {
+    if (this.redact) {
+      console.warn(`[souqly] Email NOT sent (SMTP not configured): to=${maskEmail(msg.to)} subject="${msg.subject}" [body redacted]`);
+      return;
+    }
     consoleOutbox.push(msg);
     if (consoleOutbox.length > MAX_OUTBOX) consoleOutbox.shift();
     if (isTest) return;

@@ -6,6 +6,7 @@ import helmet from 'helmet';
 import { pinoHttp } from 'pino-http';
 import { env } from './config/env';
 import { logger } from './lib/logger';
+import { requireJsonContentType } from './middleware/contentType';
 import { errorHandler, notFoundHandler } from './middleware/error';
 import { rateLimits } from './middleware/rateLimit';
 import { accountRouter } from './modules/account/account.routes';
@@ -15,11 +16,23 @@ import { configRouter } from './modules/config/config.routes';
 import { sellerRouter } from './modules/seller/seller.routes';
 import { UPLOADS_DIR } from './services/storage';
 
+/** Paths whose query strings carry secrets (OAuth code/state) and are never logged. */
+const SECRET_QUERY_PATHS = ['/api/v1/auth/google/callback'];
+
+/** Request URL as logged: the query string is stripped on OAuth callback paths. */
+export function loggableUrl(url: string): string {
+  const q = url.indexOf('?');
+  if (q < 0) return url;
+  const path = url.slice(0, q);
+  return SECRET_QUERY_PATHS.some((p) => path === p || path.startsWith(`${p}/`)) ? `${path}?[REDACTED]` : url;
+}
+
 /** Builds the Express app. Does NOT listen (tests import it with supertest). */
 export function createApp() {
   const app = express();
   app.disable('x-powered-by');
-  app.set('trust proxy', 1);
+  // Off by default: only trust X-Forwarded-For when a known proxy sits in front (TRUST_PROXY).
+  app.set('trust proxy', env.TRUST_PROXY);
 
   app.use(
     helmet({
@@ -33,7 +46,7 @@ export function createApp() {
       logger,
       autoLogging: { ignore: (req) => req.url === '/api/v1/health' },
       serializers: {
-        req: (req: { id: unknown; method: string; url: string }) => ({ id: req.id, method: req.method, url: req.url }),
+        req: (req: { id: unknown; method: string; url: string }) => ({ id: req.id, method: req.method, url: loggableUrl(req.url) }),
         res: (res: { statusCode: number }) => ({ statusCode: res.statusCode }),
       },
     }),
@@ -71,8 +84,9 @@ export function createApp() {
       maxAge: 600,
     }),
   );
+  // JSON only (no urlencoded parser): see requireJsonContentType for the CSRF rationale.
+  api.use(requireJsonContentType);
   api.use(express.json({ limit: '1mb' }));
-  api.use(express.urlencoded({ extended: false, limit: '1mb' }));
   api.use(cookieParser());
   api.use((_req, res, next) => {
     res.setHeader('Cache-Control', 'no-store');

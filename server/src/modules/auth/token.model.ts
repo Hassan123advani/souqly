@@ -1,6 +1,7 @@
 import { Schema, Types, model } from 'mongoose';
 
-export const TOKEN_TYPES = ['verify_email', 'reset_password', 'change_email'] as const;
+/** `google_2fa`: short-lived ticket issued by the Google callback when the account has 2FA (POST /auth/google/2fa). */
+export const TOKEN_TYPES = ['verify_email', 'reset_password', 'change_email', 'google_2fa'] as const;
 export type TokenType = (typeof TOKEN_TYPES)[number];
 
 /** Single-use emailed tokens. Only sha256(token) is stored. */
@@ -12,6 +13,8 @@ export interface IToken {
   email?: string;
   expiresAt: Date;
   usedAt?: Date;
+  /** Failed attempts against this token (google_2fa tickets die after 5). */
+  attempts: number;
   createdAt: Date;
 }
 
@@ -22,6 +25,7 @@ const tokenSchema = new Schema<IToken>({
   email: { type: String },
   expiresAt: { type: Date, required: true },
   usedAt: { type: Date },
+  attempts: { type: Number, default: 0 },
   createdAt: { type: Date, default: () => new Date() },
 });
 tokenSchema.index({ userId: 1, type: 1 });

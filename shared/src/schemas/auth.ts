@@ -20,15 +20,26 @@ export const signupSchema = z.object({
 });
 export type SignupInput = z.infer<typeof signupSchema>;
 
+/** Second factor: a 6-digit authenticator code OR a single-use recovery code (`XXXXX-XXXXX`). */
+export const secondFactorCodeSchema = z
+  .string()
+  .trim()
+  .regex(/^(\d{6}|[A-Za-z0-9]{5}-?[A-Za-z0-9]{5})$/, 'Enter the 6-digit code or a recovery code');
+
 export const loginSchema = z.object({
   email: emailSchema,
   password: z.string().min(1, 'Password is required').max(128),
-  totp: z.string().regex(/^\d{6}$/).optional(),
+  totp: secondFactorCodeSchema.optional(),
 });
 export type LoginInput = z.infer<typeof loginSchema>;
 
 export const otpRequestSchema = z.object({ phone: phoneSchema });
-export const otpVerifySchema = z.object({ phone: phoneSchema, code: z.string().regex(/^\d{6}$/, 'Enter the 6-digit code') });
+export const otpCodeSchema = z.string().regex(/^\d{6}$/, 'Enter the 6-digit code');
+export const otpVerifySchema = z.object({ phone: phoneSchema, code: otpCodeSchema, totp: secondFactorCodeSchema.optional() });
+
+/** POST /auth/google/2fa — `ticket` comes from the `google2fa` query param of /login. */
+export const googleTwoFactorSchema = z.object({ ticket: z.string().min(20).max(200), totp: secondFactorCodeSchema });
+export type GoogleTwoFactorInput = z.infer<typeof googleTwoFactorSchema>;
 
 export const forgotPasswordSchema = z.object({ email: emailSchema });
 export const resetPasswordSchema = z.object({ token: z.string().min(20).max(200), password: passwordSchema });

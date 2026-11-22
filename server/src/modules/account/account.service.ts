@@ -1,4 +1,4 @@
-import type { AddressInput, UpdatePreferencesInput, UpdateProfileInput } from '@souqly/shared';
+import type { AddressInput, ReauthInput, UpdatePreferencesInput, UpdateProfileInput } from '@souqly/shared';
 import type { Request, Response } from 'express';
 import { Types } from 'mongoose';
 import QRCode from 'qrcode';
@@ -10,12 +10,20 @@ import { audit } from '../audit/audit.service';
 import {
   authenticator,
   checkTotp,
+  consumeTotp,
+  generateRecoveryCodes,
   hashPassword,
+  invalidateResetTokens,
+  issueOtp,
   normalizePhone,
+  notifySecurityEvent,
   revokeAllSessions,
   sendVerificationEmail,
   verifyPassword,
+  verifySecondFactor,
+  verifyUserOtp,
 } from '../auth/auth.service';
+import { Otp } from '../auth/otp.model';
 import { Session } from '../auth/session.model';
 import { Token } from '../auth/token.model';
 import { clearAuthCookies } from '../auth/tokens';
@@ -32,30 +40,96 @@ async function loadUser(userId: string, select = ''): Promise<UserDoc> {
 }
 
 async function requirePassword(user: UserDoc, password: string | undefined) {
-  if (!user.passwordHash) return; // phone/Google-only accounts have no password
   if (!password || !(await verifyPassword(password, user.passwordHash))) {
     throw new AppError(400, 'INVALID_PASSWORD', 'Your current password is incorrect');
   }
+}
+
+export type ReauthMethod = 'password' | 'otp' | 'none';
+
+/**
+ * Re-authentication for sensitive actions (`user` needs `+passwordHash`):
+ *  - accounts with a password must send it;
+ *  - passwordless accounts with a verified phone must send `otpCode` from POST /account/reauth/otp;
+ *  - Google-only accounts (no password, no phone) have no other factor to ask for -> 'none'.
+ * `consumeOtp: false` checks the OTP without using it up (first step of a two-step flow).
+ */
+export async function requireReauth(user: UserDoc, input: ReauthInput, opts: { consumeOtp?: boolean } = {}): Promise<ReauthMethod> {
+  if (user.passwordHash) {
+    if (!input.password) throw new AppError(400, 'REAUTH_REQUIRED', 'Enter your current password to continue', { method: 'password' });
+    await requirePassword(user, input.password);
+    return 'password';
+  }
+  if (user.phone && user.phoneVerified) {
+    if (!input.otpCode) throw new AppError(400, 'REAUTH_REQUIRED', 'Enter the code we sent to your phone', { method: 'otp' });
+    await verifyUserOtp(user._id, user.phone, 'reauth', input.otpCode, { consume: opts.consumeOtp !== false });
+    return 'otp';
+  }
+  return 'none';
+}
+
+/** POST /account/reauth/otp: sends a re-auth code to the verified phone of a passwordless account. */
+export async function requestReauthOtp(userId: string) {
+  const user = await loadUser(userId, '+passwordHash');
+  if (user.passwordHash) throw new AppError(400, 'USE_PASSWORD', 'Confirm with your password instead');
+  if (!user.phone || !user.phoneVerified) throw new AppError(400, 'NO_VERIFIED_PHONE', 'Add and verify a phone number first');
+  return issueOtp(user.phone, 'reauth', user._id);
 }
 
 // ---------------------------------------------------------------------------------------------
 // Profile & preferences
 // ---------------------------------------------------------------------------------------------
 
-export async function updateProfile(userId: string, input: UpdateProfileInput): Promise<UserDoc> {
-  const user = await loadUser(userId);
+const phoneTaken = () => new AppError(409, 'PHONE_TAKEN', 'This phone number is already used by another account');
+
+/**
+ * Name changes apply at once. A new phone is NOT set: it becomes `pendingPhone` and an OTP is sent to
+ * it; POST /account/phone/verify moves it to `phone` (always verified). Needs re-auth.
+ */
+export async function updateProfile(
+  req: Request,
+  input: UpdateProfileInput,
+): Promise<{ user: UserDoc; phoneVerification?: { sent: true; devCode?: string } }> {
+  const user = await loadUser(req.user!.id, '+passwordHash');
   if (input.name !== undefined) user.name = input.name;
+  let phoneVerification: { sent: true; devCode?: string } | undefined;
   if (input.phone !== undefined) {
     const phone = normalizePhone(input.phone);
-    if (phone !== user.phone) {
-      if (await User.exists({ phone, _id: { $ne: user._id } })) {
-        throw new AppError(409, 'PHONE_TAKEN', 'This phone number is already used by another account');
-      }
-      user.phone = phone;
-      user.phoneVerified = false;
+    if (phone === user.phone && user.phoneVerified) {
+      user.pendingPhone = undefined; // back to the current number: cancels a pending change
+    } else {
+      if (req.user!.impersonatorId) throw new AppError(403, 'IMPERSONATION_FORBIDDEN', 'This action is not allowed while impersonating a user');
+      if (await User.exists({ phone, phoneVerified: true, _id: { $ne: user._id } })) throw phoneTaken();
+      const reauth = await requireReauth(user, input);
+      user.pendingPhone = phone;
+      phoneVerification = await issueOtp(phone, 'phone_change', user._id);
+      await audit({ action: 'account.phone_change_requested', targetType: 'User', targetId: user._id, meta: { reauth }, req });
     }
   }
   await user.save();
+  return { user, ...(phoneVerification ? { phoneVerification } : {}) };
+}
+
+/** POST /account/phone/verify: confirms `pendingPhone` with the OTP sent to it. */
+export async function verifyPhoneChange(req: Request, code: string): Promise<UserDoc> {
+  const user = await loadUser(req.user!.id);
+  const phone = user.pendingPhone;
+  if (!phone) throw new AppError(400, 'NO_PENDING_PHONE', 'There is no phone number waiting for verification');
+  await verifyUserOtp(user._id, phone, 'phone_change', code);
+  if (await User.exists({ phone, phoneVerified: true, _id: { $ne: user._id } })) {
+    await User.updateOne({ _id: user._id }, { $unset: { pendingPhone: 1 } });
+    throw phoneTaken();
+  }
+  // Legacy accounts holding this number unverified lose it to the person who proved the SIM.
+  await User.updateMany({ phone, phoneVerified: { $ne: true }, _id: { $ne: user._id } }, { $unset: { phone: 1 } });
+  const from = user.phone;
+  user.phone = phone;
+  user.phoneVerified = true;
+  user.pendingPhone = undefined;
+  await user.save(); // the verified-phone unique index rejects a concurrent claim (409 DUPLICATE)
+  await Otp.deleteMany({ userId: user._id, purpose: 'reauth' });
+  await audit({ action: 'account.phone_changed', targetType: 'User', targetId: user._id, meta: { from, to: phone }, req });
+  await notifySecurityEvent(user, 'phone_changed');
   return user;
 }
 
@@ -107,12 +181,16 @@ export async function changePassword(req: Request, currentPassword: string, newP
   user.passwordChangeRecommended = false;
   await user.save();
   const revoked = await revokeAllSessions(user._id, req.user!.sessionId);
-  await Token.updateMany({ userId: user._id, type: 'reset_password', usedAt: null }, { $set: { usedAt: new Date() } });
+  await invalidateResetTokens(user._id);
   await audit({ action: 'account.password_changed', targetType: 'User', targetId: user._id, meta: { revokedSessions: revoked }, req });
   return revoked;
 }
 
-export async function changeEmail(req: Request, newEmail: string, password: string): Promise<void> {
+/**
+ * Immediate email change (re-verify). Also: outstanding reset links die, other sessions are revoked
+ * and the OLD address gets a notice, so a hijacked session cannot quietly take the account.
+ */
+export async function changeEmail(req: Request, newEmail: string, password: string): Promise<number> {
   const user = await loadUser(req.user!.id, '+passwordHash');
   if (!user.passwordHash) throw new AppError(400, 'NO_PASSWORD', 'Set a password before changing your email');
   await requirePassword(user, password);
@@ -124,8 +202,18 @@ export async function changeEmail(req: Request, newEmail: string, password: stri
   user.email = newEmail;
   user.emailVerified = false;
   await user.save();
+  await invalidateResetTokens(user._id);
+  const revoked = await revokeAllSessions(user._id, req.user!.sessionId);
   await sendVerificationEmail(user);
-  await audit({ action: 'account.email_changed', targetType: 'User', targetId: user._id, meta: { from: oldEmail, to: newEmail }, req });
+  if (oldEmail) await notifySecurityEvent(user, 'email_changed', { to: oldEmail, newEmail });
+  await audit({
+    action: 'account.email_changed',
+    targetType: 'User',
+    targetId: user._id,
+    meta: { from: oldEmail, to: newEmail, revokedSessions: revoked },
+    req,
+  });
+  return revoked;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -168,9 +256,13 @@ export async function revokeAll(req: Request, res: Response, includeCurrent: boo
 // 2FA
 // ---------------------------------------------------------------------------------------------
 
-export async function setupTwoFactor(userId: string) {
-  const user = await loadUser(userId);
+const invalidTotp = () => new AppError(400, 'INVALID_TOTP', 'The authenticator code is incorrect');
+
+/** Step 1: re-auth, then a new pending secret + QR. With an OTP re-auth the code is kept for step 2. */
+export async function setupTwoFactor(req: Request, input: ReauthInput) {
+  const user = await loadUser(req.user!.id, '+passwordHash');
   if (user.twoFactor?.enabled) throw new AppError(409, 'TWO_FACTOR_ALREADY_ENABLED', 'Two-factor authentication is already on');
+  await requireReauth(user, input, { consumeOtp: false });
   const secret = authenticator.generateSecret();
   await User.updateOne({ _id: user._id }, { $set: { 'twoFactor.pendingSecretEncrypted': encrypt(secret) } });
   const otpauthUrl = authenticator.keyuri(user.email || user.phone || String(user._id), 'Souqly', secret);
@@ -178,29 +270,46 @@ export async function setupTwoFactor(userId: string) {
   return { secret, otpauthUrl, qrDataUrl };
 }
 
-export async function enableTwoFactor(req: Request, code: string): Promise<void> {
-  const user = await loadUser(req.user!.id, '+twoFactor.pendingSecretEncrypted');
+/** Step 2: authenticator code + re-auth. Returns 8 single-use recovery codes (shown ONCE). */
+export async function enableTwoFactor(req: Request, input: ReauthInput & { code: string }): Promise<{ recoveryCodes: string[] }> {
+  const user = await loadUser(req.user!.id, '+passwordHash +twoFactor.pendingSecretEncrypted');
   if (user.twoFactor?.enabled) throw new AppError(409, 'TWO_FACTOR_ALREADY_ENABLED', 'Two-factor authentication is already on');
   const pending = user.twoFactor?.pendingSecretEncrypted;
   if (!pending) throw new AppError(400, 'TWO_FACTOR_NOT_SETUP', 'Start the two-factor setup first');
-  if (!checkTotp(code, pending)) throw new AppError(400, 'INVALID_TOTP', 'The authenticator code is incorrect');
+  // Check the code first so a typo does not burn the re-auth OTP.
+  if (!checkTotp(input.code, pending)) throw invalidTotp();
+  const reauth = await requireReauth(user, input);
+  if (!(await consumeTotp(user._id, input.code, pending))) throw invalidTotp();
+  const { codes, stored } = generateRecoveryCodes();
   await User.updateOne(
     { _id: user._id },
-    { $set: { 'twoFactor.enabled': true, 'twoFactor.secretEncrypted': pending }, $unset: { 'twoFactor.pendingSecretEncrypted': 1 } },
+    {
+      $set: { 'twoFactor.enabled': true, 'twoFactor.secretEncrypted': pending, 'twoFactor.recoveryCodes': stored },
+      $unset: { 'twoFactor.pendingSecretEncrypted': 1 },
+    },
   );
-  await audit({ action: 'account.2fa_enabled', targetType: 'User', targetId: user._id, req });
+  await audit({ action: 'account.2fa_enabled', targetType: 'User', targetId: user._id, meta: { reauth }, req });
+  await notifySecurityEvent(user, 'two_factor_enabled');
+  return { recoveryCodes: codes };
 }
 
-export async function disableTwoFactor(req: Request, code: string, password: string): Promise<void> {
+/** Needs re-auth AND an authenticator or recovery code. */
+export async function disableTwoFactor(req: Request, input: ReauthInput & { code: string }): Promise<void> {
   const user = await loadUser(req.user!.id, '+passwordHash +twoFactor.secretEncrypted');
   if (!user.twoFactor?.enabled) throw new AppError(409, 'TWO_FACTOR_NOT_ENABLED', 'Two-factor authentication is off');
-  await requirePassword(user, password);
-  if (!checkTotp(code, user.twoFactor.secretEncrypted)) throw new AppError(400, 'INVALID_TOTP', 'The authenticator code is incorrect');
+  const reauth = await requireReauth(user, input);
+  if (!(await verifySecondFactor(user, input.code, req))) {
+    throw new AppError(400, 'INVALID_TOTP', 'The authenticator or recovery code is incorrect');
+  }
   await User.updateOne(
     { _id: user._id },
-    { $set: { 'twoFactor.enabled': false }, $unset: { 'twoFactor.secretEncrypted': 1, 'twoFactor.pendingSecretEncrypted': 1 } },
+    {
+      $set: { 'twoFactor.enabled': false },
+      $unset: { 'twoFactor.secretEncrypted': 1, 'twoFactor.pendingSecretEncrypted': 1, 'twoFactor.recoveryCodes': 1 },
+    },
   );
-  await audit({ action: 'account.2fa_disabled', targetType: 'User', targetId: user._id, req });
+  await audit({ action: 'account.2fa_disabled', targetType: 'User', targetId: user._id, meta: { reauth }, req });
+  await notifySecurityEvent(user, 'two_factor_disabled');
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -311,6 +420,7 @@ export async function exportData(userId: string) {
       name: user.name,
       email: user.email,
       phone: user.phone,
+      ...(user.pendingPhone ? { pendingPhone: user.pendingPhone } : {}),
       emailVerified: user.emailVerified,
       phoneVerified: user.phoneVerified,
       activeMode: user.activeMode,
@@ -328,10 +438,9 @@ export async function exportData(userId: string) {
   };
 }
 
-export async function deleteAccount(req: Request, res: Response, password: string | undefined): Promise<void> {
+export async function deleteAccount(req: Request, res: Response, input: ReauthInput): Promise<void> {
   const user = await loadUser(req.user!.id, '+passwordHash');
-  if (user.passwordHash && !password) throw new AppError(400, 'INVALID_PASSWORD', 'Enter your password to confirm');
-  await requirePassword(user, password);
+  const reauth = await requireReauth(user, input);
   if (await Store.exists({ ownerId: user._id, status: { $in: ['pending', 'approved', 'suspended'] } })) {
     throw new AppError(409, 'OWNS_STORE', 'Close or transfer your store before deleting your account');
   }
@@ -352,18 +461,21 @@ export async function deleteAccount(req: Request, res: Response, password: strin
       $unset: {
         email: 1,
         phone: 1,
+        pendingPhone: 1,
         passwordHash: 1,
         googleId: 1,
         avatar: 1,
         'twoFactor.secretEncrypted': 1,
         'twoFactor.pendingSecretEncrypted': 1,
+        'twoFactor.recoveryCodes': 1,
       },
     },
   );
   await Address.deleteMany({ userId: user._id });
   await Token.deleteMany({ userId: user._id });
+  await Otp.deleteMany({ userId: user._id });
   await revokeAllSessions(user._id);
   if (avatarKey) getStorage().delete(avatarKey).catch((err) => logger.warn({ err }, 'Failed to delete avatar'));
   clearAuthCookies(res);
-  await audit({ action: 'account.deleted', targetType: 'User', targetId: user._id, req });
+  await audit({ action: 'account.deleted', targetType: 'User', targetId: user._id, meta: { reauth }, req });
 }

@@ -1,7 +1,7 @@
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import mongoose from 'mongoose';
-import { env } from '../config/env';
+import { env, isProd, isWeakAdminPassword } from '../config/env';
 import { logger } from '../lib/logger';
 import { hashPassword } from '../modules/auth/auth.service';
 import { User } from '../modules/users/user.model';
@@ -16,7 +16,8 @@ import { SEED_STORES } from './data/stores';
  *   bilal@demo.souqly.pk   — Bilal Ahmed  (buyer)
  *   sana@demo.souqly.pk    — Sana Malik   (buyer)
  * Demo sellers (store owners): see src/seed/data/stores.ts, e.g. noor@demo.souqly.pk (Noor Textiles).
- * Super Admin: ADMIN_EMAIL / ADMIN_PASSWORD from server/.env (defaults souqly@gmail.com / souqly123).
+ * Super Admin: ADMIN_EMAIL / ADMIN_PASSWORD from server/.env (defaults souqly@gmail.com / souqly123 in
+ * development; production refuses the default / weak passwords and skips demo users unless `--demo`).
  */
 export const DEMO_PASSWORD = 'Demo1234';
 export const DEMO_BUYERS = [
@@ -26,8 +27,11 @@ export const DEMO_BUYERS = [
 ];
 
 /** Creates the Super Admin if missing. Never overwrites an existing admin's password. */
-async function ensureSuperAdmin(): Promise<'created' | 'exists'> {
+async function ensureSuperAdmin(production: boolean): Promise<'created' | 'exists'> {
   const email = env.ADMIN_EMAIL.toLowerCase();
+  if (production && isWeakAdminPassword(env.ADMIN_PASSWORD)) {
+    throw new Error('Refusing to seed the Super Admin with the default / a weak ADMIN_PASSWORD in production (12+ characters required)');
+  }
   const existing = await User.findOne({ email });
   if (existing) {
     if (existing.platformRole !== 'SUPER_ADMIN') {
@@ -68,10 +72,20 @@ async function seedDemoBuyers(passwordHash: string): Promise<number> {
   return created;
 }
 
-/** Idempotent seed. Later phases extend it (categories, stores, products...). */
-export async function runSeed(opts: { reset?: boolean } = {}): Promise<void> {
+/**
+ * Idempotent seed. Demo users/stores (shared password Demo1234) are created everywhere except
+ * production, where they need an explicit `demo: true` (`npm run seed -- --demo`).
+ * `production` defaults to NODE_ENV and exists for tests.
+ */
+export async function runSeed(opts: { reset?: boolean; demo?: boolean; production?: boolean } = {}): Promise<void> {
+  const production = opts.production ?? isProd;
+  const includeDemo = opts.demo ?? !production;
   if (opts.reset) await clearDemoData();
-  const admin = await ensureSuperAdmin();
+  const admin = await ensureSuperAdmin(production);
+  if (!includeDemo) {
+    logger.info({ admin }, 'Seed complete (demo users skipped; pass --demo to include them)');
+    return;
+  }
   // Hash the demo password ONCE and reuse it for every demo user (bcrypt is slow on purpose).
   const demoHash = await hashPassword(DEMO_PASSWORD);
   const buyers = await seedDemoBuyers(demoHash);
@@ -83,7 +97,7 @@ export async function runSeed(opts: { reset?: boolean } = {}): Promise<void> {
   );
 }
 
-// CLI: `npm run seed [-- --reset]`
+// CLI: `npm run seed [-- --reset] [-- --demo]`
 const isCli = process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href;
 if (isCli) {
   (async () => {
@@ -92,7 +106,7 @@ if (isCli) {
       return;
     }
     await mongoose.connect(env.MONGODB_URI);
-    await runSeed({ reset: process.argv.includes('--reset') });
+    await runSeed({ reset: process.argv.includes('--reset'), ...(process.argv.includes('--demo') ? { demo: true } : {}) });
     await mongoose.disconnect();
   })().catch(async (err) => {
     logger.error({ err }, 'Seed failed');

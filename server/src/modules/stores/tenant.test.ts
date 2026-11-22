@@ -87,4 +87,20 @@ describe('storeContext tenant isolation', () => {
     const res = await request((await import('../../app')).app).get(api('/auth/me')).set('Cookie', cookieA);
     expect(res.body.data.user.stores).toEqual([expect.objectContaining({ id: storeA, slug: 'store-a', role: 'OWNER', status: 'approved' })]);
   });
+
+  it('L4: locks suspended / rejected stores out of the Seller Center (pending stays usable)', async () => {
+    const o = await signupAgent({ name: 'Owner S' });
+    const cookie = `sq_at=${getCookie(o.res, 'sq_at')}`;
+    const u = await User.findOne({ email: o.email });
+    const store = await Store.create({ ownerId: u!._id, name: 'Store S', slug: 'store-s', status: 'pending' });
+    await StoreMember.create({ storeId: store._id, userId: u!._id, role: 'OWNER' });
+
+    expect((await request(sellerApp).get('/whoami').set('Cookie', cookie)).status).toBe(200);
+    for (const status of ['suspended', 'rejected'] as const) {
+      await Store.updateOne({ _id: store._id }, { $set: { status } });
+      const res = await request(sellerApp).get('/whoami').set('Cookie', cookie).set('x-store-id', String(store._id));
+      expect(res.status).toBe(403);
+      expect(res.body.error.code).toBe('STORE_SUSPENDED');
+    }
+  });
 });

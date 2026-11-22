@@ -1,12 +1,9 @@
-import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { app } from '../../app';
 import { env } from '../../config/env';
 import { runSeed } from '../../seed/seed';
 import { setStorage } from '../../services/storage';
-import { api, loginAgent, signupAgent } from '../../test/helpers';
+import { api, loginAgent, signupAgent, totpAt, xhr } from '../../test/helpers';
 import { AuditLog } from '../audit/auditLog.model';
-import { authenticator } from '../auth/auth.service';
 import { User } from '../users/user.model';
 
 describe('change password', () => {
@@ -125,39 +122,43 @@ describe('sessions', () => {
 describe('2FA', () => {
   it('enables TOTP and then requires it at login', async () => {
     const { agent, email, password } = await signupAgent();
-    const setup = await agent.post(api('/account/2fa/setup'));
+    const setup = await agent.post(api('/account/2fa/setup')).send({ password });
     expect(setup.status).toBe(200);
     expect(setup.body.data.qrDataUrl).toMatch(/^data:image\/png;base64,/);
     const secret: string = setup.body.data.secret;
 
-    const bad = await agent.post(api('/account/2fa/enable')).send({ code: '000000' });
+    const bad = await agent.post(api('/account/2fa/enable')).send({ code: '000000', password });
     expect([400]).toContain(bad.status);
-    const en = await agent.post(api('/account/2fa/enable')).send({ code: authenticator.generate(secret) });
+    const en = await agent.post(api('/account/2fa/enable')).send({ code: totpAt(secret, -1), password });
     expect(en.status).toBe(200);
+    expect(en.body.data.recoveryCodes).toHaveLength(8);
 
     const stored = await User.findOne({ email }).select('+twoFactor.secretEncrypted').lean();
     expect(stored!.twoFactor.secretEncrypted).toBeTruthy();
     expect(stored!.twoFactor.secretEncrypted).not.toContain(secret);
 
-    const noCode = await request(app).post(api('/auth/login')).send({ email, password });
+    const noCode = await xhr().post(api('/auth/login')).send({ email, password });
     expect(noCode.status).toBe(401);
     expect(noCode.body.error.code).toBe('TOTP_REQUIRED');
-    const withCode = await request(app).post(api('/auth/login')).send({ email, password, totp: authenticator.generate(secret) });
+    const withCode = await xhr().post(api('/auth/login')).send({ email, password, totp: totpAt(secret, 0) });
     expect(withCode.status).toBe(200);
     expect(withCode.body.data.user.twoFactorEnabled).toBe(true);
 
-    const off = await agent.post(api('/account/2fa/disable')).send({ code: authenticator.generate(secret), password });
+    const off = await agent.post(api('/account/2fa/disable')).send({ code: totpAt(secret, 1), password });
     expect(off.status).toBe(200);
-    expect((await request(app).post(api('/auth/login')).send({ email, password })).status).toBe(200);
+    expect((await xhr().post(api('/auth/login')).send({ email, password })).status).toBe(200);
   });
 });
 
 describe('profile, preferences, addresses', () => {
   it('updates profile and preferences with whitelisted fields only', async () => {
-    const { agent } = await signupAgent();
-    const p = await agent.patch(api('/account/profile')).send({ name: 'New Name', phone: '923001234500' });
+    const { agent, password } = await signupAgent();
+    const p = await agent.patch(api('/account/profile')).send({ name: 'New Name', phone: '923001234500', password });
     expect(p.status).toBe(200);
-    expect(p.body.data.user).toMatchObject({ name: 'New Name', phone: '+923001234500', phoneVerified: false });
+    // M4: the new number is only pending until its OTP is confirmed.
+    expect(p.body.data.user).toMatchObject({ name: 'New Name', pendingPhone: '+923001234500', phoneVerified: false });
+    expect(p.body.data.user.phone).toBeUndefined();
+    expect(p.body.data.phoneVerification.sent).toBe(true);
 
     const mass = await agent.patch(api('/account/profile')).send({ platformRole: 'SUPER_ADMIN' });
     expect(mass.status).toBe(400);
@@ -203,6 +204,9 @@ describe('export and delete account', () => {
     expect(exp.body.profile.email).toBe(email);
     expect(JSON.stringify(exp.body)).not.toContain('passwordHash');
 
+    const noReauth = await agent.delete(api('/account')).send({ confirm: 'DELETE' });
+    expect(noReauth.status).toBe(400);
+    expect(noReauth.body.error.code).toBe('REAUTH_REQUIRED');
     const bad = await agent.delete(api('/account')).send({ password, confirm: 'nope' });
     expect(bad.status).toBe(400);
     const del = await agent.delete(api('/account')).send({ password, confirm: 'DELETE' });

@@ -32,14 +32,20 @@ Admin: souqly@gmail.com / souqly123 (from server/.env)
 - Phase 1+2 SERVER done & committed (a210fa2): env, in-memory Mongo fallback + auto-seed, storage/email/notify/payment/jobs services, socket auth, full auth + account API, 36 tests green.
 - Security review of Phase 1–2 done → findings in docs/reviews/security-phase-1-2.md (OPEN).
 
+- Phase 1+2 CLIENT done & committed (3bfb903): Souq Dusk design system, logo/PWA icons, UI kit, layouts, auth + account pages, en/ur/ar.
+- Phase 3 BACKEND done & committed (5325716): catalog, search, stores, seller products, seed (12 stores, 216 products, flash sale, campaigns). 88 tests green.
+- docs/api-seller-orders.md written (Phase 5 + 6 contract).
+
 ## In progress
-- Phase 1+2 CLIENT (design system, logo, UI kit, layouts, auth + account pages): files on disk, typecheck passes; fixing blank screenshots + visual polish. Not yet committed.
-- Phase 3 BACKEND (catalog models/endpoints done in server/src/modules/catalog + seller; seed data in server/src/seed/data/ in progress; tests pending). Not yet committed.
+- Security fixes for docs/reviews/security-phase-1-2.md (backend-dev).
+- Phase 4 marketplace front (frontend-dev) against docs/api-catalog.md.
 
 ## Next
-1. Commit client + Phase 3 once green.
-2. Fix all findings in docs/reviews/security-phase-1-2.md (backend-dev), re-run tests.
-3. Phase 4 marketplace front (frontend-dev) against docs/api-catalog.md.
+1. Commit security fixes + Phase 4 once green; run code-reviewer + qa-tester on Phases 1–4.
+2. Phase 5+6 backend (docs/api-seller-orders.md), then Phase 5+6 frontend.
+
+## Dev notes
+- Port 5173 is used by an unrelated project on this machine (digital-khata) — never kill it; Vite picks another port.
 
 ## Known issues
 - Security findings H1–H3, M1–M6, L1–L11 open (see docs/reviews/security-phase-1-2.md).

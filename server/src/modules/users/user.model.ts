@@ -15,7 +15,10 @@ export interface UserPreferences {
 export interface IUser {
   name: string;
   email?: string;
+  /** Only ever set to a phone the user proved by OTP (login or POST /account/phone/verify). */
   phone?: string;
+  /** New number awaiting OTP verification; replaces `phone` once verified. */
+  pendingPhone?: string;
   passwordHash?: string;
   googleId?: string;
   avatar?: { url: string; key: string };
@@ -27,7 +30,15 @@ export interface IUser {
   status: UserStatus;
   failedLoginCount: number;
   lockUntil?: Date;
-  twoFactor: { enabled: boolean; secretEncrypted?: string; pendingSecretEncrypted?: string };
+  twoFactor: {
+    enabled: boolean;
+    secretEncrypted?: string;
+    pendingSecretEncrypted?: string;
+    /** Last accepted TOTP time step (replay protection). */
+    lastStep?: number;
+    /** sha256 of single-use recovery codes. */
+    recoveryCodes?: { hash: string; usedAt?: Date }[];
+  };
   preferences: UserPreferences;
   referralCode: string;
   referredBy?: Types.ObjectId;
@@ -48,6 +59,7 @@ const userSchema = new Schema<IUser>(
     name: { type: String, required: true, trim: true, maxlength: 80 },
     email: { type: String, trim: true, lowercase: true, maxlength: 254 },
     phone: { type: String, trim: true, maxlength: 20 },
+    pendingPhone: { type: String, trim: true, maxlength: 20 },
     passwordHash: { type: String, select: false },
     googleId: { type: String },
     avatar: { url: String, key: String },
@@ -63,6 +75,8 @@ const userSchema = new Schema<IUser>(
       enabled: { type: Boolean, default: false },
       secretEncrypted: { type: String, select: false },
       pendingSecretEncrypted: { type: String, select: false },
+      lastStep: { type: Number, select: false },
+      recoveryCodes: { type: [{ _id: false, hash: String, usedAt: Date }], select: false, default: undefined },
     },
     preferences: {
       language: { type: String, enum: ['en', 'ur', 'ar'], default: 'en' },
@@ -93,7 +107,11 @@ const userSchema = new Schema<IUser>(
 
 // Partial unique indexes: uniqueness only applies when the field is a string (unset / deleted users are ignored).
 userSchema.index({ email: 1 }, { unique: true, partialFilterExpression: { email: { $type: 'string' } } });
-userSchema.index({ phone: 1 }, { unique: true, partialFilterExpression: { phone: { $type: 'string' } } });
+// Only VERIFIED phones are unique (legacy unverified numbers never block the real owner).
+userSchema.index(
+  { phone: 1 },
+  { name: 'phone_verified_unique', unique: true, partialFilterExpression: { phone: { $type: 'string' }, phoneVerified: true } },
+);
 userSchema.index({ googleId: 1 }, { unique: true, partialFilterExpression: { googleId: { $type: 'string' } } });
 userSchema.index({ referralCode: 1 }, { unique: true });
 userSchema.index({ platformRole: 1 }, { partialFilterExpression: { platformRole: { $type: 'string' } } });
