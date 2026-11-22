@@ -1,11 +1,9 @@
 import { useTranslation } from 'react-i18next';
-import { Heart, LayoutGrid, MessageCircle, Search, ShoppingCart } from 'lucide-react';
+import { Heart, MessageCircle, ShoppingCart } from 'lucide-react';
 import { Seo } from '@/components/layout/Seo';
 import { Button, Container, EmptyState } from '@/components/ui';
 
 const ICONS = {
-  categories: LayoutGrid,
-  search: Search,
   cart: ShoppingCart,
   wishlist: Heart,
   chat: MessageCircle,

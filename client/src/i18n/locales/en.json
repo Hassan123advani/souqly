@@ -65,7 +65,10 @@
     "appTitle": "Install Souqly.",
     "appBody": "Add Souqly to your home screen from your browser menu for an app-like experience — no download needed.",
     "weAccept": "We accept",
-    "copyright": "© {{year}} Souqly. All rights reserved."
+    "copyright": "© {{year}} Souqly. All rights reserved.",
+    "shop": "Shop",
+    "stores": "All stores",
+    "mall": "Souqly Mall"
   },
   "payments": { "cod": "Cash on delivery", "jazzcash": "JazzCash", "easypaisa": "Easypaisa", "card": "Card", "wallet": "Souqly Wallet" },
   "price": { "was": "Was {{price}}" },
@@ -90,14 +93,7 @@
     "postalCode": "Postal code",
     "showPassword": "Show password",
     "hidePassword": "Hide password",
-    "strength": {
-      "hint": "Use 8+ characters",
-      "0": "Too short",
-      "1": "Weak",
-      "2": "Fair",
-      "3": "Good",
-      "4": "Strong"
-    }
+    "strength": { "0": "Too short", "1": "Weak", "2": "Fair", "3": "Good", "4": "Strong", "hint": "Use 8+ characters" }
   },
   "validation": {
     "required": "This field is required",
@@ -153,11 +149,15 @@
     "releaseTitle": "Coming in this release",
     "backHome": "Back to home",
     "sellInstead": "Sell on Souqly",
-    "categories": { "title": "Categories are being stocked", "body": "Our sellers are arranging their shelves. Browse by category very soon — fashion, home, electronics, beauty and more." },
-    "search": { "title": "Search is warming up", "body": "Soon you'll find any product, brand or shop in one search — even with typos. Thanks for your patience." },
-    "cart": { "title": "Your cart is on its way", "body": "Shopping across many shops with one checkout is almost ready. Items you add will appear here." },
+    "cart": {
+      "title": "Your cart is on its way",
+      "body": "Shopping across many shops with one checkout is almost ready. Items you add will appear here."
+    },
     "wishlist": { "title": "Wishlist coming soon", "body": "Save products you love and get notified when they go on sale." },
-    "chat": { "title": "Chat with sellers, soon", "body": "Ask questions, negotiate on bulk orders and track replies — right here in Souqly." }
+    "chat": {
+      "title": "Chat with sellers, soon",
+      "body": "Ask questions, negotiate on bulk orders and track replies — right here in Souqly."
+    }
   },
   "home": {
     "metaDescription": "Shop from independent sellers across Pakistan and the Gulf on Souqly. Cash on delivery, verified shops and easy returns.",
@@ -166,7 +166,16 @@
       "title": "Welcome to Souqly — every shop, one souq.",
       "body": "Discover independent shops side by side, pay once at checkout, and track every parcel to your door. Shelves are being stocked right now.",
       "ctaShop": "Start exploring",
-      "ctaSell": "Open your shop"
+      "ctaSell": "Open your shop",
+      "carousel": "carousel",
+      "slide": "slide",
+      "label": "Featured promotions",
+      "slideOf": "Slide {{n}} of {{total}}",
+      "goTo": "Go to slide {{n}}",
+      "prev": "Previous slide",
+      "next": "Next slide",
+      "pause": "Pause slideshow",
+      "play": "Play slideshow"
     },
     "trust": {
       "cod": "Cash on delivery",
@@ -179,14 +188,42 @@
       "chatBody": "Ask before you buy, directly."
     },
     "categories": { "eyebrow": "Browse", "title": "Shop by category" },
-    "deals": { "eyebrow": "Today only", "title": "Lantern deals", "body": "Hand-picked discounts from shops across the souq, refreshed daily." },
+    "deals": {
+      "eyebrow": "Today only",
+      "title": "Lantern deals",
+      "body": "Hand-picked discounts from shops across the souq, refreshed daily."
+    },
     "shops": { "eyebrow": "Meet the makers", "title": "Featured shops", "body": "Independent sellers our community loves." },
     "forYou": { "eyebrow": "Picked for you", "title": "Just for you" },
     "sellCta": {
       "title": "Have a shop? Bring it to the souq.",
       "body": "Open your store in minutes, reach buyers across the country and get paid on a clear schedule. No setup fees.",
       "cta": "Start selling"
-    }
+    },
+    "flash": {
+      "title": "Flash Sale",
+      "endsIn": "Ends in",
+      "left": "{{n}} left",
+      "almostGone": "Almost gone",
+      "soldOf": "{{sold}} of {{limit}} sold"
+    },
+    "sections": {
+      "trending": "Trending now",
+      "new_arrivals": "New arrivals",
+      "top_rated": "Top rated",
+      "best_sellers": "Best sellers",
+      "mall": "Souqly Mall",
+      "top_stores": "Top stores",
+      "campaign": "Campaigns"
+    },
+    "trendingEyebrow": "Hot right now",
+    "campaignsEyebrow": "Sales & events",
+    "mallBody": "100% authentic products from verified brands and stores.",
+    "mallTile": "Verified brands, easy returns",
+    "sellTile": "Open your store in minutes",
+    "visitMall": "Visit the Mall",
+    "recentlyViewed": "Recently viewed",
+    "recentlyEyebrow": "Pick up where you left off"
   },
   "authPanel": {
     "point1": "Hundreds of verified independent shops",
@@ -429,19 +466,14 @@
     "export": {
       "title": "Download your data",
       "subtitle": "Get a copy of the personal data Souqly holds about you, as a JSON file.",
-      "items": ["Profile and preferences", "Saved addresses", "Orders and reviews", "Sign-in history"],
+      "items": ["Profile and preferences","Saved addresses","Orders and reviews","Sign-in history"],
       "cta": "Download my data",
       "done": "Your data download has started"
     },
     "delete": {
       "title": "Delete account",
       "subtitle": "Permanently close your Souqly account.",
-      "consequences": [
-        "Your profile, addresses and wishlist will be erased.",
-        "Order records are kept anonymised where the law requires.",
-        "Coins and wallet balance will be forfeited.",
-        "This cannot be undone."
-      ],
+      "consequences": ["Your profile, addresses and wishlist will be erased.","Order records are kept anonymised where the law requires.","Coins and wallet balance will be forfeited.","This cannot be undone."],
       "cta": "Delete my account",
       "modalTitle": "Delete your account permanently?",
       "modalBody": "This signs you out everywhere and erases your personal data.",
@@ -452,12 +484,7 @@
       "ownsStoreTitle": "You still own a store"
     }
   },
-  "dash": {
-    "backToShop": "Back to marketplace",
-    "collapse": "Collapse sidebar",
-    "expand": "Expand sidebar",
-    "openMenu": "Open menu"
-  },
+  "dash": { "backToShop": "Back to marketplace", "collapse": "Collapse sidebar", "expand": "Expand sidebar", "openMenu": "Open menu" },
   "seller": {
     "nav": {
       "dashboard": "Dashboard",
@@ -484,7 +511,7 @@
     "body": "{{name}}, turn your passion into a business. Souqly gives your shop a storefront, payments, delivery and customers — all in one place.",
     "prepareTitle": "What you'll need",
     "prepareBody": "Have these ready and setup takes about ten minutes.",
-    "checklist": ["Your shop name and a logo", "CNIC or business registration", "A bank account or mobile wallet for payouts", "Photos and prices of a few products"],
+    "checklist": ["Your shop name and a logo","CNIC or business registration","A bank account or mobile wallet for payouts","Photos and prices of a few products"],
     "start": "Start setting up my shop",
     "soonTitle": "Store setup opens soon",
     "soonBody": "We're putting the final touches on the seller wizard. You'll be able to open your shop from this page in the next release.",
@@ -522,47 +549,23 @@
     "about": {
       "title": "About Souqly",
       "intro": "Souqly is a marketplace built on an old idea: the souq, where many independent traders share one busy street and shoppers find everything in one walk.",
-      "sections": [
-        { "h": "Why we built Souqly", "p": "Small shops make the best things — but online, they are scattered across social pages and chat groups, and buyers can't tell who to trust. Souqly gives every shop a proper storefront and gives every shopper one safe place to buy from many of them." },
-        { "h": "Every shop, one souq", "p": "On Souqly you can fill one cart from several shops and check out once. Each shop ships its part of your order, and you can follow every parcel from a single orders page." },
-        { "h": "Trust is the product", "p": "Sellers are reviewed before they go live, ratings come only from real orders, and cash on delivery is available across the country. If something goes wrong, our support team steps in." },
-        { "h": "Made for Pakistan and the Gulf", "p": "Souqly speaks English, Urdu and Arabic, shows prices in your currency, and works smoothly on mobile data. Install it to your home screen and it feels like an app." }
-      ]
+      "sections": [{"h":"Why we built Souqly","p":"Small shops make the best things — but online, they are scattered across social pages and chat groups, and buyers can't tell who to trust. Souqly gives every shop a proper storefront and gives every shopper one safe place to buy from many of them."},{"h":"Every shop, one souq","p":"On Souqly you can fill one cart from several shops and check out once. Each shop ships its part of your order, and you can follow every parcel from a single orders page."},{"h":"Trust is the product","p":"Sellers are reviewed before they go live, ratings come only from real orders, and cash on delivery is available across the country. If something goes wrong, our support team steps in."},{"h":"Made for Pakistan and the Gulf","p":"Souqly speaks English, Urdu and Arabic, shows prices in your currency, and works smoothly on mobile data. Install it to your home screen and it feels like an app."}]
     },
     "terms": {
       "title": "Terms of Use",
       "intro": "These terms explain the rules for using Souqly as a shopper or as a seller. By creating an account you agree to them.",
-      "sections": [
-        { "h": "Your account", "p": "You must give accurate information and keep your password safe. You are responsible for activity on your account. You can close your account at any time from Privacy & data." },
-        { "h": "Buying on Souqly", "p": "Each product is sold by the shop that lists it. Souqly runs the marketplace, processes payments and helps resolve disputes, but the seller is responsible for the product, its description and delivery." },
-        { "h": "Selling on Souqly", "p": "Sellers must list only items they are allowed to sell, describe them honestly, ship on time and honour returns under our returns policy. Commissions and fees are shown in Seller Center before you agree to them." },
-        { "h": "Prohibited conduct", "p": "Counterfeits, illegal or dangerous goods, fake reviews, harassment and attempts to move payments off Souqly are not allowed and can lead to suspension." },
-        { "h": "Liability and changes", "p": "Souqly is provided as is. We may update these terms; if a change is significant we will tell you before it takes effect." }
-      ]
+      "sections": [{"h":"Your account","p":"You must give accurate information and keep your password safe. You are responsible for activity on your account. You can close your account at any time from Privacy & data."},{"h":"Buying on Souqly","p":"Each product is sold by the shop that lists it. Souqly runs the marketplace, processes payments and helps resolve disputes, but the seller is responsible for the product, its description and delivery."},{"h":"Selling on Souqly","p":"Sellers must list only items they are allowed to sell, describe them honestly, ship on time and honour returns under our returns policy. Commissions and fees are shown in Seller Center before you agree to them."},{"h":"Prohibited conduct","p":"Counterfeits, illegal or dangerous goods, fake reviews, harassment and attempts to move payments off Souqly are not allowed and can lead to suspension."},{"h":"Liability and changes","p":"Souqly is provided as is. We may update these terms; if a change is significant we will tell you before it takes effect."}]
     },
     "privacy": {
       "title": "Privacy Policy",
       "intro": "We collect only what we need to run the marketplace, protect your account and deliver your orders — and we never sell your personal data.",
-      "sections": [
-        { "h": "What we collect", "p": "Your name, contact details, delivery addresses, orders, and basic device information such as browser type and IP address used to keep your account secure." },
-        { "h": "How we use it", "p": "To process and deliver orders, let sellers fulfil them, prevent fraud, provide support and — only if you allow it — personalise recommendations and send offers." },
-        { "h": "What sellers see", "p": "A seller only receives the details needed to fulfil your order with them: your name, delivery address and phone number." },
-        { "h": "Your choices", "p": "You can change notification and privacy settings, download your data or delete your account at any time from your account pages." },
-        { "h": "Security", "p": "Passwords are stored hashed, sessions can be reviewed and revoked, and two-step verification is available for every account." }
-      ]
+      "sections": [{"h":"What we collect","p":"Your name, contact details, delivery addresses, orders, and basic device information such as browser type and IP address used to keep your account secure."},{"h":"How we use it","p":"To process and deliver orders, let sellers fulfil them, prevent fraud, provide support and — only if you allow it — personalise recommendations and send offers."},{"h":"What sellers see","p":"A seller only receives the details needed to fulfil your order with them: your name, delivery address and phone number."},{"h":"Your choices","p":"You can change notification and privacy settings, download your data or delete your account at any time from your account pages."},{"h":"Security","p":"Passwords are stored hashed, sessions can be reviewed and revoked, and two-step verification is available for every account."}]
     },
     "help": {
       "title": "Help centre",
       "intro": "Answers to the questions shoppers and sellers ask us most.",
       "faqTitle": "Frequently asked questions",
-      "faqs": [
-        { "q": "How does cash on delivery work?", "a": "Choose Cash on delivery at checkout and pay the rider when your parcel arrives. Please keep the exact amount ready where possible." },
-        { "q": "Why did my order arrive in more than one parcel?", "a": "On Souqly you can buy from several shops at once. Each shop packs and ships its own items, so you may receive more than one parcel. You can track each one from your orders page." },
-        { "q": "How do I return an item?", "a": "Open the order, choose Request a return, and tell us what went wrong. The seller will respond, and our team steps in if you can't agree." },
-        { "q": "I forgot my password. What do I do?", "a": "Use Forgot password on the sign-in page. We'll email you a secure link that works once. You can also sign in with a one-time code sent to your phone." },
-        { "q": "How do I keep my account secure?", "a": "Use a unique password, turn on two-step verification in Login & security, and sign out of devices you don't recognise." },
-        { "q": "How do I start selling?", "a": "Switch to seller mode from your account menu, or visit Sell on Souqly. You'll set up your shop name, payout details and first products." }
-      ],
+      "faqs": [{"q":"How does cash on delivery work?","a":"Choose Cash on delivery at checkout and pay the rider when your parcel arrives. Please keep the exact amount ready where possible."},{"q":"Why did my order arrive in more than one parcel?","a":"On Souqly you can buy from several shops at once. Each shop packs and ships its own items, so you may receive more than one parcel. You can track each one from your orders page."},{"q":"How do I return an item?","a":"Open the order, choose Request a return, and tell us what went wrong. The seller will respond, and our team steps in if you can't agree."},{"q":"I forgot my password. What do I do?","a":"Use Forgot password on the sign-in page. We'll email you a secure link that works once. You can also sign in with a one-time code sent to your phone."},{"q":"How do I keep my account secure?","a":"Use a unique password, turn on two-step verification in Login & security, and sign out of devices you don't recognise."},{"q":"How do I start selling?","a":"Switch to seller mode from your account menu, or visit Sell on Souqly. You'll set up your shop name, payout details and first products."}],
       "chatTitle": "Chat with the seller",
       "chatBody": "For questions about a product or delivery, message the shop directly from the product or order page.",
       "emailTitle": "Email Souqly support",
@@ -580,7 +583,10 @@
       "whyTitle": "Everything a growing shop needs",
       "benefits": {
         "fees": { "title": "Fair, simple fees", "body": "No setup fee. A clear commission only when you make a sale." },
-        "cod": { "title": "Cash on delivery built in", "body": "Reach buyers who prefer to pay at the door, with delivery handled for you." },
+        "cod": {
+          "title": "Cash on delivery built in",
+          "body": "Reach buyers who prefer to pay at the door, with delivery handled for you."
+        },
         "chat": { "title": "Talk to your customers", "body": "Answer questions and share offers in real-time chat." },
         "insights": { "title": "Know what sells", "body": "See your sales, best sellers and stock alerts in one dashboard." },
         "team": { "title": "Bring your team", "body": "Invite staff with their own roles — inventory, orders, marketing or cashier." },
@@ -594,5 +600,267 @@
         "3": { "title": "Start selling", "body": "Once approved, your shop goes live and orders arrive in Seller Center." }
       }
     }
+  },
+  "product": {
+    "mall": "Mall",
+    "mallTitle": "Souqly Mall — verified store",
+    "flash": "Flash",
+    "freeShipping": "Free shipping",
+    "cod": "Cash on delivery",
+    "codShort": "COD",
+    "preOrder": "Pre-order",
+    "sold": "{{n}} sold",
+    "onlyLeft": "Only {{n}} left",
+    "unavailable": "Store on holiday"
+  },
+  "listing": {
+    "filters": "Filters",
+    "clearAll": "Clear all",
+    "price": "Price (Rs.)",
+    "min": "Min",
+    "max": "Max",
+    "go": "Go",
+    "applyPrice": "Apply price range",
+    "services": "Delivery & services",
+    "mallOnly": "Souqly Mall only",
+    "inStock": "In stock",
+    "brand": "Brand",
+    "rating": "Rating",
+    "andUp": "& up",
+    "discount": "Discount",
+    "discountMin": "{{n}}% off or more",
+    "color": "Color",
+    "size": "Size",
+    "city": "Ships from",
+    "anyCity": "Any city",
+    "cityHint": "Shows sellers based in this city — usually faster delivery.",
+    "showMore": "Show {{n}} more",
+    "showLess": "Show less",
+    "sortBy": "Sort by",
+    "sort": {
+      "relevance": "Best match",
+      "newest": "Newest",
+      "price_asc": "Price: low to high",
+      "price_desc": "Price: high to low",
+      "best_selling": "Best selling",
+      "top_rated": "Top rated",
+      "discount": "Biggest discount"
+    },
+    "view": "Layout",
+    "view_grid": "Grid view",
+    "view_list": "List view",
+    "results": "{{n}} products",
+    "showing": "Showing {{shown}} of {{total}}",
+    "loadMore": "Load more",
+    "end": "You've seen everything",
+    "removeFilter": "Remove filter: {{name}}",
+    "priceFrom": "From {{p}}",
+    "priceTo": "Up to {{p}}",
+    "ratingChip": "{{n}}★ & up",
+    "showResults": "Show {{n}} results",
+    "apply": "Apply",
+    "emptyTitle": "No products here yet",
+    "emptyBody": "Sellers are still stocking this shelf. Check back soon.",
+    "emptyFiltered": "Nothing matches these filters. Try removing a few.",
+    "viewAll": "View all",
+    "prev": "Scroll back",
+    "next": "Scroll forward",
+    "products": "Products"
+  },
+  "catalog": {
+    "allCategories": "All categories",
+    "allTitle": "All categories",
+    "allBody": "Everything in the souq, aisle by aisle.",
+    "allMeta": "Browse every category on Souqly — fashion, electronics, home, beauty, groceries and more from trusted sellers.",
+    "shopAll": "Shop all {{name}}",
+    "viewAllIn": "View all in {{name}}",
+    "noSubcategories": "No subcategories yet.",
+    "subcategories": "Subcategories",
+    "subCount": "{{n}} subcategories",
+    "metaDescription": "Shop {{name}} on Souqly: compare prices from trusted sellers, pay cash on delivery and get easy returns.",
+    "notFoundBody": "It may have been moved, renamed or is no longer available.",
+    "browseCategories": "Browse categories",
+    "featuredBrands": "Featured brands",
+    "brandsEyebrow": "Brands"
+  },
+  "search": {
+    "recent": "Recent searches",
+    "trending": "Trending searches",
+    "clearAll": "Clear",
+    "clear": "Clear search",
+    "removeRecent": "Remove “{{q}}” from recent searches",
+    "didYouMean": "Did you mean",
+    "products": "Products",
+    "stores": "Stores",
+    "categories": "Categories",
+    "suggestions": "Search suggestions",
+    "searchFor": "Search for “{{q}}”",
+    "title": "Results for “{{q}}”",
+    "metaDescription": "Shop results for “{{q}}” on Souqly from trusted sellers.",
+    "resultsFor": "Results for",
+    "resultTabs": "Result type",
+    "showingFor": "No exact matches. Showing results for",
+    "didYouMeanQ": "“{{q}}”",
+    "noResultsTitle": "No results for “{{q}}”",
+    "noResultsBody": "We couldn't find a match. Try a different word or browse the categories below.",
+    "noResultsFiltered": "No products match your search with these filters.",
+    "tryInstead": "Search “{{q}}” instead",
+    "tipsTitle": "Search tips",
+    "tip1": "Check the spelling or try a simpler word.",
+    "tip2": "Use fewer words, e.g. “lawn suit” instead of a full name.",
+    "tip3": "Search by brand, shop name or category.",
+    "trySearching": "Popular right now",
+    "popularCategories": "Popular categories",
+    "recommended": "Recommended for you",
+    "landingTitle": "What are you looking for?",
+    "landingBody": "Search for products, brands and shops — or start from a trending search.",
+    "noStoresTitle": "No stores match “{{q}}”",
+    "noStoresBody": "Try another name or browse all stores.",
+    "allProducts": "All products"
+  },
+  "pdp": {
+    "brand": "Brand:",
+    "ratingsN": "{{n}} ratings",
+    "noRatings": "No ratings yet",
+    "soldBy": "Sold by",
+    "visitStore": "Visit store",
+    "quantity": "Quantity",
+    "increase": "Increase quantity",
+    "decrease": "Decrease quantity",
+    "addToCart": "Add to cart",
+    "buyNow": "Buy now",
+    "preOrderNow": "Pre-order now",
+    "outOfStock": "Out of stock",
+    "chooseOptions": "Choose options to see availability",
+    "valueOos": "{{value}} (out of stock)",
+    "sizeGuide": "Size guide",
+    "priceRange": "From {{min}} to {{max}} depending on options",
+    "holidayTitle": "This store is on holiday",
+    "holidayBody": "You can browse, but orders are paused until the seller returns.",
+    "preOrderTitle": "Pre-order item",
+    "preOrderBody": "Ships on or after {{date}}. You can order now to reserve yours.",
+    "preOrderBodyNoDate": "Ships as soon as new stock arrives. Order now to reserve yours.",
+    "preOrderShips": "Ships on or after {{date}}",
+    "wholesale": "Buy more, save more",
+    "wholesaleApplied": "Bulk price applied for {{n}} items",
+    "minQty": "Quantity",
+    "unitPrice": "Price each",
+    "save": "You save",
+    "highlights": "Highlights",
+    "description": "Description",
+    "noDescription": "The seller has not added a description yet.",
+    "specs": "Specifications",
+    "noSpecs": "No specifications listed.",
+    "weight": "Weight",
+    "reviews": "Ratings & reviews",
+    "deliverTo": "Deliver to",
+    "getItBy": "Get it {{from}} – {{to}}",
+    "freeDelivery": "Free delivery",
+    "standardDelivery": "Standard delivery",
+    "sameCity": "ships from {{city}}, same city",
+    "shipsFrom": "ships from {{city}}",
+    "codAvailable": "Cash on delivery available",
+    "returnDays": "{{n}}-day easy returns",
+    "noReturns": "Returns not accepted for this item",
+    "warranty_brand": "Brand warranty: {{period}}",
+    "warranty_seller": "Seller warranty: {{period}}",
+    "noWarranty": "No warranty",
+    "boughtTogether": "Frequently bought together",
+    "thisItem": "This item:",
+    "totalFor": "Total for {{n}} items",
+    "addAll": "Add all to cart",
+    "addedAll": "{{n}} items added to your cart",
+    "moreFromStore": "More from {{store}}",
+    "related": "You may also like",
+    "relatedEyebrow": "Similar picks",
+    "video": "Product video",
+    "thumbnails": "Product images",
+    "showImage": "Show image {{n}}",
+    "openImage": "Open image {{n}} full screen",
+    "zoomIn": "Zoom in",
+    "zoomOut": "Zoom out",
+    "lightboxHint": "Use the arrow keys to browse and + or − to zoom."
+  },
+  "cart": { "added": "Added to cart", "view": "View cart" },
+  "share": {
+    "title": "Share",
+    "whatsapp": "Share on WhatsApp",
+    "facebook": "Share on Facebook",
+    "copy": "Copy link",
+    "more": "More options…",
+    "copyFailed": "Couldn't copy the link"
+  },
+  "store": {
+    "rating": "Rating",
+    "ratingN": "{{n}} ({{c}} ratings)",
+    "followers": "Followers",
+    "followersN": "{{n}} followers",
+    "responseRate": "Response rate",
+    "responseN": "{{n}}% response rate",
+    "joined": "Joined {{date}}",
+    "productsN": "{{n}} products",
+    "follow": "Follow",
+    "chat": "Chat",
+    "share": "Share store / QR code",
+    "shareTitle": "Share {{name}}",
+    "shareBody": "Scan the QR code or copy the link to visit this store.",
+    "qrAlt": "QR code for {{name}}",
+    "holidayTitle": "This store is on holiday",
+    "holidayBody": "Orders are paused for now. You can still browse and save items.",
+    "holidayUntil": "Back on {{date}}.",
+    "tabHome": "Home",
+    "tabProducts": "All products ({{n}})",
+    "tabPolicies": "Policies",
+    "allProducts": "See all products",
+    "searchIn": "Search in this store",
+    "category": "Category",
+    "allCategories": "All categories",
+    "about": "About the store",
+    "emptyTitle": "No products yet",
+    "emptyBody": "This store is setting up its shelves. Check back soon.",
+    "noPolicies": "No policies published",
+    "noPoliciesBody": "Souqly’s standard buyer protection applies to every order.",
+    "policy": { "shipping": "Shipping", "returns": "Returns & refunds", "warranty": "Warranty" },
+    "section": {
+      "featured": "Featured picks",
+      "deals": "Deals",
+      "new_arrivals": "New arrivals",
+      "best_sellers": "Best sellers",
+      "category_row": "Shop by category"
+    }
+  },
+  "stores": {
+    "title": "All stores",
+    "body": "Independent shops and verified brands, side by side.",
+    "meta": "Discover trusted stores on Souqly — compare ratings, followers and response rates.",
+    "mallTitle": "Souqly Mall",
+    "mallEyebrow": "Verified brands",
+    "mallBody": "100% authentic products from verified stores, with easy returns and faster support.",
+    "mallMeta": "Souqly Mall: shop verified brands and official stores with authenticity guaranteed.",
+    "searchPlaceholder": "Search stores",
+    "sort": { "followers": "Most followed", "rating": "Top rated", "new": "Newest" },
+    "emptyTitle": "No stores found",
+    "emptyBody": "Stores will appear here as they open.",
+    "emptySearch": "No store matches that name.",
+    "browseAll": "Browse all stores"
+  },
+  "campaign": {
+    "live": "Live now",
+    "upcoming": "Coming soon",
+    "ended": "Ended",
+    "startsIn": "Starts in",
+    "endsIn": "Ends in",
+    "endedOn": "This campaign ended on {{date}}.",
+    "products": "{{n}} products in this campaign",
+    "emptyTitle": "No products in this campaign yet",
+    "emptyUpcoming": "Products will appear when the campaign starts",
+    "emptyBody": "Sellers are adding their best offers. Check back soon.",
+    "metaDescription": "{{name}} on Souqly — limited-time offers from trusted sellers."
+  },
+  "brandPage": {
+    "brands": "Brands",
+    "eyebrow": "Brand",
+    "featured": "Featured brand",
+    "metaDescription": "Shop {{name}} products on Souqly from trusted sellers."
   }
 }

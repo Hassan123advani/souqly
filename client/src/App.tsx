@@ -10,6 +10,14 @@ import { RequireAuth, RequireGuest, RequirePlatformStaff, RequireSellerMode } fr
 // ---- Lazy pages ----
 const HomePage = lazy(() => import('@/pages/buyer/HomePage'));
 const ComingSoonPage = lazy(() => import('@/pages/buyer/ComingSoonPage'));
+const CategoriesPage = lazy(() => import('@/pages/buyer/CategoriesPage'));
+const CategoryPage = lazy(() => import('@/pages/buyer/CategoryPage'));
+const SearchPage = lazy(() => import('@/pages/buyer/SearchPage'));
+const ProductPage = lazy(() => import('@/pages/buyer/ProductPage'));
+const StorePage = lazy(() => import('@/pages/buyer/StorePage'));
+const StoresPage = lazy(() => import('@/pages/buyer/StoresPage'));
+const CampaignPage = lazy(() => import('@/pages/buyer/CampaignPage'));
+const BrandPage = lazy(() => import('@/pages/buyer/BrandPage'));
 const StaticPage = lazy(() => import('@/pages/static/StaticPage'));
 const HelpPage = lazy(() => import('@/pages/static/HelpPage'));
 const SellPage = lazy(() => import('@/pages/static/SellPage'));
@@ -45,8 +53,16 @@ export function App() {
         <Routes>
           <Route element={<MarketplaceLayout />}>
             <Route index element={<HomePage />} />
-            <Route path="categories" element={<ComingSoonPage feature="categories" />} />
-            <Route path="search" element={<ComingSoonPage feature="search" />} />
+            <Route path="categories" element={<CategoriesPage />} />
+            <Route path="c/:slug" element={<CategoryPage />} />
+            <Route path="search" element={<SearchPage />} />
+            <Route path="p/:slug" element={<ProductPage />} />
+            <Route path="store/:slug" element={<StorePage />} />
+            <Route path="stores" element={<StoresPage />} />
+            <Route path="mall" element={<StoresPage key="mall" mall />} />
+            <Route path="campaign/:slug" element={<CampaignPage />} />
+            <Route path="campaigns/:slug" element={<CampaignPage />} />
+            <Route path="brand/:slug" element={<BrandPage />} />
             <Route path="cart" element={<ComingSoonPage feature="cart" />} />
             <Route path="wishlist" element={<ComingSoonPage feature="wishlist" />} />
             <Route path="chat" element={<ComingSoonPage feature="chat" />} />

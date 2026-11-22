@@ -19,6 +19,14 @@ export function Footer() {
 
   const cols = [
     {
+      title: t('footer.shop'),
+      links: [
+        { to: '/categories', label: t('nav.categories') },
+        { to: '/stores', label: t('footer.stores') },
+        { to: '/mall', label: t('footer.mall') },
+      ],
+    },
+    {
       title: t('footer.souqly'),
       links: [
         { to: '/about', label: t('footer.about') },
@@ -54,7 +62,7 @@ export function Footer() {
             </p>
           </div>
         </div>
-        <div className="grid grid-cols-3 gap-6">
+        <div className="grid grid-cols-2 gap-6 sm:grid-cols-4">
           {cols.map((c) => (
             <div key={c.title}>
               <h2 className="text-xs font-bold uppercase tracking-[0.12em] text-fg-subtle">{c.title}</h2>

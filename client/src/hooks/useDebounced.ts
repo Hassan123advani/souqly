@@ -1,0 +1,11 @@
+import { useEffect, useState } from 'react';
+
+/** Returns `value` after it stopped changing for `ms` milliseconds. */
+export function useDebounced<T>(value: T, ms = 200): T {
+  const [v, setV] = useState(value);
+  useEffect(() => {
+    const id = window.setTimeout(() => setV(value), ms);
+    return () => window.clearTimeout(id);
+  }, [value, ms]);
+  return v;
+}

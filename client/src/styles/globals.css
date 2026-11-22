@@ -71,6 +71,64 @@
   .link {
     @apply font-medium text-primary-700 underline-offset-4 hover:underline;
   }
+  /* Store pages: the store's themeColor, with AA-checked text/accent variants per theme (D-042). */
+  .store-scope {
+    --store-accent: var(--store-accent-light);
+  }
+  .dark .store-scope {
+    --store-accent: var(--store-accent-dark);
+  }
+  /* Typography for sanitized seller HTML (descriptions, policies, size guides). */
+  .prose-souq {
+    @apply text-sm leading-relaxed text-fg-muted sm:text-[15px];
+    overflow-wrap: anywhere;
+  }
+  .prose-souq > * + * {
+    @apply mt-3;
+  }
+  .prose-souq :is(h1, h2, h3, h4) {
+    @apply mt-6 font-bold tracking-tight text-fg;
+  }
+  .prose-souq h1,
+  .prose-souq h2 {
+    @apply text-lg;
+  }
+  .prose-souq :is(h3, h4) {
+    @apply text-base;
+  }
+  .prose-souq :is(strong, b) {
+    @apply font-semibold text-fg;
+  }
+  .prose-souq a {
+    @apply font-medium text-primary-700 underline underline-offset-4;
+  }
+  .prose-souq ul {
+    @apply list-disc ps-5;
+  }
+  .prose-souq ol {
+    @apply list-decimal ps-5;
+  }
+  .prose-souq li + li {
+    @apply mt-1;
+  }
+  .prose-souq li::marker {
+    color: rgb(var(--accent));
+  }
+  .prose-souq img {
+    @apply my-4 h-auto max-w-full rounded-lg;
+  }
+  .prose-souq blockquote {
+    @apply border-s-4 border-accent ps-4 italic;
+  }
+  .prose-souq table {
+    @apply w-full border-collapse overflow-hidden rounded-md text-sm;
+  }
+  .prose-souq :is(th, td) {
+    @apply border border-border px-3 py-2 text-start;
+  }
+  .prose-souq th {
+    @apply bg-surface-2 font-semibold text-fg;
+  }
 }
 
 @layer utilities {

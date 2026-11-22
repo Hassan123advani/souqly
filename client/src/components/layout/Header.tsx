@@ -1,50 +1,43 @@
-import { useState, type FormEvent } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { Link, useLocation, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Heart, LayoutGrid, Search, ShoppingCart } from 'lucide-react';
+import * as Dialog from '@radix-ui/react-dialog';
+import { Heart, Search, ShoppingCart } from 'lucide-react';
 import { Logo } from '@/components/brand/Logo';
 import { CountBadge, IconButton } from '@/components/ui';
+import { CategoryMenu } from '@/components/catalog/CategoryMenu';
+import { SearchBox } from '@/components/catalog/SearchBox';
 import { useCart } from '@/stores/cart';
 import { AccountMenu } from './AccountMenu';
 import { LanguageSwitcher, ThemeToggle } from './Switchers';
 
-function SearchBar({ className }: { className?: string }) {
+/** Mobile: a search "field" that opens a full-screen search overlay. */
+function MobileSearch() {
   const { t } = useTranslation();
-  const navigate = useNavigate();
+  const [open, setOpen] = useState(false);
+  const { pathname } = useLocation();
   const [params] = useSearchParams();
-  const [q, setQ] = useState(params.get('q') ?? '');
-  function submit(e: FormEvent) {
-    e.preventDefault();
-    const term = q.trim();
-    navigate(term ? `/search?q=${encodeURIComponent(term)}` : '/search');
-  }
+  const current = pathname === '/search' ? params.get('q') ?? '' : '';
+  useEffect(() => setOpen(false), [pathname]);
   return (
-    <form role="search" onSubmit={submit} className={className}>
-      <label htmlFor="site-search" className="sr-only">
-        {t('header.searchLabel')}
-      </label>
-      <div className="group relative flex h-12 items-center rounded-pill border border-border-strong bg-surface shadow-sm transition-[border-color,box-shadow] focus-within:border-primary-600 focus-within:ring-4 focus-within:ring-primary/15">
-        <Search className="pointer-events-none ms-4 size-[18px] shrink-0 text-fg-subtle" aria-hidden />
-        <input
-          id="site-search"
-          type="search"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder={t('header.searchPlaceholder')}
-          autoComplete="off"
-          enterKeyHint="search"
-          className="h-full min-w-0 flex-1 bg-transparent px-3 text-sm text-fg placeholder:text-fg-subtle focus:outline-none [&::-webkit-search-cancel-button]:hidden"
-        />
+    <Dialog.Root open={open} onOpenChange={setOpen}>
+      <Dialog.Trigger asChild>
         <button
-          type="submit"
-          className="me-1 inline-flex h-10 items-center gap-2 rounded-pill bg-primary px-4 text-sm font-semibold text-primary-fg transition hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring sm:px-5"
+          type="button"
+          className="flex h-11 w-full items-center gap-3 rounded-pill border border-border-strong bg-surface px-4 text-start text-sm shadow-sm"
         >
-          <span className="hidden sm:inline">{t('header.search')}</span>
-          <Search className="size-4 sm:hidden" aria-hidden />
-          <span className="sr-only sm:hidden">{t('header.search')}</span>
+          <Search className="size-[18px] shrink-0 text-fg-subtle" aria-hidden />
+          <span className={current ? 'truncate text-fg' : 'truncate text-fg-subtle'}>{current || t('header.searchPlaceholder')}</span>
         </button>
-      </div>
-    </form>
+      </Dialog.Trigger>
+      <Dialog.Portal>
+        <Dialog.Content className="fixed inset-0 z-[70] flex flex-col bg-bg animate-fade-in focus:outline-none">
+          <Dialog.Title className="sr-only">{t('header.searchLabel')}</Dialog.Title>
+          <Dialog.Description className="sr-only">{t('header.searchPlaceholder')}</Dialog.Description>
+          <SearchBox overlay onDone={() => setOpen(false)} className="min-h-0 flex-1" />
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
   );
 }
 
@@ -59,15 +52,9 @@ export function Header() {
           <Logo markClassName="size-10" className="hidden sm:inline-flex" />
         </Link>
 
-        <Link
-          to="/categories"
-          className="ms-2 hidden h-11 shrink-0 items-center gap-2 rounded-pill border border-border bg-surface px-4 text-sm font-semibold text-fg transition hover:border-border-strong hover:bg-surface-2 lg:inline-flex"
-        >
-          <LayoutGrid className="size-4 text-primary-700" />
-          {t('nav.categories')}
-        </Link>
+        <CategoryMenu />
 
-        <SearchBar className="mx-2 hidden flex-1 md:block" />
+        <SearchBox className="mx-2 hidden flex-1 md:block" />
         <div className="flex-1 md:hidden" />
 
         <nav className="flex items-center gap-0.5 sm:gap-1" aria-label={t('nav.utility')}>
@@ -91,7 +78,7 @@ export function Header() {
         </nav>
       </div>
       <div className="px-4 pb-3 md:hidden">
-        <SearchBar />
+        <MobileSearch />
       </div>
     </header>
   );

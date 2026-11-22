@@ -1,4 +1,4 @@
-import type { AddressInput, CurrencyCode, LanguageCode, PlatformRole, UserMode } from '@souqly/shared';
+import type { AddressInput, CurrencyCode, LanguageCode, LocalizedName, PlatformRole, UserMode } from '@souqly/shared';
 
 /** Mirrors docs/api-auth.md `MeUser`. */
 export type MeUser = {
@@ -67,3 +67,9 @@ export type PublicConfig = {
   flags: Record<string, boolean>;
   devMode: boolean;
 };
+
+/** `GET /stores/:slug/categories` row (not in @souqly/shared yet). */
+export type StoreCategoryCount = { id: string; slug: string; name: LocalizedName; count: number };
+
+/** Meta of cursor-paginated lists that carry no extra fields (`/stores`, the feed). */
+export type CursorMeta = { nextCursor: string | null };

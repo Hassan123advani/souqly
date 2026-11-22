@@ -1,39 +1,144 @@
+import { useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { ArrowRight, BadgeCheck, HandCoins, MessageCircle, RotateCcw, Store } from 'lucide-react';
+import { ArrowRight, BadgeCheck, HandCoins, LayoutGrid, MessageCircle, RotateCcw, Store } from 'lucide-react';
+import type { CampaignCard, HomeSection, ProductCard as ProductCardData, StoreCard as StoreCardData } from '@souqly/shared';
+import { useHome, useJustForYou, useRecentlyViewed } from '@/api/catalog';
 import { Seo } from '@/components/layout/Seo';
-import { Button, Container, ProductCardSkeleton, SectionHeader, Skeleton } from '@/components/ui';
-import { cn } from '@/lib/cn';
+import { Badge, Button, Container, ErrorState, SectionHeader, Skeleton } from '@/components/ui';
+import { HeroCarousel } from '@/components/home/HeroCarousel';
+import { FlashSaleStrip } from '@/components/home/FlashSaleStrip';
+import { CategoryTile } from '@/components/catalog/CategoryIcon';
+import { ProductRail, Rail } from '@/components/product/Rail';
+import { LoadMore, ProductGrid, ProductGridSkeleton } from '@/components/product/ProductGrid';
+import { StoreCard, StoreCardSkeleton } from '@/components/product/StoreCard';
+import { ProductCard } from '@/components/product/ProductCard';
+import { useLocalized } from '@/lib/catalog';
 
-// Frosted "product tiles" floating inside the lantern arch.
-const tile = 'absolute rounded-lg bg-white/[0.07] p-2.5 shadow-pop ring-1 ring-white/15 backdrop-blur-md';
+/** "View all" targets per home section type. */
+const VIEW_ALL: Partial<Record<HomeSection['type'], string>> = {
+  best_sellers: '/search?sort=best_selling',
+  new_arrivals: '/search?sort=newest',
+  top_rated: '/search?sort=top_rated',
+  trending: '/search?sort=best_selling',
+  mall: '/mall',
+  top_stores: '/stores',
+};
 
-function HeroArt() {
-  // Layered arches framing skeleton "product tiles" — hints at the catalogue to come.
+function CampaignBanners({ items }: { items: CampaignCard[] }) {
+  const { t } = useTranslation();
+  const visible = items.filter((c) => c.isLive || new Date(c.startsAt).getTime() > Date.now());
+  if (!visible.length) return null;
   return (
-    <div className="relative mx-auto hidden aspect-[5/4] w-full max-w-md lg:block" aria-hidden>
-      <div className="absolute inset-x-10 bottom-0 top-6 rounded-t-[999px] border border-accent/40 bg-gradient-to-b from-accent/15 to-transparent" />
-      <div className="absolute inset-x-20 bottom-0 top-16 rounded-t-[999px] border border-accent/30" />
-      <div className="absolute start-1/2 top-2 size-3 -translate-x-1/2 rounded-full bg-accent shadow-glow rtl:translate-x-1/2" />
-      <div className={cn(tile, 'bottom-6 start-2 w-40 rotate-[-6deg]')}>
-        <div className="aspect-square w-full rounded-md bg-gradient-to-br from-accent/30 to-sale/20" />
-        <div className="mt-2.5 h-2 w-3/4 rounded-pill bg-white/25" />
-        <div className="mt-2 h-3 w-14 rounded-sm bg-sale" />
-      </div>
-      <div className={cn(tile, 'bottom-14 end-2 w-44 rotate-[5deg]')}>
-        <div className="aspect-[4/3] w-full rounded-md bg-gradient-to-br from-primary-400/40 to-primary-200/30" />
-        <div className="mt-2.5 h-2 w-2/3 rounded-pill bg-white/25" />
-        <div className="mt-2 h-3 w-16 rounded-sm bg-accent" />
-      </div>
-      <div className={cn(tile, 'start-1/2 top-24 w-36 -translate-x-1/2 rtl:translate-x-1/2')}>
-        <div className="aspect-square w-full rounded-md bg-gradient-to-br from-white/25 to-white/5" />
-        <div className="mt-2.5 h-2 w-1/2 rounded-pill bg-white/25" />
-      </div>
-    </div>
+    <section className="mt-10 sm:mt-12" aria-labelledby="home-campaigns">
+      <SectionHeader title={<span id="home-campaigns">{t('home.sections.campaign')}</span>} eyebrow={t('home.campaignsEyebrow')} />
+      <ul className="grid gap-3 sm:grid-cols-2 sm:gap-4">
+        {visible.slice(0, 4).map((c) => (
+          <li key={c.slug}>
+            <Link to={`/campaign/${c.slug}`} className="group relative block overflow-hidden rounded-xl border border-border bg-surface-2 shadow-card">
+              {c.banner ? (
+                <img src={c.banner} alt={c.name} loading="lazy" className="aspect-[8/3] w-full object-cover transition-transform duration-400 group-hover:scale-[1.02]" />
+              ) : (
+                <div className="grid aspect-[8/3] place-items-center bg-primary text-xl font-extrabold text-primary-fg">{c.name}</div>
+              )}
+              <span className="absolute end-3 top-3">
+                {c.isLive ? <Badge tone="sale">{t('campaign.live')}</Badge> : <Badge tone="accent">{t('campaign.upcoming')}</Badge>}
+              </span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
+}
+
+function TopStores({ items }: { items: StoreCardData[] }) {
+  const { t } = useTranslation();
+  if (!items.length) return null;
+  return (
+    <section className="mt-10 sm:mt-12" aria-labelledby="home-stores">
+      <SectionHeader
+        title={<span id="home-stores">{t('home.sections.top_stores')}</span>}
+        eyebrow={t('home.shops.eyebrow')}
+        description={t('home.shops.body')}
+        action={
+          <Button to="/stores" variant="link" size="sm" rightIcon={<ArrowRight className="flip-rtl size-4" />}>
+            {t('listing.viewAll')}
+          </Button>
+        }
+      />
+      <Rail label={t('home.sections.top_stores')} itemClassName="w-[70%] sm:w-[40%] md:w-[31%] lg:w-[23.5%]">
+        {items.map((s) => (
+          <StoreCard key={s.id} store={s} />
+        ))}
+      </Rail>
+    </section>
+  );
+}
+
+function MallRail({ items }: { items: ProductCardData[] }) {
+  const { t } = useTranslation();
+  if (!items.length) return null;
+  return (
+    <section className="mt-10 overflow-hidden rounded-xl border border-primary-200 bg-gradient-to-br from-primary-50 via-surface to-surface p-4 sm:mt-12 sm:p-6">
+      <SectionHeader
+        title={
+          <span className="inline-flex items-center gap-2">
+            <BadgeCheck className="size-6 text-primary-700" aria-hidden />
+            {t('home.sections.mall')}
+          </span>
+        }
+        description={t('home.mallBody')}
+        action={
+          <Button to="/mall" variant="secondary" size="sm" rightIcon={<ArrowRight className="flip-rtl size-4" />}>
+            {t('home.visitMall')}
+          </Button>
+        }
+      />
+      <Rail label={t('home.sections.mall')}>
+        {items.map((p) => (
+          <ProductCard key={p.id} product={p} className="w-full" />
+        ))}
+      </Rail>
+    </section>
+  );
+}
+
+function JustForYou() {
+  const { t } = useTranslation();
+  const feed = useJustForYou();
+  const products = feed.data?.pages.flatMap((p) => p.data) ?? [];
+  const loadMore = useCallback(() => void feed.fetchNextPage(), [feed]);
+  return (
+    <section className="mt-12" aria-labelledby="home-foryou" aria-busy={feed.isPending || undefined}>
+      <SectionHeader title={<span id="home-foryou">{t('home.forYou.title')}</span>} eyebrow={t('home.forYou.eyebrow')} />
+      {feed.error && !products.length ? (
+        <ErrorState error={feed.error} onRetry={() => feed.refetch()} className="rounded-lg border border-border bg-surface" />
+      ) : feed.isPending ? (
+        <ProductGridSkeleton count={12} density="wide" />
+      ) : (
+        <>
+          <ProductGrid products={products} density="wide" />
+          <LoadMore hasMore={!!feed.hasNextPage} loading={feed.isFetchingNextPage} onLoadMore={loadMore} shown={products.length} />
+        </>
+      )}
+    </section>
+  );
+}
+
+function RecentlyViewed() {
+  const { t } = useTranslation();
+  const { data } = useRecentlyViewed();
+  if (!data?.length) return null;
+  return <ProductRail title={t('home.recentlyViewed')} eyebrow={t('home.recentlyEyebrow')} products={data.slice(0, 18)} />;
 }
 
 export default function HomePage() {
   const { t } = useTranslation();
+  const localized = useLocalized();
+  const home = useHome();
+  const data = home.data;
+
   const trust = [
     { icon: HandCoins, title: t('home.trust.cod'), body: t('home.trust.codBody') },
     { icon: BadgeCheck, title: t('home.trust.verified'), body: t('home.trust.verifiedBody') },
@@ -43,45 +148,46 @@ export default function HomePage() {
 
   return (
     <>
-      <Seo description={t('home.metaDescription')} />
+      <Seo
+        description={t('home.metaDescription')}
+        canonical="/"
+        jsonLd={{
+          '@context': 'https://schema.org',
+          '@type': 'WebSite',
+          name: 'Souqly',
+          url: window.location.origin,
+          potentialAction: { '@type': 'SearchAction', target: `${window.location.origin}/search?q={search_term_string}`, 'query-input': 'required name=search_term_string' },
+        }}
+      />
       <Container className="pt-4 sm:pt-6">
-        {/* Hero */}
-        <section className="dark relative overflow-hidden rounded-xl bg-[#0B2826] text-fg shadow-pop">
-          <div className="absolute inset-0 bg-[radial-gradient(60%_80%_at_85%_0%,rgba(242,169,59,.28),transparent_60%),radial-gradient(70%_90%_at_0%_100%,rgba(14,94,90,.95),transparent_70%)]" />
-          <div className="souq-pattern absolute inset-0 opacity-60 [mask-image:linear-gradient(90deg,transparent_20%,#000)]" />
-          <div className="relative grid items-center gap-8 px-6 py-10 sm:px-10 sm:py-14 lg:grid-cols-[1.15fr_1fr] lg:px-14 lg:py-16">
-            <div className="max-w-xl">
-              <p className="inline-flex items-center gap-2 rounded-pill bg-white/5 px-3 py-1 text-xs font-bold text-accent ring-1 ring-white/10">
-                <span className="size-1.5 animate-glow rounded-full bg-accent" />
-                {t('home.hero.eyebrow')}
-              </p>
-              <h1 className="mt-4 text-3xl font-extrabold leading-tight tracking-tight text-ink-950 sm:text-5xl">
-                {t('home.hero.title')}
-              </h1>
-              <p className="mt-4 max-w-lg text-base text-fg-muted sm:text-lg">{t('home.hero.body')}</p>
-              <div className="mt-7 flex flex-wrap gap-3">
-                <Button to="/categories" variant="accent" size="lg" rightIcon={<ArrowRight className="flip-rtl size-4" />}>
-                  {t('home.hero.ctaShop')}
-                </Button>
-                <Button
-                  to="/sell"
-                  variant="outline"
-                  size="lg"
-                  className="border-white/20 bg-white/5 text-ink-950 hover:bg-white/10"
-                  leftIcon={<Store className="size-4" />}
-                >
-                  {t('home.hero.ctaSell')}
-                </Button>
-              </div>
-            </div>
-            <HeroArt />
+        <h1 className="sr-only">{t('home.hero.title')}</h1>
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_280px]">
+          <HeroCarousel slides={data?.heroSlides ?? []} loading={home.isPending} />
+          <div className="hidden grid-rows-2 gap-4 xl:grid">
+            <Link to="/mall" className="dark group relative flex flex-col justify-end overflow-hidden rounded-xl bg-[#0B2826] p-5 text-fg shadow-card">
+              <div className="souq-pattern absolute inset-0 opacity-60" aria-hidden />
+              <BadgeCheck className="relative size-7 text-accent" aria-hidden />
+              <p className="relative mt-2 text-lg font-extrabold text-ink-950">{t('home.sections.mall')}</p>
+              <p className="relative text-xs text-fg-muted">{t('home.mallTile')}</p>
+              <ArrowRight className="flip-rtl absolute end-5 top-5 size-5 text-accent transition-transform group-hover:translate-x-1 rtl:group-hover:-translate-x-1" aria-hidden />
+            </Link>
+            <Link to="/sell" className="group relative flex flex-col justify-end overflow-hidden rounded-xl border border-accent-200 bg-gradient-to-br from-accent-50 to-surface p-5 shadow-card">
+              <Store className="size-7 text-accent-700" aria-hidden />
+              <p className="mt-2 text-lg font-extrabold text-fg">{t('home.hero.ctaSell')}</p>
+              <p className="text-xs text-fg-muted">{t('home.sellTile')}</p>
+              <ArrowRight className="flip-rtl absolute end-5 top-5 size-5 text-accent-700 transition-transform group-hover:translate-x-1 rtl:group-hover:-translate-x-1" aria-hidden />
+            </Link>
           </div>
-        </section>
+        </div>
+
+        {home.error && (
+          <ErrorState error={home.error} onRetry={() => home.refetch()} className="mt-6 rounded-lg border border-border bg-surface" compact />
+        )}
 
         {/* Trust strip */}
-        <ul className="mt-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <ul className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
           {trust.map(({ icon: Icon, title, body }) => (
-            <li key={title} className="flex items-start gap-3 rounded-lg border border-border bg-surface p-4">
+            <li key={title} className="flex items-start gap-3 rounded-lg border border-border bg-surface p-3 sm:p-4">
               <span className="grid size-10 shrink-0 place-items-center rounded-t-[1.25rem] rounded-b-md bg-primary-50 text-primary-700">
                 <Icon className="size-5" />
               </span>
@@ -94,73 +200,76 @@ export default function HomePage() {
         </ul>
 
         {/* Categories */}
-        <section className="mt-12" aria-busy="true" aria-labelledby="home-cats">
+        <section className="mt-10" aria-labelledby="home-cats" aria-busy={home.isPending || undefined}>
           <SectionHeader
             title={<span id="home-cats">{t('home.categories.title')}</span>}
             eyebrow={t('home.categories.eyebrow')}
+            action={
+              <Button to="/categories" variant="link" size="sm" rightIcon={<ArrowRight className="flip-rtl size-4" />}>
+                {t('catalog.allCategories')}
+              </Button>
+            }
           />
-          <div className="no-scrollbar -mx-4 flex gap-4 overflow-x-auto px-4 sm:mx-0 sm:grid sm:grid-cols-4 sm:px-0 md:grid-cols-8">
-            {Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} className="flex w-20 shrink-0 flex-col items-center gap-2 sm:w-auto">
-                <Skeleton className="aspect-square w-full rounded-t-[999px] rounded-b-lg" />
-                <Skeleton className="h-2.5 w-3/4" />
+          <ul className="no-scrollbar -mx-4 grid auto-cols-[76px] grid-flow-col grid-rows-2 gap-x-3 gap-y-4 overflow-x-auto px-4 sm:mx-0 sm:grid-flow-row sm:grid-cols-6 sm:grid-rows-none sm:px-0 md:grid-cols-8 lg:grid-cols-12">
+            {home.isPending
+              ? Array.from({ length: 12 }).map((_, i) => (
+                  <li key={i} className="flex flex-col items-center gap-2">
+                    <Skeleton className="aspect-[5/6] w-full max-w-[88px] rounded-t-[999px] rounded-b-lg" />
+                    <Skeleton className="h-2.5 w-3/4" />
+                  </li>
+                ))
+              : (data?.categories ?? []).slice(0, 11).map((c) => (
+                  <li key={c.id}>
+                    <CategoryTile to={`/c/${c.slug}`} name={localized(c.name)} icon={c.icon} color={c.color} />
+                  </li>
+                ))}
+            {!home.isPending && (
+              <li>
+                <Link to="/categories" className="group flex flex-col items-center gap-2 text-center">
+                  <span className="grid aspect-[5/6] w-full max-w-[88px] place-items-center rounded-t-[999px] rounded-b-lg border border-dashed border-border-strong bg-surface-2 text-fg-muted transition group-hover:border-primary-500 group-hover:text-primary-700">
+                    <LayoutGrid className="size-7" aria-hidden />
+                  </span>
+                  <span className="text-xs font-semibold text-fg sm:text-[13px]">{t('catalog.allCategories')}</span>
+                </Link>
+              </li>
+            )}
+          </ul>
+        </section>
+
+        <FlashSaleStrip fallback={data?.flashSale} loading={home.isPending} />
+
+        {home.isPending ? (
+          <>
+            <ProductRail title={t('home.sections.trending')} loading />
+            <section className="mt-12">
+              <Skeleton className="h-7 w-48" />
+              <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <StoreCardSkeleton key={i} />
+                ))}
               </div>
-            ))}
-          </div>
-        </section>
+            </section>
+          </>
+        ) : (
+          data?.sections.map((s, i) => {
+            const key = `${s.type}-${i}`;
+            if (s.type === 'top_stores') return <TopStores key={key} items={s.items} />;
+            if (s.type === 'campaign') return <CampaignBanners key={key} items={s.items} />;
+            if (s.type === 'mall') return <MallRail key={key} items={s.items} />;
+            return (
+              <ProductRail
+                key={key}
+                title={t(`home.sections.${s.type}`, { defaultValue: s.title })}
+                eyebrow={s.type === 'trending' ? t('home.trendingEyebrow') : undefined}
+                products={s.items}
+                viewAll={VIEW_ALL[s.type]}
+              />
+            );
+          })
+        )}
 
-        {/* Deals */}
-        <section className="mt-12" aria-busy="true" aria-labelledby="home-deals">
-          <div className="rounded-xl border border-sale-100 bg-gradient-to-br from-sale-50 via-surface to-accent-50 p-4 sm:p-6">
-            <SectionHeader
-              title={<span id="home-deals">{t('home.deals.title')}</span>}
-              eyebrow={t('home.deals.eyebrow')}
-              description={t('home.deals.body')}
-            />
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-              {Array.from({ length: 6 }).map((_, i) => (
-                <ProductCardSkeleton key={i} className={i > 3 ? 'hidden lg:block' : i > 1 ? 'hidden sm:block' : ''} />
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* Shops */}
-        <section className="mt-12" aria-busy="true" aria-labelledby="home-shops">
-          <SectionHeader
-            title={<span id="home-shops">{t('home.shops.title')}</span>}
-            eyebrow={t('home.shops.eyebrow')}
-            description={t('home.shops.body')}
-          />
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="rounded-lg border border-border bg-surface p-4">
-                <div className="flex items-center gap-3">
-                  <Skeleton className="size-12 rounded-full" />
-                  <div className="flex-1 space-y-2">
-                    <Skeleton className="h-3 w-2/3" />
-                    <Skeleton className="h-2.5 w-1/3" />
-                  </div>
-                </div>
-                <div className="mt-4 grid grid-cols-3 gap-2">
-                  <Skeleton className="aspect-square" />
-                  <Skeleton className="aspect-square" />
-                  <Skeleton className="aspect-square" />
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* For you */}
-        <section className="mt-12" aria-busy="true" aria-labelledby="home-foryou">
-          <SectionHeader title={<span id="home-foryou">{t('home.forYou.title')}</span>} eyebrow={t('home.forYou.eyebrow')} />
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-            {Array.from({ length: 10 }).map((_, i) => (
-              <ProductCardSkeleton key={i} className={i > 5 ? 'hidden lg:block' : ''} />
-            ))}
-          </div>
-        </section>
+        <RecentlyViewed />
+        <JustForYou />
 
         {/* Seller CTA */}
         <section className="mt-14 overflow-hidden rounded-xl border border-border bg-surface">
