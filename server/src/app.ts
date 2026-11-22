@@ -10,7 +10,9 @@ import { errorHandler, notFoundHandler } from './middleware/error';
 import { rateLimits } from './middleware/rateLimit';
 import { accountRouter } from './modules/account/account.routes';
 import { authRouter } from './modules/auth/auth.routes';
+import { marketplaceRouter } from './modules/catalog/catalog.routes';
 import { configRouter } from './modules/config/config.routes';
+import { sellerRouter } from './modules/seller/seller.routes';
 import { UPLOADS_DIR } from './services/storage';
 
 /** Builds the Express app. Does NOT listen (tests import it with supertest). */
@@ -81,6 +83,8 @@ export function createApp() {
   api.use('/', configRouter); // /health, /config/public
   api.use('/auth', authRouter);
   api.use('/account', accountRouter);
+  api.use('/seller', sellerRouter);
+  api.use('/', marketplaceRouter);
 
   app.use('/api/v1', api);
   app.use(notFoundHandler);

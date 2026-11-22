@@ -18,9 +18,10 @@ export class CloudinaryStorage implements StorageService {
     return new Promise((resolve, reject) => {
       const stream = cloudinary.uploader.upload_stream(
         {
-          folder: `souqly/${opts.folder}`,
-          resource_type: opts.mimetype.startsWith('image/') ? 'image' : 'raw',
-          unique_filename: true,
+          ...(opts.fixedKey
+            ? { public_id: `souqly/${opts.fixedKey.replace(/\.[a-z0-9]+$/i, '')}`, overwrite: true }
+            : { folder: `souqly/${opts.folder}`, unique_filename: true }),
+          resource_type: opts.mimetype.startsWith('image/') ? 'image' : opts.mimetype.startsWith('video/') ? 'video' : 'raw',
         },
         (err, result?: UploadApiResponse) => {
           if (err || !result) return reject(err ?? new Error('Cloudinary upload failed'));

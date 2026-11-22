@@ -1,8 +1,9 @@
 import request from 'supertest';
-import { describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { app } from '../../app';
 import { env } from '../../config/env';
 import { runSeed } from '../../seed/seed';
+import { setStorage } from '../../services/storage';
 import { api, loginAgent, signupAgent } from '../../test/helpers';
 import { AuditLog } from '../audit/auditLog.model';
 import { authenticator } from '../auth/auth.service';
@@ -32,11 +33,17 @@ describe('change password', () => {
 });
 
 describe('seeded super admin', () => {
+  // Seed art goes to an in-memory store instead of server/uploads.
+  beforeAll(() =>
+    setStorage({ name: 'cloudinary', upload: async (_b, o) => ({ url: `/uploads/${o.fixedKey ?? o.folder}`, key: o.fixedKey ?? o.folder }), delete: async () => {} }),
+  );
+  afterAll(() => setStorage(undefined));
+
   it('logs in with the default credentials and clears passwordChangeRecommended after a change', async () => {
     await runSeed();
     await runSeed(); // idempotent
     expect(await User.countDocuments({ email: env.ADMIN_EMAIL })).toBe(1);
-    expect(await User.countDocuments({ demo: true })).toBe(3);
+    expect(await User.countDocuments({ demo: true })).toBe(3 + 12); // demo buyers + demo store owners
 
     const { agent, res } = await loginAgent('souqly@gmail.com', 'souqly123');
     expect(res.status).toBe(200);

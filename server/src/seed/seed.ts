@@ -6,13 +6,16 @@ import { logger } from '../lib/logger';
 import { hashPassword } from '../modules/auth/auth.service';
 import { User } from '../modules/users/user.model';
 import { generateReferralCode } from '../modules/users/user.service';
+import { seedCatalog } from './catalog';
 import { clearDemoData } from './clear';
+import { SEED_STORES } from './data/stores';
 
 /**
  * Demo accounts (all `demo: true`, removed by `npm run seed:clear`). Password for all: Demo1234
  *   ayesha@demo.souqly.pk  — Ayesha Khan  (buyer)
  *   bilal@demo.souqly.pk   — Bilal Ahmed  (buyer)
  *   sana@demo.souqly.pk    — Sana Malik   (buyer)
+ * Demo sellers (store owners): see src/seed/data/stores.ts, e.g. noor@demo.souqly.pk (Noor Textiles).
  * Super Admin: ADMIN_EMAIL / ADMIN_PASSWORD from server/.env (defaults souqly@gmail.com / souqly123).
  */
 export const DEMO_PASSWORD = 'Demo1234';
@@ -44,8 +47,7 @@ async function ensureSuperAdmin(): Promise<'created' | 'exists'> {
   return 'created';
 }
 
-async function seedDemoBuyers(): Promise<number> {
-  const passwordHash = await hashPassword(DEMO_PASSWORD);
+async function seedDemoBuyers(passwordHash: string): Promise<number> {
   let created = 0;
   for (const b of DEMO_BUYERS) {
     if (await User.exists({ email: b.email })) continue;
@@ -70,10 +72,14 @@ async function seedDemoBuyers(): Promise<number> {
 export async function runSeed(opts: { reset?: boolean } = {}): Promise<void> {
   if (opts.reset) await clearDemoData();
   const admin = await ensureSuperAdmin();
-  const buyers = await seedDemoBuyers();
-  logger.info({ admin, demoBuyersCreated: buyers }, 'Seed complete');
+  // Hash the demo password ONCE and reuse it for every demo user (bcrypt is slow on purpose).
+  const demoHash = await hashPassword(DEMO_PASSWORD);
+  const buyers = await seedDemoBuyers(demoHash);
+  const catalog = await seedCatalog(demoHash);
+  logger.info({ admin, demoBuyersCreated: buyers, catalog }, 'Seed complete');
   logger.info(
-    `Login: ${env.ADMIN_EMAIL} (Super Admin) | demo buyers: ${DEMO_BUYERS.map((b) => b.email).join(', ')} / ${DEMO_PASSWORD}`,
+    `Login: ${env.ADMIN_EMAIL} (Super Admin) | demo buyers: ${DEMO_BUYERS.map((b) => b.email).join(', ')} | ` +
+      `demo sellers: ${SEED_STORES.map((s) => s.owner.email).join(', ')} — password ${DEMO_PASSWORD}`,
   );
 }
 

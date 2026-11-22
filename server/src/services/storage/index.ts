@@ -3,7 +3,16 @@ import { SERVER_ROOT, integrations } from '../../config/env';
 import { CloudinaryStorage } from './cloudinary';
 import { LocalDiskStorage } from './local';
 
-export type UploadOptions = { folder: string; filename: string; mimetype: string };
+export type UploadOptions = {
+  folder: string;
+  filename: string;
+  mimetype: string;
+  /**
+   * Exact storage key (`<folder>/<name>.<ext>`), overwriting any existing file. Used only by the seed so
+   * demo art is written to stable paths (re-seeding never piles up files). Never pass user input here.
+   */
+  fixedKey?: string;
+};
 export type StoredFile = { url: string; key: string };
 
 export interface StorageService {

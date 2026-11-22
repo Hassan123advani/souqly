@@ -27,14 +27,19 @@ Admin: souqly@gmail.com / souqly123 (from server/.env)
 
 ## Done
 - Agents created in `.claude/agents/` (architect, ui-designer, frontend-dev, backend-dev, qa-tester, security-reviewer, code-reviewer).
-- Root workspace, `shared/` package (roles, permissions, order statuses, locale, money, slug, auth schemas + tests).
-- CLAUDE.md, DECISIONS.md.
+- Root workspace, `shared/` package (roles, permissions, order statuses, locale, money, slug, auth/account schemas, API types + tests).
+- CLAUDE.md, DECISIONS.md, docs/api-auth.md, docs/api-catalog.md.
+- Phase 1+2 SERVER done & committed (a210fa2): env, in-memory Mongo fallback + auto-seed, storage/email/notify/payment/jobs services, socket auth, full auth + account API, 36 tests green.
+- Security review of Phase 1–2 done → findings in docs/reviews/security-phase-1-2.md (OPEN).
 
 ## In progress
-- Phase 1: server skeleton with fallbacks; client skeleton with design system + logo.
+- Phase 1+2 CLIENT (design system, logo, UI kit, layouts, auth + account pages): files on disk, typecheck passes; fixing blank screenshots + visual polish. Not yet committed.
+- Phase 3 BACKEND (catalog models/endpoints done in server/src/modules/catalog + seller; seed data in server/src/seed/data/ in progress; tests pending). Not yet committed.
 
 ## Next
-- Phase 2.
+1. Commit client + Phase 3 once green.
+2. Fix all findings in docs/reviews/security-phase-1-2.md (backend-dev), re-run tests.
+3. Phase 4 marketplace front (frontend-dev) against docs/api-catalog.md.
 
 ## Known issues
-- none yet
+- Security findings H1–H3, M1–M6, L1–L11 open (see docs/reviews/security-phase-1-2.md).

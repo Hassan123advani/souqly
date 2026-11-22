@@ -1,13 +1,41 @@
-import { STORE_STATUSES, type StoreStatus } from '@souqly/shared';
+import { STORE_LAYOUTS, STORE_PLANS, STORE_SECTION_TYPES, STORE_STATUSES, type StoreLayout, type StorePlan, type StoreStatus } from '@souqly/shared';
 import { Schema, Types, model, type HydratedDocument } from 'mongoose';
 
-/** Minimal store model for auth/storeContext. Phase 5 (seller onboarding) extends it. */
+/**
+ * Store (docs/api-catalog.md). `business` and `payout` are sensitive (KYC / bank details):
+ * `select: false` and NEVER part of a public DTO (see stores.service.ts → toStorePublic).
+ */
 export interface IStore {
   ownerId: Types.ObjectId;
   name: string;
   slug: string;
-  status: StoreStatus;
+  tagline?: string;
+  description?: string;
   logo?: { url: string; key: string };
+  banner?: { url: string; key: string };
+  themeColor: string;
+  categoryIds: Types.ObjectId[];
+  status: StoreStatus;
+  rejectionReason?: string;
+  isMall: boolean;
+  mallRequested: boolean;
+  contact: { email?: string; phone?: string; whatsapp?: string };
+  address: { line1?: string; area?: string; city?: string; country?: string; postalCode?: string };
+  policies: { shipping?: string; returns?: string; warranty?: string };
+  layoutTemplate: StoreLayout;
+  sections: { type: (typeof STORE_SECTION_TYPES)[number]; title?: string; config: Record<string, unknown> }[];
+  seo: { title?: string; description?: string };
+  holidayMode: { enabled: boolean; message?: string; until?: Date };
+  ratingAvg: number;
+  ratingCount: number;
+  followerCount: number;
+  productCount: number;
+  responseRate: number;
+  responseTimeHours: number;
+  healthScore: number;
+  plan: StorePlan;
+  business?: Record<string, unknown>;
+  payout?: Record<string, unknown>;
   demo: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -18,12 +46,48 @@ const storeSchema = new Schema<IStore>(
     ownerId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
     name: { type: String, required: true, trim: true, maxlength: 80 },
     slug: { type: String, required: true, unique: true, lowercase: true, trim: true, maxlength: 40 },
-    status: { type: String, enum: STORE_STATUSES, default: 'pending', index: true },
+    tagline: { type: String, trim: true, maxlength: 120 },
+    description: { type: String, maxlength: 2000 },
     logo: { url: String, key: String },
+    banner: { url: String, key: String },
+    themeColor: { type: String, default: '#0E5E5A' },
+    categoryIds: { type: [Schema.Types.ObjectId], default: [] },
+    status: { type: String, enum: STORE_STATUSES, default: 'pending', index: true },
+    rejectionReason: String,
+    isMall: { type: Boolean, default: false },
+    mallRequested: { type: Boolean, default: false },
+    contact: { email: String, phone: String, whatsapp: String },
+    address: { line1: String, area: String, city: String, country: { type: String, default: 'PK' }, postalCode: String },
+    policies: { shipping: String, returns: String, warranty: String },
+    layoutTemplate: { type: String, enum: STORE_LAYOUTS, default: 'classic' },
+    sections: [
+      {
+        type: { type: String, enum: STORE_SECTION_TYPES, required: true },
+        title: String,
+        config: { type: Schema.Types.Mixed, default: {} },
+        _id: false,
+      },
+    ],
+    seo: { title: String, description: String },
+    holidayMode: { enabled: { type: Boolean, default: false }, message: String, until: Date },
+    ratingAvg: { type: Number, default: 0 },
+    ratingCount: { type: Number, default: 0 },
+    followerCount: { type: Number, default: 0 },
+    productCount: { type: Number, default: 0 },
+    responseRate: { type: Number, default: 100 },
+    responseTimeHours: { type: Number, default: 24 },
+    healthScore: { type: Number, default: 100 },
+    plan: { type: String, enum: STORE_PLANS, default: 'free' },
+    business: { type: Schema.Types.Mixed, select: false },
+    payout: { type: Schema.Types.Mixed, select: false },
     demo: { type: Boolean, default: false, index: true },
   },
-  { timestamps: true },
+  { timestamps: true, minimize: false },
 );
+storeSchema.index({ status: 1, isMall: 1 });
+storeSchema.index({ status: 1, followerCount: -1 });
+storeSchema.index({ status: 1, ratingAvg: -1 });
+storeSchema.index({ name: 'text' }, { name: 'store_text' });
 
 export const Store = model<IStore>('Store', storeSchema);
 export type StoreDoc = HydratedDocument<IStore>;

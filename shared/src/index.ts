@@ -9,3 +9,5 @@ export * from './schemas/common';
 export * from './schemas/auth';
 export * from './schemas/account';
 export * from './types/api';
+export * from './schemas/catalog';
+export * from './types/catalog';

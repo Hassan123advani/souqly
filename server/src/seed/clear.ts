@@ -6,11 +6,16 @@ import { logger } from '../lib/logger';
 import { Address } from '../modules/account/address.model';
 import { AuditLog } from '../modules/audit/auditLog.model';
 import { Otp } from '../modules/auth/otp.model';
+import { RecentlyViewed, SearchLog } from '../modules/catalog/marketing.models';
+import { Product } from '../modules/catalog/product.model';
 import { Session } from '../modules/auth/session.model';
 import { Token } from '../modules/auth/token.model';
 import { Store } from '../modules/stores/store.model';
 import { StoreMember } from '../modules/stores/storeMember.model';
 import { User } from '../modules/users/user.model';
+import { getStorage } from '../services/storage';
+import { HERO_SLIDES, seedCampaigns } from './data/home';
+import { LocalDiskStorage } from '../services/storage/local';
 
 /**
  * Deletes every document marked `demo: true` (plus data owned by demo users).
@@ -23,7 +28,13 @@ export async function clearDemoData(): Promise<Record<string, number>> {
   const demoStores = await Store.find({ demo: true }).select('_id').lean();
   const storeIds = demoStores.map((s) => s._id);
 
+  const demoProducts = await Product.find({ demo: true }).select('_id').lean();
+  const productIds = demoProducts.map((p) => p._id);
+
   const counts: Record<string, number> = {};
+  counts.seedFiles = await deleteSeedFiles();
+  counts.recentlyViewed = (await RecentlyViewed.deleteMany({ $or: [{ userId: { $in: userIds } }, { productId: { $in: productIds } }] })).deletedCount;
+  counts.searchLogs = (await SearchLog.deleteMany({ userId: { $in: userIds } })).deletedCount;
   counts.sessions = (await Session.deleteMany({ userId: { $in: userIds } })).deletedCount;
   counts.tokens = (await Token.deleteMany({ userId: { $in: userIds } })).deletedCount;
   counts.otps = (await Otp.deleteMany({ phone: { $in: phones } })).deletedCount;
@@ -33,12 +44,38 @@ export async function clearDemoData(): Promise<Record<string, number>> {
     .deletedCount;
 
   // Any other model that carries a `demo` flag (added by later phases).
-  const handled = new Set(['Session', 'Token', 'Otp', 'AuditLog', 'Address', 'StoreMember']);
+  const handled = new Set(['Session', 'Token', 'Otp', 'AuditLog', 'Address', 'StoreMember', 'RecentlyViewed', 'SearchLog']);
   for (const model of Object.values(mongoose.models)) {
     if (handled.has(model.modelName) || !model.schema.path('demo')) continue;
     counts[model.modelName] = (await model.deleteMany({ demo: true })).deletedCount;
   }
   return counts;
+}
+
+/**
+ * Removes the seed art (everything under the `seed/` storage folder). Local disk: the folder is
+ * wiped. Cloudinary: every `seed/...` key referenced by demo documents is deleted.
+ */
+async function deleteSeedFiles(): Promise<number> {
+  const storage = getStorage();
+  if (storage instanceof LocalDiskStorage) {
+    await storage.deleteFolder('seed');
+    return 1;
+  }
+  const keys = new Set<string>();
+  const products = await Product.find({ demo: true }).select('images.key').lean();
+  for (const p of products) for (const i of p.images) if (i.key?.startsWith('seed/')) keys.add(i.key);
+  const stores = await Store.find({ demo: true }).select('logo.key banner.key').lean();
+  for (const s of stores) for (const k of [s.logo?.key, s.banner?.key]) if (k?.startsWith('seed/')) keys.add(k);
+  // Home hero and campaign art keep only a URL, but their keys are deterministic.
+  for (const h of HERO_SLIDES) keys.add(`seed/home/hero-${h.key}.svg`);
+  for (const c of seedCampaigns(new Date())) keys.add(`seed/campaigns/${c.slug}.svg`);
+  let n = 0;
+  for (const k of keys) {
+    await storage.delete(k).catch((err) => logger.warn({ err, key: k }, 'Failed to delete seed file'));
+    n++;
+  }
+  return n;
 }
 
 // CLI: `npm run seed:clear`
