@@ -6,6 +6,7 @@ import type { ProductCard as ProductCardData } from '@souqly/shared';
 import { Price, Skeleton } from '@/components/ui';
 import { cn } from '@/lib/cn';
 import { compactNumber } from '@/lib/catalog';
+import { CardHeart } from '@/components/wishlist/WishlistHeart';
 import { ProductImage } from './ProductImage';
 
 export type ProductCardVariant = 'grid' | 'list';
@@ -126,7 +127,10 @@ function ProductCardImpl({
           </Link>
         </h3>
 
-        <Price amount={price} compareAt={compareAt} size={list ? 'lg' : 'md'} showDiscount={list} />
+        <div className="flex items-start justify-between gap-1">
+          <Price amount={price} compareAt={compareAt} size={list ? 'lg' : 'md'} showDiscount={list} />
+          <CardHeart productId={p.id} className="-me-1.5 -mt-1" />
+        </div>
 
         <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-fg-muted">
           {p.ratingCount > 0 && (

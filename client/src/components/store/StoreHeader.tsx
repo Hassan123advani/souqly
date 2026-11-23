@@ -2,12 +2,14 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { QRCodeSVG } from 'qrcode.react';
-import { Clock, Copy, MapPin, MessageCircle, Plus, QrCode, Star, Users } from 'lucide-react';
+import { Clock, Copy, MapPin, MessageCircle, QrCode, Star, Users } from 'lucide-react';
 import type { StorePublic } from '@souqly/shared';
 import { Button, IconButton, Modal } from '@/components/ui';
 import { MallBadge } from '@/components/product/ProductCard';
 import { StoreLogo } from '@/components/product/StoreCard';
-import { CHAT_READY, FOLLOW_READY } from '@/components/pdp/SellerCard';
+import { ChatWithSellerButton } from '@/components/chat/ChatWithSeller';
+import { FollowButton, useFollowerCount } from '@/components/social/FollowButton';
+import { ReportMenu } from '@/components/social/ReportMenu';
 import { cn } from '@/lib/cn';
 import { absoluteUrl, compactNumber, useLang } from '@/lib/catalog';
 import { formatDate } from '@/lib/format';
@@ -54,9 +56,10 @@ function ShareStoreModal({ store, open, onOpenChange }: { store: StorePublic; op
 function Stats({ store, tone = 'default' }: { store: StorePublic; tone?: 'default' | 'onBrand' }) {
   const { t } = useTranslation();
   const lang = useLang();
+  const followers = useFollowerCount(store.slug, store.followerCount);
   const items = [
     { icon: <Star className="size-3.5 fill-accent text-accent" aria-hidden />, label: t('store.ratingN', { n: store.ratingAvg.toFixed(1), c: compactNumber(store.ratingCount) }) },
-    { icon: <Users className="size-3.5" aria-hidden />, label: t('store.followersN', { n: compactNumber(store.followerCount) }) },
+    { icon: <Users className="size-3.5" aria-hidden />, label: t('store.followersN', { n: compactNumber(followers) }) },
     { icon: <MessageCircle className="size-3.5" aria-hidden />, label: t('store.responseN', { n: store.responseRate }) },
     { icon: <Clock className="size-3.5" aria-hidden />, label: t('store.joined', { date: formatDate(store.joinedAt, lang, { month: 'short', year: 'numeric' }) }) },
     ...(store.city ? [{ icon: <MapPin className="size-3.5" aria-hidden />, label: store.city }] : []),
@@ -77,19 +80,12 @@ function Actions({ store, onShare, center }: { store: StorePublic; onShare: () =
   const { t } = useTranslation();
   return (
     <div className={cn('flex flex-wrap items-center gap-2', center && 'justify-center')}>
-      {FOLLOW_READY && (
-        <Button size="sm" leftIcon={<Plus className="size-4" />} className="bg-[color:var(--store)] text-[color:var(--store-fg)]">
-          {t('store.follow')}
-        </Button>
-      )}
-      {CHAT_READY && (
-        <Button size="sm" variant="outline" leftIcon={<MessageCircle className="size-4" />}>
-          {t('store.chat')}
-        </Button>
-      )}
+      <FollowButton slug={store.slug} variant="primary" className="bg-[color:var(--store)] text-[color:var(--store-fg)]" />
+      <ChatWithSellerButton storeSlug={store.slug} variant="outline" className="bg-surface" label={t('store.chat')} />
       <IconButton label={t('store.share')} variant="outline" size="sm" onClick={onShare} className="bg-surface">
         <QrCode className="size-4" />
       </IconButton>
+      <ReportMenu targetType="store" targetId={store.id} className="bg-surface" />
       {store.isMall && <MallBadge size="md" />}
     </div>
   );

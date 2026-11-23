@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { Lock, ShoppingCart } from 'lucide-react';
 import type { PaymentMethod } from '@souqly/shared';
 import { cartKey, useCheckoutPreview, usePlaceOrder } from '@/api/cart';
+import { CoinsRedeem } from '@/components/wallet/CoinsRedeem';
 import { getErrorCode, getErrorStatus } from '@/api/client';
 import { Alert, Button, Card, Container, EmptyState, ErrorState, Skeleton } from '@/components/ui';
 import { Seo } from '@/components/layout/Seo';
@@ -28,7 +29,8 @@ export default function CheckoutPage() {
   const [method, setMethod] = useState<PaymentMethod>('cod');
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [conflict, setConflict] = useState<'STOCK_CHANGED' | 'CART_CHANGED' | null>(null);
-  const preview = useCheckoutPreview(addressId, method);
+  const [coins, setCoins] = useState(0);
+  const preview = useCheckoutPreview(addressId, method, coins);
   const place = usePlaceOrder();
   // One key per attempt; kept across network failures (no response) so a retry can't double-order.
   const keyRef = useRef<string | null>(null);
@@ -45,7 +47,7 @@ export default function CheckoutPage() {
     const cleanNotes = Object.fromEntries(Object.entries(notes).map(([k, v]) => [k, v.trim()]).filter(([, v]) => v));
     setConflict(null);
     place.mutate(
-      { addressId, paymentMethod: method, idempotencyKey: keyRef.current, ...(Object.keys(cleanNotes).length ? { notes: cleanNotes } : {}) },
+      { addressId, paymentMethod: method, idempotencyKey: keyRef.current, ...(coins > 0 ? { coins } : {}), ...(Object.keys(cleanNotes).length ? { notes: cleanNotes } : {}) },
       {
         onSuccess: (c) => {
           keyRef.current = null;
@@ -160,6 +162,7 @@ export default function CheckoutPage() {
                 <PriceBreakdown
                   b={{ itemsSubtotal: s.itemsSubtotal, shippingTotal: s.shippingTotal, discountTotal: s.discountTotal, total: s.total, savings: s.savings, count: s.selectedCount }}
                 />
+                <CoinsRedeem redemption={p.coinsRedemption} value={coins} onChange={setCoins} />
                 {method === 'cod' && <p className="rounded-md bg-accent-50 px-3 py-2 text-xs font-medium text-accent-800">{t('checkout.codHint')}</p>}
                 <Button block size="lg" variant="accent" className="hidden lg:inline-flex" disabled={!canPlace} loading={place.isPending} onClick={submit}>
                   {t('checkout.placeOrder')}

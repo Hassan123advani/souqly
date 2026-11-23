@@ -4,15 +4,17 @@ import { Home, LayoutGrid, MessageCircle, ShoppingCart, UserRound } from 'lucide
 import { cn } from '@/lib/cn';
 import { useCart } from '@/stores/cart';
 import { CountBadge } from '@/components/ui';
+import { useChatUnread } from '@/api/chat';
 
 export function BottomNav() {
   const { t } = useTranslation();
   const count = useCart((s) => s.count);
+  const chatUnread = useChatUnread('buyer');
   const items = [
     { to: '/', label: t('nav.home'), icon: Home, end: true },
     { to: '/categories', label: t('nav.categories'), icon: LayoutGrid },
     { to: '/cart', label: t('nav.cart'), icon: ShoppingCart, badge: count },
-    { to: '/chat', label: t('nav.chat'), icon: MessageCircle },
+    { to: '/chat', label: t('nav.chat'), icon: MessageCircle, badge: chatUnread },
     { to: '/account', label: t('nav.account'), icon: UserRound },
   ];
   return (

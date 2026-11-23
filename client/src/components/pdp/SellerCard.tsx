@@ -1,22 +1,22 @@
 import { useTranslation } from 'react-i18next';
-import { MessageCircle, Plus, Star } from 'lucide-react';
+import { Star } from 'lucide-react';
 import type { StoreSummaryCard } from '@souqly/shared';
 import { Button } from '@/components/ui';
+import { ChatWithSellerButton, type DraftProduct } from '@/components/chat/ChatWithSeller';
+import { FollowButton, useFollowerCount } from '@/components/social/FollowButton';
 import { MallBadge } from '@/components/product/ProductCard';
 import { StoreLogo } from '@/components/product/StoreCard';
 import { compactNumber, useLang } from '@/lib/catalog';
 import { formatDate } from '@/lib/format';
 
-/** Follow and Chat arrive with Phase 8 (followers + messaging); hidden until then (D-035). */
-export const FOLLOW_READY = false;
-export const CHAT_READY = false;
-
-export function SellerCard({ store }: { store: StoreSummaryCard }) {
+/** Store summary on the PDP; `product` prefills a product card when chatting with the seller. */
+export function SellerCard({ store, product }: { store: StoreSummaryCard; product?: DraftProduct }) {
   const { t } = useTranslation();
   const lang = useLang();
+  const followers = useFollowerCount(store.slug, store.followerCount);
   const stats = [
     { label: t('store.rating'), value: store.ratingAvg ? store.ratingAvg.toFixed(1) : '—', icon: <Star className="size-3.5 fill-accent text-accent" aria-hidden /> },
-    { label: t('store.followers'), value: compactNumber(store.followerCount) },
+    { label: t('store.followers'), value: compactNumber(followers) },
     { label: t('store.responseRate'), value: `${store.responseRate}%` },
   ];
   return (
@@ -46,20 +46,12 @@ export function SellerCard({ store }: { store: StoreSummaryCard }) {
           </div>
         ))}
       </dl>
-      <div className="mt-4 flex gap-2">
+      <div className="mt-4 flex flex-wrap gap-2">
         <Button to={`/store/${store.slug}`} variant="outline" size="sm" className="flex-1">
           {t('pdp.visitStore')}
         </Button>
-        {FOLLOW_READY && (
-          <Button variant="secondary" size="sm" leftIcon={<Plus className="size-4" />}>
-            {t('store.follow')}
-          </Button>
-        )}
-        {CHAT_READY && (
-          <Button variant="ghost" size="sm" leftIcon={<MessageCircle className="size-4" />}>
-            {t('store.chat')}
-          </Button>
-        )}
+        <FollowButton slug={store.slug} className="flex-1" />
+        <ChatWithSellerButton storeSlug={store.slug} product={product} variant="secondary" className="w-full" label={t('store.chat')} />
       </div>
     </section>
   );

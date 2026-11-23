@@ -2,11 +2,11 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
-import { CalendarClock, Check, HandCoins, Heart, PackageCheck, ShoppingCart, Sparkles, Truck, Zap } from 'lucide-react';
+import { CalendarClock, Check, HandCoins, PackageCheck, ShoppingCart, Sparkles, Truck, Zap } from 'lucide-react';
 import type { ProductCard as ProductCardData, ProductDetail } from '@souqly/shared';
 import { catalogKeys, useMoreFromStore, useProduct, useRelatedProducts, useStore } from '@/api/catalog';
 import { Seo } from '@/components/layout/Seo';
-import { Alert, Breadcrumbs, Button, Container, Countdown, Modal, Price, Rating, SectionHeader, Skeleton, type Crumb } from '@/components/ui';
+import { Alert, Breadcrumbs, Button, Container, Countdown, Modal, Price, Rating, Skeleton, type Crumb } from '@/components/ui';
 import { PageError, breadcrumbLd } from '@/components/catalog/PageStates';
 import { Gallery, type Media } from '@/components/pdp/Gallery';
 import { QtyStepper, VariantPicker } from '@/components/pdp/VariantPicker';
@@ -14,6 +14,11 @@ import { DeliveryEstimate } from '@/components/pdp/DeliveryEstimate';
 import { SellerCard } from '@/components/pdp/SellerCard';
 import { ShareMenu } from '@/components/pdp/ShareMenu';
 import { BoughtTogether } from '@/components/pdp/BoughtTogether';
+import { ProductReviews } from '@/components/reviews/ProductReviews';
+import { ProductQuestions } from '@/components/qa/ProductQuestions';
+import { ReportMenu } from '@/components/social/ReportMenu';
+import { AlertToggles } from '@/components/wishlist/AlertToggles';
+import { PdpWishlistButton } from '@/components/wishlist/WishlistHeart';
 import { MallBadge } from '@/components/product/ProductCard';
 import { ProductRail } from '@/components/product/Rail';
 import { useAddToCart, unitPrice } from '@/hooks/useAddToCart';
@@ -23,9 +28,6 @@ import { formatDate, money } from '@/lib/format';
 import { pushRecentlyViewed } from '@/lib/recentlyViewed';
 import { choose, findVariant, initialSelection, type Selection } from '@/lib/variants';
 
-/** Wishlist (Phase 7) and reviews (Phase 8) are not built yet; hidden until their APIs exist (D-035). */
-const WISHLIST_READY = false;
-const REVIEWS_READY = false;
 
 function toCard(p: ProductDetail): ProductCardData {
   return {
@@ -283,12 +285,9 @@ export default function ProductPage() {
             )}
             {p.soldCount > 0 && <span>{t('product.sold', { n: compactNumber(p.soldCount) })}</span>}
             <span className="ms-auto flex items-center gap-1">
-              {WISHLIST_READY && (
-                <Button variant="outline" size="sm" leftIcon={<Heart className="size-4" />}>
-                  {t('nav.wishlist')}
-                </Button>
-              )}
+              <PdpWishlistButton productId={p.id} variantId={variant?.id} />
               <ShareMenu title={p.title} url={url} />
+              <ReportMenu targetType="product" targetId={p.id} />
             </span>
           </div>
 
@@ -371,6 +370,9 @@ export default function ProductPage() {
               {buyLabel}
             </Button>
           </div>
+          <div className="mt-3">
+            <AlertToggles productId={p.id} variantId={variant?.id} outOfStock={!!variant && stock <= 0 && !preOrder} />
+          </div>
 
           {p.wholesaleTiers && p.wholesaleTiers.length > 0 && (
             <div className="mt-5">
@@ -386,7 +388,7 @@ export default function ProductPage() {
         {/* Delivery + seller */}
         <aside className="grid min-w-0 gap-4 self-start md:grid-cols-2 lg:col-span-2 xl:col-span-1 xl:grid-cols-1">
           <DeliveryEstimate product={p} storeCity={storeQuery.data?.city} />
-          <SellerCard store={p.store} />
+          <SellerCard store={p.store} product={{ id: p.id, title: p.title, slug: p.slug, image: p.images[0]?.url, price: pricing.price }} />
         </aside>
       </div>
 
@@ -446,11 +448,8 @@ export default function ProductPage() {
         </section>
       </div>
 
-      {REVIEWS_READY && (
-        <section className="mt-10">
-          <SectionHeader title={t('pdp.reviews')} />
-        </section>
-      )}
+      <ProductReviews slug={p.slug} />
+      <ProductQuestions slug={p.slug} />
 
       <ProductRail
         title={t('pdp.moreFromStore', { store: p.store.name })}

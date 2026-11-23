@@ -87,6 +87,8 @@ export type CheckoutPreview = CartDTO & {
   paymentMethod: PaymentMethod;
   paymentAvailable: boolean;
   canPlace: boolean;
+  /** Coin redemption quote (Phase 8): `max` = most coins usable (20% cap + balance). */
+  coinsRedemption?: { requested: number; used: number; discount: number; max: number };
   stores: {
     storeId: string;
     itemsSubtotal: number;
@@ -99,10 +101,10 @@ export type CheckoutPreview = CartDTO & {
   }[];
 };
 
-export function useCheckoutPreview(addressId: string | undefined, paymentMethod: PaymentMethod) {
+export function useCheckoutPreview(addressId: string | undefined, paymentMethod: PaymentMethod, coins = 0) {
   return useQuery({
-    queryKey: ['checkout', 'preview', addressId, paymentMethod],
-    queryFn: () => post<CheckoutPreview>('/checkout/preview', { addressId, paymentMethod }),
+    queryKey: ['checkout', 'preview', addressId, paymentMethod, coins],
+    queryFn: () => post<CheckoutPreview>('/checkout/preview', { addressId, paymentMethod, ...(coins > 0 ? { coins } : {}) }),
     enabled: !!addressId,
     staleTime: 0,
     placeholderData: keepPreviousData,
@@ -112,7 +114,7 @@ export function useCheckoutPreview(addressId: string | undefined, paymentMethod:
 export function usePlaceOrder() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (body: { addressId: string; paymentMethod: PaymentMethod; notes?: Record<string, string>; idempotencyKey: string }) =>
+    mutationFn: (body: { addressId: string; paymentMethod: PaymentMethod; notes?: Record<string, string>; idempotencyKey: string; coins?: number }) =>
       post<CheckoutDTO>('/checkout', body),
     onSuccess: (checkout) => {
       qc.setQueryData(['checkout', checkout.number], checkout);
