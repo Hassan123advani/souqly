@@ -16,12 +16,28 @@ import { marketplaceRouter } from './modules/catalog/catalog.routes';
 import { checkoutRouter } from './modules/checkout/checkout.routes';
 import { configRouter } from './modules/config/config.routes';
 import { ordersRouter } from './modules/orders/orders.routes';
+import { riderRouter } from './modules/delivery/rider.routes';
+import { sellerRidersRouter } from './modules/delivery/sellerRiders.routes';
+import { trackingRouter } from './modules/delivery/tracking.routes';
+import { notificationsRouter } from './modules/notifications/notification.routes';
+import { pushRouter } from './modules/push/push.routes';
+import { buyerReturnsRouter, orderReturnsRouter, sellerReturnsRouter } from './modules/returns/return.routes';
 import { sellerOrdersRouter } from './modules/orders/sellerOrders.routes';
 import { sellerRouter } from './modules/seller/seller.routes';
 import { sellerPreStoreRouter } from './modules/onboarding/onboarding.routes';
 import { tempUploadsRouter } from './modules/onboarding/tempUpload.routes';
 import { adminStoresRouter } from './modules/stores/adminStores.routes';
 import { storesPublicRouter } from './modules/stores/stores.routes';
+import { alertRouter } from './modules/alerts/alert.routes';
+import { chatRouter, sellerChatRouter } from './modules/chat/chat.routes';
+import { followRouter } from './modules/follows/follow.routes';
+import { adminGiftCardsRouter, loyaltyRouter } from './modules/loyalty/loyalty.routes';
+import { qaRouter, sellerQaRouter } from './modules/qa/qa.routes';
+import { reportRouter } from './modules/reports/report.routes';
+import { socialUploadRouter } from './modules/reviews/media';
+import { reviewRouter, sellerReviewRouter } from './modules/reviews/review.routes';
+import { walletRouter } from './modules/wallet/wallet.routes';
+import { wishlistRouter } from './modules/wishlists/wishlist.routes';
 import { UPLOADS_DIR } from './services/storage';
 
 /** Paths whose query strings carry secrets (OAuth code/state) and are never logged. */
@@ -107,8 +123,31 @@ export function createApp() {
   api.use('/account', accountRouter);
   api.use('/cart', cartRouter);
   api.use('/checkout', checkoutRouter);
+  api.use('/orders', trackingRouter); // GET /orders/:number/tracking (Phase 7)
+  api.use('/orders', orderReturnsRouter); // POST /orders/:number/returns (Phase 7)
   api.use('/orders', ordersRouter);
+  api.use('/notifications', notificationsRouter);
+  api.use('/push', pushRouter);
+  api.use('/rider', riderRouter);
+  api.use('/returns', buyerReturnsRouter);
+  api.use('/seller/riders', sellerRidersRouter);
+  api.use('/seller/returns', sellerReturnsRouter);
   api.use('/seller/orders', sellerOrdersRouter);
+  // Phase 8: social, engagement & loyalty
+  api.use('/social', socialUploadRouter); // POST /social/uploads
+  api.use('/wallet', walletRouter);
+  api.use('/wishlists', wishlistRouter);
+  api.use('/alerts', alertRouter);
+  api.use('/chat', chatRouter);
+  api.use('/reports', reportRouter);
+  api.use('/seller/chat', sellerChatRouter);
+  api.use('/seller', sellerReviewRouter); // /seller/reviews* (per-route storeContext)
+  api.use('/seller', sellerQaRouter); // /seller/questions* (per-route storeContext)
+  api.use('/admin/gift-cards', adminGiftCardsRouter);
+  api.use('/', loyaltyRouter); // /coins, /referrals, /gift-cards
+  api.use('/', followRouter); // /stores/:slug/follow*, /me/following, /feed/following
+  api.use('/', reviewRouter); // /products/:slug/reviews*, /reviews*
+  api.use('/', qaRouter); // /products/:slug/questions
   api.use('/uploads', tempUploadsRouter); // POST /uploads/temp
   api.use('/admin', adminStoresRouter);
   api.use('/seller', sellerPreStoreRouter); // onboarding, invitations, rejected-store routes (before storeContext)

@@ -36,6 +36,7 @@ export interface IAddressSnapshot {
   line1: string;
   line2?: string;
   postalCode?: string;
+  location?: { lat: number; lng: number };
 }
 
 export interface IOrder {
@@ -46,7 +47,8 @@ export interface IOrder {
   items: IOrderItem[];
   subtotal: number;
   shippingFee: number;
-  discounts: { store: number; platform: number; shipping: number };
+  /** `coins`: platform-funded coin redemption share (Phase 8). */
+  discounts: { store: number; platform: number; shipping: number; coins?: number };
   vouchers: { store?: string; platform?: string };
   total: number;
   commission: { bps: number; amount: number };
@@ -95,7 +97,7 @@ const orderSchema = new Schema<IOrder>(
     ],
     subtotal: { type: Number, required: true, min: 0 },
     shippingFee: { type: Number, default: 0, min: 0 },
-    discounts: { store: { type: Number, default: 0 }, platform: { type: Number, default: 0 }, shipping: { type: Number, default: 0 } },
+    discounts: { store: { type: Number, default: 0 }, platform: { type: Number, default: 0 }, shipping: { type: Number, default: 0 }, coins: { type: Number, default: 0 } },
     vouchers: { store: String, platform: String },
     total: { type: Number, required: true, min: 0 },
     commission: { bps: { type: Number, default: 0 }, amount: { type: Number, default: 0 } },
@@ -124,6 +126,7 @@ const orderSchema = new Schema<IOrder>(
       line1: String,
       line2: String,
       postalCode: String,
+      location: { type: { lat: Number, lng: Number, _id: false }, default: undefined },
     },
     buyerNote: { type: String, maxlength: 500 },
     sellerNotes: [{ by: { type: Schema.Types.ObjectId, ref: 'User' }, at: Date, text: { type: String, maxlength: 1000 }, _id: false }],

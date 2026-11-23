@@ -9,6 +9,7 @@ import { cursorFilter, cursorSort, paginate } from '../../lib/pagination';
 import { sanitizeRichText, stripHtml } from '../../lib/sanitize';
 import { escapeRegex } from '../../lib/text';
 import { getStorage } from '../../services/storage';
+import { checkProductAlerts } from '../alerts/alert.service';
 import { audit } from '../audit/audit.service';
 import { Brand } from '../catalog/brand.model';
 import { buildSearchText, categoryPathFor, invalidateStoreIndex } from '../catalog/catalog.service';
@@ -227,6 +228,7 @@ export async function updateProduct(req: Request, id: string, input: ProductUpda
   await applyInput(product, store, input);
   await product.save();
   if (product.status === 'published') invalidateVocabulary();
+  void checkProductAlerts(product._id); // Phase 8: price-drop / back-in-stock alerts
   await audit({ action: 'product.updated', targetType: 'Product', targetId: product._id, meta: { storeId: String(store._id), fields: Object.keys(input) }, req });
   return toSellerProduct(product);
 }

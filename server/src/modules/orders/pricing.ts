@@ -8,9 +8,10 @@
  *   4. platform voucher discount (on all eligible lines, after store discounts), prorated across stores
  *      by their eligible share; rounding remainder goes to the largest share
  *   5. shipping per store (zone rate; free above threshold; free if every line ships free; free_shipping voucher)
- *   6. coins (Phase 8 hook, always 0 for now)
+ *   6. coins (Phase 8): 100 coins = Rs. 10, max 20% of the total after vouchers + shipping, prorated across stores
  */
 import { applyBps } from '@souqly/shared';
+import { coinsRedemption } from '../loyalty/redemption';
 
 export type VoucherType = 'percent' | 'fixed' | 'free_shipping';
 
@@ -52,7 +53,10 @@ export interface PricingInput {
   shipping: Record<string, StoreShippingRule>;
   storeVouchers?: Record<string, PricingVoucher | undefined>;
   platformVoucher?: PricingVoucher;
+  /** Coins the buyer wants to spend. */
   coins?: number;
+  /** Coins the buyer has (caps `coins`; defaults to `coins`). */
+  coinsBalance?: number;
 }
 
 export interface PricedLine extends PricingLine {
@@ -81,6 +85,8 @@ export interface StorePricing {
   shippingBase: number;
   shippingDiscount: number;
   shippingFee: number;
+  /** This store's share of the coin discount (platform-funded, minor units). */
+  coinsDiscount: number;
   total: number;
   storeVoucher?: VoucherResult;
   freeShippingRemaining?: number;
@@ -93,7 +99,12 @@ export interface PricingResult {
   shippingTotal: number;
   /** Store + platform voucher discounts + shipping discounts. */
   discountTotal: number;
+  /** Coin discount in minor units. */
   coins: number;
+  /** Coins actually spent (0 when not requested). */
+  coinsUsed: number;
+  /** Most coins usable on this order (20% cap and balance). */
+  coinsMax: number;
   total: number;
   /** Price savings (compare-at / flash / wholesale) + all discounts. */
   savings: number;
@@ -199,6 +210,7 @@ export function computePricing(input: PricingInput): PricingResult {
       shippingBase: 0,
       shippingDiscount: 0,
       shippingFee: 0,
+      coinsDiscount: 0,
       total: 0,
       ...(storeVoucher ? { storeVoucher } : {}),
     });
@@ -264,8 +276,17 @@ export function computePricing(input: PricingInput): PricingResult {
   // Free-shipping vouchers count as discounts; threshold / free-product shipping does not.
   const voucherShipping = stores.reduce((a, s) => a + (s.storeVoucher?.type === 'free_shipping' && s.storeVoucher.valid ? s.storeVoucher.discount : 0), 0) +
     (platformFreeShipping ? (platformVoucher?.discount ?? 0) : 0);
-  const coins = 0; // Phase 8 hook: input.coins is ignored until coin redemption ships.
-  const total = stores.reduce((a, s) => a + s.total, 0) - coins;
+  const preCoins = stores.reduce((a, s) => a + s.total, 0);
+  const redemption = coinsRedemption({ requested: input.coins ?? 0, balance: input.coinsBalance ?? input.coins ?? 0, orderTotal: preCoins });
+  const coins = redemption.discount;
+  if (coins > 0) {
+    const parts = prorate(coins, stores.map((s) => s.total));
+    stores.forEach((s, i) => {
+      s.coinsDiscount = parts[i]!;
+      s.total -= parts[i]!;
+    });
+  }
+  const total = preCoins - coins;
   const priceSavings = stores.reduce((a, s) => a + s.lines.reduce((b, l) => b + l.savings, 0), 0);
   return {
     stores,
@@ -273,6 +294,8 @@ export function computePricing(input: PricingInput): PricingResult {
     shippingTotal,
     discountTotal: voucherDiscounts + voucherShipping,
     coins,
+    coinsUsed: redemption.coinsUsed,
+    coinsMax: redemption.maxCoins,
     total,
     savings: priceSavings + voucherDiscounts + voucherShipping,
     ...(platformVoucher ? { platformVoucher } : {}),

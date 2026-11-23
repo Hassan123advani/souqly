@@ -15,3 +15,7 @@ export * from './schemas/orders';
 export * from './types/orders';
 export * from './schemas/seller';
 export * from './types/seller';
+export * from './schemas/social';
+export * from './types/social';
+export * from './schemas/delivery';
+export * from './types/delivery';

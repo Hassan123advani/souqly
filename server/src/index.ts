@@ -19,6 +19,7 @@ async function main() {
 
   const server = http.createServer(app);
   initSocket(server);
+  (await import('./modules/alerts/alert.service')).startAlertJobs(); // Phase 8: 10-min alert sweep
 
   await new Promise<void>((resolve, reject) => {
     server.once('error', reject);

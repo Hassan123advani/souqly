@@ -6,6 +6,8 @@ import { logger } from '../lib/logger';
 import { resolveAccessToken } from '../middleware/auth';
 import { ACCESS_COOKIE, parseCookieHeader } from '../modules/auth/tokens';
 import { StoreMember } from '../modules/stores/storeMember.model';
+import { registerDeliverySocket } from '../modules/delivery/delivery.socket';
+import { registerChatSocket } from '../modules/chat/chat.socket';
 import type { AuthUser } from '../types/express';
 
 let io: Server | undefined;
@@ -57,6 +59,8 @@ export function initSocket(server: HttpServer): Server {
   io.on('connection', (socket) => {
     const user = socket.data.user as AuthUser;
     void socket.join([userRoom(user.id), sessionRoom(user.sessionId)]);
+    registerDeliverySocket(socket); // Phase 7: order-track:join/leave, rider:location
+    registerChatSocket(socket); // Phase 8: chat:join/leave/typing (conv:{id} rooms, access-checked)
     // Seller Center live alerts: join `store:{id}` for every store the user is an active member of.
     StoreMember.find({ userId: user.id, status: 'active' })
       .select('storeId')

@@ -65,7 +65,7 @@ export function isStoreOpen(store: StoreLean | undefined): boolean {
  * Re-prices the cart from the database (never trusts stored prices). Detects issues, clamps
  * quantities to available stock and records the last-seen price. Mutates `cart` (caller saves).
  */
-export async function buildQuote(cart: CartDoc, userId: string, buyerCity?: string | null): Promise<Quote> {
+export async function buildQuote(cart: CartDoc, userId: string, buyerCity?: string | null, coinOpts: { coins?: number; coinsBalance?: number } = {}): Promise<Quote> {
   const productIds = [...new Set(cart.items.map((i) => String(i.productId)))].map((id) => new Types.ObjectId(id));
   const [products, flash] = await Promise.all([
     Product.find({ _id: { $in: productIds } }).select(PRODUCT_FIELDS).lean<ProductLean[]>(),
@@ -174,6 +174,7 @@ export async function buildQuote(cart: CartDoc, userId: string, buyerCity?: stri
     shipping,
     storeVouchers,
     ...(vouchers.platform ? { platformVoucher: toPricingVoucher(vouchers.platform) } : {}),
+    ...(coinOpts.coinsBalance !== undefined ? { coins: coinOpts.coins ?? 0, coinsBalance: coinOpts.coinsBalance } : {}),
   });
 
   // DTO: groups for every store with non-saved items (in cart order), saved list separately.

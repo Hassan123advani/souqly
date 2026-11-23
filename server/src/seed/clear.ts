@@ -8,6 +8,7 @@ import { AuditLog } from '../modules/audit/auditLog.model';
 import { Otp } from '../modules/auth/otp.model';
 import { RecentlyViewed, SearchLog } from '../modules/catalog/marketing.models';
 import { Product } from '../modules/catalog/product.model';
+import { Review } from '../modules/reviews/review.model';
 import { Session } from '../modules/auth/session.model';
 import { Token } from '../modules/auth/token.model';
 import { Store } from '../modules/stores/store.model';
@@ -67,6 +68,8 @@ async function deleteSeedFiles(): Promise<number> {
   for (const p of products) for (const i of p.images) if (i.key?.startsWith('seed/')) keys.add(i.key);
   const stores = await Store.find({ demo: true }).select('logo.key banner.key').lean();
   for (const s of stores) for (const k of [s.logo?.key, s.banner?.key]) if (k?.startsWith('seed/')) keys.add(k);
+  const reviews = await Review.find({ demo: true, hasMedia: true }).select('media.key').lean(); // Phase 8 review photos
+  for (const r of reviews) for (const m of r.media) if (m.key?.startsWith('seed/')) keys.add(m.key);
   // Home hero and campaign art keep only a URL, but their keys are deterministic.
   for (const h of HERO_SLIDES) keys.add(`seed/home/hero-${h.key}.svg`);
   for (const c of seedCampaigns(new Date())) keys.add(`seed/campaigns/${c.slug}.svg`);

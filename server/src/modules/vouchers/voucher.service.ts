@@ -1,5 +1,6 @@
-import mongoose, { Types } from 'mongoose';
+import { Types } from 'mongoose';
 import { AppError } from '../../lib/AppError';
+import { isFollowing } from '../follows/follow.service';
 import type { PricingVoucher } from '../orders/pricing';
 import { Voucher, VoucherUsage, type IVoucher } from './voucher.model';
 
@@ -46,9 +47,7 @@ export async function assertVoucherUsable(v: VoucherLean, userId: string): Promi
     if (used >= v.perUserLimit) throw new AppError(400, 'VOUCHER_USED', 'You have already used this voucher');
   }
   if (v.followerOnly) {
-    // Follows ship in a later phase; until a Follow model exists, follower-only vouchers cannot be used.
-    const Follow = mongoose.models.Follow;
-    const follows = Follow && v.storeId ? await Follow.exists({ userId: new Types.ObjectId(userId), storeId: v.storeId }) : null;
+    const follows = v.storeId ? await isFollowing(userId, v.storeId) : false;
     if (!follows) throw new AppError(400, 'VOUCHER_NOT_ELIGIBLE', 'Follow the store to use this voucher');
   }
 }

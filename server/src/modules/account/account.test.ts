@@ -38,9 +38,11 @@ describe('seeded super admin', () => {
 
   it('logs in with the default credentials and clears passwordChangeRecommended after a change', async () => {
     await runSeed();
+    const demoUsers = await User.countDocuments({ demo: true });
+    expect(demoUsers).toBeGreaterThanOrEqual(3 + 12 + 2); // demo buyers + store owners + riders (later phases add more)
     await runSeed(); // idempotent
     expect(await User.countDocuments({ email: env.ADMIN_EMAIL })).toBe(1);
-    expect(await User.countDocuments({ demo: true })).toBe(3 + 12); // demo buyers + demo store owners
+    expect(await User.countDocuments({ demo: true })).toBe(demoUsers);
 
     const { agent, res } = await loginAgent('souqly@gmail.com', 'souqly123');
     expect(res.status).toBe(200);

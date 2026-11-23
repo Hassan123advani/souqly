@@ -8,6 +8,8 @@ import { User } from '../modules/users/user.model';
 import { generateReferralCode } from '../modules/users/user.service';
 import { seedCatalog } from './catalog';
 import { seedOrders } from './orders';
+import { seedDelivery } from './delivery';
+import { seedSocial } from './social';
 import { clearDemoData } from './clear';
 import { SEED_STORES } from './data/stores';
 
@@ -92,7 +94,9 @@ export async function runSeed(opts: { reset?: boolean; demo?: boolean; productio
   const buyers = await seedDemoBuyers(demoHash);
   const catalog = await seedCatalog(demoHash);
   const orders = await seedOrders();
-  logger.info({ admin, demoBuyersCreated: buyers, catalog, orders }, 'Seed complete');
+  const delivery = await seedDelivery(demoHash);
+  const social = await seedSocial();
+  logger.info({ admin, demoBuyersCreated: buyers, catalog, orders, delivery, social }, 'Seed complete');
   logger.info(
     `Login: ${env.ADMIN_EMAIL} (Super Admin) | demo buyers: ${DEMO_BUYERS.map((b) => b.email).join(', ')} | ` +
       `demo sellers: ${SEED_STORES.map((s) => s.owner.email).join(', ')} — password ${DEMO_PASSWORD}`,

@@ -13,6 +13,8 @@ import { Store } from '../stores/store.model';
 import { User } from '../users/user.model';
 import { Order, type OrderDoc, type OrderLean } from './order.model';
 import { restoreOrderStock } from './stock';
+import { notifyOrderStatus } from '../notifications/orderNotifications';
+import { onOrderDelivered } from '../loyalty/rewards.service';
 
 /** `SQ-YYMMDD-XXXXX` (UTC date + 5 unambiguous uppercase chars). */
 export function newCheckoutNumber(at = new Date()): string {
@@ -156,6 +158,8 @@ export async function transitionOrder(
     ...(opts.req ? { req: opts.req } : {}),
   });
   void notifyStatus(updated, to, otp);
+  void notifyOrderStatus(updated, to);
+  if (to === 'delivered') await onOrderDelivered(updated); // Phase 8: coins + referral rewards (idempotent, never throws)
   return updated;
 }
 

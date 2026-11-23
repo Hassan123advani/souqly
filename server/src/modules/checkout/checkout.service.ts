@@ -21,6 +21,9 @@ import { User } from '../users/user.model';
 import { releaseVoucherUse, takeVoucherUse } from '../vouchers/voucher.service';
 import { VoucherUsage } from '../vouchers/voucher.model';
 import { Checkout, type CheckoutDoc } from './checkout.model';
+import { changeCoins } from '../loyalty/coins.service';
+import { isFlagOn } from '../loyalty/flags';
+import { notifyNewOrder, notifyOrderStatus } from '../notifications/orderNotifications';
 
 const oid = (s: string | Types.ObjectId) => new Types.ObjectId(String(s));
 
@@ -36,6 +39,7 @@ async function loadAddress(userId: string, addressId: string): Promise<IAddressS
     line1: a.line1,
     ...(a.line2 ? { line2: a.line2 } : {}),
     ...(a.postalCode ? { postalCode: a.postalCode } : {}),
+    ...(a.location?.lat != null && a.location?.lng != null ? { location: { lat: a.location.lat, lng: a.location.lng } } : {}),
   };
 }
 
@@ -46,9 +50,16 @@ function assertPaymentMethod(method: PaymentMethod) {
   if (method !== 'cod') throw new AppError(400, 'PAYMENT_NOT_CONFIGURED', 'Online payments are coming soon. Please choose Cash on Delivery.');
 }
 
-async function quoteFor(userId: string, city: string) {
+/** Coin balance when coin redemption is on (undefined = feature off → no coins in pricing). */
+async function coinsBalanceFor(userId: string): Promise<number | undefined> {
+  if (!(await isFlagOn('loyaltyCoins'))) return undefined;
+  return (await User.findById(oid(userId)).select('coins').lean())?.coins ?? 0;
+}
+
+async function quoteFor(userId: string, city: string, coins?: number) {
   const cart = await getOrCreateCart(userId);
-  const quote = await buildQuote(cart, userId, city);
+  const coinsBalance = await coinsBalanceFor(userId);
+  const quote = await buildQuote(cart, userId, city, { ...(coins ? { coins } : {}), ...(coinsBalance !== undefined ? { coinsBalance } : {}) });
   if (cart.isModified()) await cart.save();
   return { cart, quote };
 }
@@ -66,9 +77,10 @@ function assertQuotePlaceable(quote: Quote, method: PaymentMethod) {
 
 export async function preview(userId: string, input: CheckoutPreviewInput) {
   const address = await loadAddress(userId, input.addressId);
-  const { quote } = await quoteFor(userId, address.city);
+  const { quote } = await quoteFor(userId, address.city, input.coins);
   return {
     ...quote.dto,
+    coinsRedemption: { requested: input.coins ?? 0, used: quote.pricing.coinsUsed, discount: quote.pricing.coins, max: quote.pricing.coinsMax },
     address,
     paymentMethod: input.paymentMethod,
     paymentAvailable: input.paymentMethod === 'cod',
@@ -79,6 +91,7 @@ export async function preview(userId: string, input: CheckoutPreviewInput) {
       platformDiscount: s.platformDiscount,
       shippingBase: s.shippingBase,
       shippingFee: s.shippingFee,
+      coinsDiscount: s.coinsDiscount,
       total: s.total,
       note: input.notes?.[s.storeId] ?? null,
     })),
@@ -119,7 +132,7 @@ export async function placeCheckout(req: Request, input: CheckoutInput): Promise
 
   assertPaymentMethod(input.paymentMethod);
   const address = await loadAddress(userId, input.addressId);
-  const { cart, quote } = await quoteFor(userId, address.city);
+  const { cart, quote } = await quoteFor(userId, address.city, input.coins);
   assertQuotePlaceable(quote, input.paymentMethod);
 
   // Claim the idempotency key first: a concurrent retry hits the unique index and waits for us.
@@ -153,8 +166,10 @@ export async function placeCheckout(req: Request, input: CheckoutInput): Promise
 
   // 1) Voucher global usage (atomic against usageLimit).
   const usedVouchers: { id: Types.ObjectId; storeId: Types.ObjectId | null; discount: number }[] = [];
+  let coinsSpent = 0;
   const fail = async (status: number, code: string, message: string, details?: unknown): Promise<never> => {
     await Promise.all(usedVouchers.map((v) => releaseVoucherUse(v.id)));
+    if (coinsSpent > 0) await changeCoins({ userId, amount: coinsSpent, reason: 'redeem_refund', ref: `checkout:${checkout._id}:refund` }).catch((err) => logger.error({ err }, 'Coin refund failed'));
     // Free the idempotency key so the buyer can retry after reviewing the cart.
     await Checkout.deleteOne({ _id: checkout._id });
     throw new AppError(status, code, message, details);
@@ -179,6 +194,17 @@ export async function placeCheckout(req: Request, input: CheckoutInput): Promise
     await fail(409, 'STOCK_CHANGED', 'Some items just sold out or have fewer units left. Please review your cart.', {
       items: reserved.failed.map((f) => ({ productId: String(f.productId), variantId: String(f.variantId), title: f.title, requested: f.qty })),
     });
+  }
+
+  // 2b) Coins (Phase 8): spent atomically; refunded if anything below fails.
+  if (quote.pricing.coinsUsed > 0) {
+    try {
+      await changeCoins({ userId, amount: -quote.pricing.coinsUsed, reason: 'redeem', ref: `checkout:${checkout._id}` });
+      coinsSpent = quote.pricing.coinsUsed;
+    } catch {
+      await releaseAll(stockLines);
+      await fail(409, 'COINS_CHANGED', 'Your coin balance changed. Please review your order.');
+    }
   }
 
   // 3) One order per store.
@@ -218,7 +244,7 @@ export async function placeCheckout(req: Request, input: CheckoutInput): Promise
         }),
         subtotal: sp.itemsSubtotal,
         shippingFee: sp.shippingFee,
-        discounts: { store: sp.storeDiscount, platform: sp.platformDiscount, shipping: sp.shippingDiscount },
+        discounts: { store: sp.storeDiscount, platform: sp.platformDiscount, shipping: sp.shippingDiscount, coins: sp.coinsDiscount },
         vouchers: {
           ...(sp.storeVoucher?.valid ? { store: sp.storeVoucher.code } : {}),
           ...(quote.pricing.platformVoucher?.valid ? { platform: quote.pricing.platformVoucher.code } : {}),
@@ -301,6 +327,8 @@ async function postCheckout(
     const stores = await Store.find({ _id: { $in: orders.map((o) => o.storeId) } }).select('name contact').lean();
     const buyer = await User.findById(userId).select('name email').lean();
     for (const o of orders) {
+      void notifyNewOrder(o);
+      void notifyOrderStatus(o, 'placed');
       emitToStore(String(o.storeId), 'order:new', { id: String(o._id), number: o.number, total: o.total, itemCount: o.items.reduce((a, i) => a + i.qty, 0), createdAt: o.createdAt });
       const s = stores.find((x) => String(x._id) === String(o.storeId));
       if (s?.contact?.email) {
