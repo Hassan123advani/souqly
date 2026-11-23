@@ -5,7 +5,23 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const load = (l) => JSON.parse(fs.readFileSync(path.join(root, 'src/i18n/locales', `${l}.json`), 'utf8'));
+const localesDir = path.join(root, 'src/i18n/locales');
+// Base file + every feature file locales/<area>/<lang>.json, deep-merged (same as src/i18n/index.ts).
+function merge(t, s) {
+  for (const [k, v] of Object.entries(s)) {
+    if (v && typeof v === 'object' && !Array.isArray(v) && t[k] && typeof t[k] === 'object') merge(t[k], v);
+    else t[k] = v;
+  }
+  return t;
+}
+const load = (l) => {
+  const out = JSON.parse(fs.readFileSync(path.join(localesDir, `${l}.json`), 'utf8'));
+  for (const d of fs.readdirSync(localesDir, { withFileTypes: true })) {
+    const f = path.join(localesDir, d.name, `${l}.json`);
+    if (d.isDirectory() && fs.existsSync(f)) merge(out, JSON.parse(fs.readFileSync(f, 'utf8')));
+  }
+  return out;
+};
 
 function flatten(obj, prefix = '', out = new Map()) {
   for (const [k, v] of Object.entries(obj)) {
