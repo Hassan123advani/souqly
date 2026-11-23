@@ -1,7 +1,7 @@
 import { NavLink, Outlet } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-import { BadgeCheck, Bell, Database, MapPin, Package, Settings2, ShieldCheck, Undo2, User } from 'lucide-react';
+import { BadgeCheck, Bell, Database, LifeBuoy, MapPin, Package, Settings2, ShieldCheck, Undo2, User } from 'lucide-react';
 import { useMe, useResendVerification } from '@/api/auth';
 import { getErrorMessage } from '@/api/client';
 import { Alert, Avatar, Badge, Button, Container } from '@/components/ui';
@@ -58,6 +58,7 @@ export default function AccountLayout() {
     { to: 'security', label: t('account.nav.security'), icon: ShieldCheck },
     { to: 'preferences', label: t('account.nav.preferences'), icon: Settings2 },
     { to: 'privacy', label: t('account.nav.privacy'), icon: Database },
+    { to: 'support', label: t('support.title'), icon: LifeBuoy },
   ];
   return (
     <Container className="py-6 sm:py-10">

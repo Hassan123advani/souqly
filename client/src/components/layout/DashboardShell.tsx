@@ -20,6 +20,8 @@ export type DashNavItem = {
   badge?: number;
   /** Anchor for guided tours (rendered as `data-tour`). */
   tourId?: string;
+  /** Section heading; consecutive items with the same group render under one heading. */
+  group?: string;
 };
 
 type ShellProps = {
@@ -28,6 +30,10 @@ type ShellProps = {
   areaLabel: string;
   nav: DashNavItem[];
   sidebarFooter?: ReactNode;
+  /** Compact nav rows (long, grouped navs like the admin panel). */
+  dense?: boolean;
+  /** Rendered once inside the shell (e.g. first-login modals). */
+  extras?: ReactNode;
 };
 
 function readCollapsed(area: string) {
@@ -38,11 +44,15 @@ function readCollapsed(area: string) {
   }
 }
 
-function NavList({ items, collapsed, onNavigate }: { items: DashNavItem[]; collapsed?: boolean; onNavigate?: () => void }) {
+function NavList({ items, collapsed, onNavigate, dense }: { items: DashNavItem[]; collapsed?: boolean; onNavigate?: () => void; dense?: boolean }) {
   return (
     <ul className="flex flex-col gap-1">
-      {items.map(({ to, label, icon: Icon, end, badge, tourId }) => (
+      {items.map(({ to, label, icon: Icon, end, badge, tourId, group }, i) => (
         <li key={to}>
+          {group && group !== items[i - 1]?.group && (
+            <p className={cn('px-3 pb-1 text-[10px] font-bold uppercase tracking-wider text-fg-subtle', i > 0 && 'mt-3', collapsed && 'sr-only')}>{group}</p>
+          )}
+          {group && group !== items[i - 1]?.group && collapsed && i > 0 && <hr className="mx-3 my-2 border-border" aria-hidden />}
           <Tooltip content={label} side="right" disabled={!collapsed}>
             <NavLink
               to={to}
@@ -52,7 +62,8 @@ function NavList({ items, collapsed, onNavigate }: { items: DashNavItem[]; colla
               aria-label={collapsed ? label : undefined}
               className={({ isActive }) =>
                 cn(
-                  'group relative flex h-11 items-center gap-3 rounded-md px-3 text-sm font-semibold transition-colors',
+                  'group relative flex items-center gap-3 rounded-md px-3 text-sm font-semibold transition-colors',
+                  dense ? 'h-9' : 'h-11',
                   collapsed && 'justify-center px-0',
                   isActive ? 'bg-primary-50 text-primary-800' : 'text-fg-muted hover:bg-surface-2 hover:text-fg',
                 )
@@ -83,7 +94,7 @@ function NavList({ items, collapsed, onNavigate }: { items: DashNavItem[]; colla
   );
 }
 
-export function DashboardShell({ area, areaLabel, nav, sidebarFooter }: ShellProps) {
+export function DashboardShell({ area, areaLabel, nav, sidebarFooter, dense, extras }: ShellProps) {
   const { t } = useTranslation();
   const [collapsed, setCollapsed] = useState(() => readCollapsed(area));
   const [drawer, setDrawer] = useState(false);
@@ -119,7 +130,7 @@ export function DashboardShell({ area, areaLabel, nav, sidebarFooter }: ShellPro
           )}
         </div>
         <nav aria-label={areaLabel} className="flex-1 overflow-y-auto p-3">
-          <NavList items={items} collapsed={collapsed} />
+          <NavList items={items} collapsed={collapsed} dense={dense} />
         </nav>
         <div className={cn('flex flex-col gap-1 border-t border-border p-3', collapsed && 'items-center')}>
           {sidebarFooter}
@@ -178,7 +189,7 @@ export function DashboardShell({ area, areaLabel, nav, sidebarFooter }: ShellPro
 
       <Sheet open={drawer} onOpenChange={setDrawer} side="start" title={areaLabel}>
         <nav aria-label={areaLabel} className="p-3">
-          <NavList items={items} onNavigate={() => setDrawer(false)} />
+          <NavList items={items} dense={dense} onNavigate={() => setDrawer(false)} />
           <div className="mt-3 border-t border-border pt-3">
             {sidebarFooter}
             <Link to="/" className="flex h-11 items-center gap-3 rounded-md px-3 text-sm font-medium text-fg-muted hover:bg-surface-2">
@@ -188,6 +199,7 @@ export function DashboardShell({ area, areaLabel, nav, sidebarFooter }: ShellPro
           </div>
         </nav>
       </Sheet>
+      {extras}
     </div>
   );
 }

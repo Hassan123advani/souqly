@@ -126,6 +126,9 @@ const ICONS: Record<string, LucideIcon> = {
   Wind,
 };
 
+/** Icon names an admin can pick for a category (keys of the curated registry). */
+export const CATEGORY_ICON_NAMES = Object.keys(ICONS);
+
 export function CategoryIcon({ name, className }: { name?: string; className?: string }) {
   const Icon = (name && ICONS[name]) || Tag;
   return <Icon className={className} aria-hidden />;
