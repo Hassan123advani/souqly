@@ -357,6 +357,7 @@
       "duplicated": "Copy created as a draft",
       "publishedN": "Sent for publishing: {{count}}",
       "archivedN": "Archived: {{count}}",
+      "bulkFailed": "{{title}}: {{reason}}",
       "archiveTitle": "Archive selected products ({{count}})?",
       "archiveBody": "Archived products are hidden from buyers. You can publish them again later.",
       "emptyTitle": "No products yet",
@@ -587,6 +588,7 @@
       "rider": "Delivery rider",
       "pickRider": "Assign a rider",
       "noRiders": "No active riders yet. Invite one from Staff & roles.",
+      "riderOption": "{{name}} ({{count}} active)",
       "riderAssigned": "Rider assigned",
       "riderHint": "Riders deliver with the buyer's one-time code."
     },

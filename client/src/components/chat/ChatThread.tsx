@@ -3,7 +3,8 @@ import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { ArrowLeft, ImagePlus, Package, Paperclip, SendHorizontal, ShoppingBag, X } from 'lucide-react';
 import type { ConversationDTO, MessageCreateInput, MessageDTO } from '@souqly/shared';
-import { flatPages, useChatRoom, useMarkRead, useMessages, useQuickReplies, useSendMessage, type ChatSide } from '@/api/chat';
+import { flatPages, useChatRoom, useConversation, useMarkRead, useMessages, useQuickReplies, useSendMessage, type ChatSide } from '@/api/chat';
+import { getErrorMessage } from '@/api/client';
 import { uploadSocial } from '@/api/social';
 import { StoreLogo } from '@/components/product/StoreCard';
 import { ReportDialog } from '@/components/social/ReportDialog';
@@ -54,7 +55,7 @@ function Counterpart({ conv, side }: { conv?: ConversationDTO; side: ChatSide })
 export function ChatThread({
   side,
   convId,
-  conversation,
+  conversation: listRow,
   onBack,
   initialDraft,
   initialOrderNumber,
@@ -68,6 +69,8 @@ export function ChatThread({
 }) {
   const { t } = useTranslation();
   const lang = useLang();
+  const conv = useConversation(side, convId, listRow);
+  const conversation = conv.data;
   const q = useMessages(side, convId);
   const send = useSendMessage(side, convId);
   const markRead = useMarkRead(side);
@@ -178,7 +181,13 @@ export function ChatThread({
             <ArrowLeft className="size-5 rtl:rotate-180" />
           </IconButton>
         )}
-        <Counterpart conv={conversation} side={side} />
+        {conv.isError && !conversation ? (
+          <p className="truncate text-sm text-danger" role="alert">
+            {getErrorMessage(conv.error)}
+          </p>
+        ) : (
+          <Counterpart conv={conversation} side={side} />
+        )}
         {side === 'buyer' && storeSlug && (
           <Button to={`/store/${storeSlug}`} variant="ghost" size="sm" className="ms-auto">
             {t('chat.visitStore')}
@@ -286,7 +295,7 @@ export function ChatThread({
                   {t('chat.sendProduct')}
                 </DropdownMenuItem>
               )}
-              {side === 'buyer' && storeSlug && (
+              {conversation && (
                 <DropdownMenuItem icon={<Package className="size-4" />} onSelect={() => setPicker('order')}>
                   {t('chat.sendOrder')}
                 </DropdownMenuItem>
@@ -324,11 +333,13 @@ export function ChatThread({
           }}
         />
       )}
-      {side === 'buyer' && storeSlug && (
+      {conversation && (
         <OrderPicker
           open={picker === 'order'}
           onOpenChange={(v) => setPicker(v ? 'order' : null)}
-          storeSlug={storeSlug}
+          side={side}
+          convId={convId}
+          storeId={conversation.store.id}
           highlight={initialOrderNumber}
           onPick={(o) => {
             setDraft({ kind: 'order', id: o.id, number: o.number });

@@ -160,7 +160,7 @@ export default function CheckoutPage() {
                   </div>
                 )}
                 <PriceBreakdown
-                  b={{ itemsSubtotal: s.itemsSubtotal, shippingTotal: s.shippingTotal, discountTotal: s.discountTotal, total: s.total, savings: s.savings, count: s.selectedCount }}
+                  b={{ itemsSubtotal: s.itemsSubtotal, shippingTotal: s.shippingTotal, discountTotal: s.discountTotal, coinsDiscount: s.coinsDiscount, total: s.total, savings: s.savings, count: s.selectedCount }}
                 />
                 <CoinsRedeem redemption={p.coinsRedemption} value={coins} onChange={setCoins} />
                 {method === 'cod' && <p className="rounded-md bg-accent-50 px-3 py-2 text-xs font-medium text-accent-800">{t('checkout.codHint')}</p>}

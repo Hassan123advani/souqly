@@ -37,6 +37,18 @@ export function useConversations(side: ChatSide) {
   });
 }
 
+/** One conversation (thread header). The cached list row, when present, is shown while it loads. */
+export function useConversation(side: ChatSide, convId: string | undefined, placeholder?: ConversationDTO) {
+  const s = useScope(side);
+  return useQuery({
+    queryKey: [...s.key, 'conversation', convId],
+    queryFn: async () => (await api.get<{ data: ConversationDTO }>(`${s.base}/conversations/${convId}`, s.cfg)).data.data,
+    enabled: s.ready && !!convId,
+    placeholderData: placeholder,
+    staleTime: 60_000,
+  });
+}
+
 export function useMessages(side: ChatSide, convId: string | undefined) {
   const s = useScope(side);
   return useInfiniteQuery({
@@ -204,12 +216,23 @@ export function useChatRoom(side: ChatSide, convId: string | undefined, onIncomi
   return { otherTyping, setTyping };
 }
 
-/** My recent orders with one store (for the order-card picker). */
-export function useMyOrdersWithStore(storeSlug: string | undefined, enabled: boolean) {
+/** Lightweight order row for the order-card picker. */
+export type PickerOrder = { id: string; number: string; status: string; total: number; image?: string; createdAt: string };
+
+/**
+ * Orders between this conversation's buyer and store, newest first (max 50).
+ * Buyer: `GET /orders?store=<id>`; store: `GET /seller/chat/conversations/:id/orders`.
+ */
+export function useConversationOrders(side: ChatSide, convId: string, storeId: string | undefined, enabled: boolean) {
+  const s = useScope(side);
   return useQuery({
-    queryKey: ['orders', 'with-store', storeSlug],
-    queryFn: async () => (await getPage<OrderDTO>('/orders', { limit: 50 })).data.filter((o) => o.store.slug === storeSlug),
-    enabled: enabled && !!storeSlug,
+    queryKey: [...s.key, 'conversation', convId, 'orders'],
+    queryFn: async (): Promise<PickerOrder[]> => {
+      if (side === 'store') return (await api.get<{ data: PickerOrder[] }>(`/seller/chat/conversations/${convId}/orders`, s.cfg)).data.data;
+      const page = await getPage<OrderDTO>('/orders', { store: storeId, limit: 50 });
+      return page.data.map((o) => ({ id: o.id, number: o.number, status: o.status, total: o.total, image: o.items[0]?.image, createdAt: o.createdAt }));
+    },
+    enabled: enabled && s.ready && (side === 'store' || !!storeId),
     staleTime: 60_000,
   });
 }

@@ -1,5 +1,6 @@
 import { keepPreviousData, useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
+  AttributeDef,
   BrandDTO,
   CampaignDTO,
   CategoryDetail,
@@ -38,6 +39,7 @@ export const catalogKeys = {
   home: ['home'] as const,
   categories: ['catalog', 'categories'] as const,
   category: (slug: string) => ['catalog', 'category', slug] as const,
+  categoryAttributes: (slug: string) => ['catalog', 'category', slug, 'attributes'] as const,
   brands: (featured: boolean) => ['catalog', 'brands', featured] as const,
   brand: (slug: string) => ['catalog', 'brand', slug] as const,
   products: (path: string, params: Record<string, string>) => ['products', path, params] as const,
@@ -75,6 +77,17 @@ export function useCategory(slug: string | undefined) {
     queryFn: () => get<CategoryDetail>(`/catalog/categories/${encodeURIComponent(slug!)}`),
     enabled: !!slug,
     staleTime: 60_000,
+    retry: retryUnless404,
+  });
+}
+
+/** Every effective attribute of a category (own + inherited, not just filterable ones) — for product editors. */
+export function useCategoryAttributes(slug: string | undefined) {
+  return useQuery({
+    queryKey: catalogKeys.categoryAttributes(slug ?? ''),
+    queryFn: () => get<AttributeDef[]>(`/catalog/categories/${encodeURIComponent(slug!)}/attributes`),
+    enabled: !!slug,
+    staleTime: 5 * 60_000,
     retry: retryUnless404,
   });
 }

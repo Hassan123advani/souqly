@@ -3,12 +3,24 @@ import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-import { useSellerKey } from '@/api/seller';
+import { PERMISSIONS } from '@souqly/shared';
+import { useSellerKey, useSellerSettings } from '@/api/seller';
 import { acquireSocket, playChime, releaseSocket } from '@/lib/socket';
 import { money } from '@/lib/format';
+import { useCan } from './usePermissions';
 import { useSellerPrefs } from './useSellerPrefs';
 
 type NewOrder = { id: string; number: string; total: number; itemCount: number; createdAt: string };
+
+/** The store's saved `newOrderSound` (when this member may read settings) wins over the local mute preference. */
+function useOrderSoundSync() {
+  const can = useCan();
+  const q = useSellerSettings('notifications', can(PERMISSIONS.STORE_SETTINGS_MANAGE));
+  const sound = q.data?.newOrderSound;
+  useEffect(() => {
+    if (typeof sound === 'boolean') useSellerPrefs.getState().setMuted(!sound);
+  }, [sound]);
+}
 
 /** Listens for live `order:new` / `order:updated` events while the Seller Center is open. */
 export function OrderAlerts() {
@@ -17,6 +29,7 @@ export function OrderAlerts() {
   const key = useSellerKey();
   const navigate = useNavigate();
   const storeKey = key[1];
+  useOrderSoundSync();
 
   useEffect(() => {
     const s = acquireSocket();

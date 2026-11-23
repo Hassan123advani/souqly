@@ -5,7 +5,7 @@ import { useActiveStoreId } from '@/components/seller/useActiveStore';
 import { api, get, post } from './client';
 import { useSellerKey } from './seller';
 
-type Page = { data: ReturnRequestDTO[]; meta?: { nextCursor: string | null; counts?: Partial<Record<ReturnStatus, number>> } };
+type Page = { data: ReturnRequestDTO[]; meta?: { nextCursor: string | null; counts?: Partial<Record<ReturnStatus | 'all', number>> } };
 
 // ---------------------------------------------------------------------------------------------
 // Buyer

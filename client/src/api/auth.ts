@@ -74,7 +74,7 @@ export function useOtpVerify() {
 export function useGoogleTwoFactor() {
   const setMe = useSetMe();
   return useMutation({
-    mutationFn: (body: { ticket: string; totp: string }) => post<{ user: MeUser }>('/auth/google/2fa', body),
+    mutationFn: (body: { ticket: string; totp: string }) => post<{ user: MeUser; next?: string | null }>('/auth/google/2fa', body),
     onSuccess: (d) => setMe(d.user),
   });
 }

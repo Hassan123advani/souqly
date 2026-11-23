@@ -5,9 +5,9 @@ import { toast } from 'sonner';
 import { ArrowLeft, Bike, FileText, MapPin, StickyNote, Tag } from 'lucide-react';
 import { PERMISSIONS, type OrderDTO } from '@souqly/shared';
 import { getErrorMessage } from '@/api/client';
-import { downloadPdf, useAssignRider, useOrderNote, useSellerOrder, useStaff } from '@/api/seller';
+import { downloadPdf, useAssignRider, useOrderNote, useOrderRiders, useSellerOrder } from '@/api/seller';
 import { Seo } from '@/components/layout/Seo';
-import { Button, Card, CardHeader, ErrorState, PageSpinner, Select, Textarea } from '@/components/ui';
+import { Button, Card, CardHeader, ErrorState, PageSpinner, Select, Skeleton, Textarea } from '@/components/ui';
 import { OrderActions } from '@/components/seller/orders/OrderActions';
 import { SellerOrderStatus } from '@/components/seller/OrderStatusBadge';
 import { useActiveStoreId } from '@/components/seller/useActiveStore';
@@ -125,7 +125,7 @@ export default function OrderDetailPage() {
               )}
             </div>
           </Card>
-          {manage && <RiderCard o={o} canListStaff={can(PERMISSIONS.STORE_STAFF_MANAGE)} />}
+          {manage && <RiderCard o={o} />}
           <Notes o={o} canAdd={manage} />
         </div>
       </div>
@@ -220,18 +220,22 @@ function Notes({ o, canAdd }: { o: OrderDTO; canAdd: boolean }) {
   );
 }
 
-function RiderCard({ o, canListStaff }: { o: OrderDTO; canListStaff: boolean }) {
+function RiderCard({ o }: { o: OrderDTO }) {
   const { t } = useTranslation();
-  const staff = useStaff(canListStaff);
-  const assign = useAssignRider();
-  const riders = (staff.data ?? []).filter((m) => m.role === 'RIDER' && m.status === 'active');
   const eligible = ['packed', 'shipped', 'out_for_delivery', 'failed_delivery'].includes(o.status);
-  if (!canListStaff || !eligible) return null;
+  const list = useOrderRiders(eligible);
+  const assign = useAssignRider();
+  const riders = list.data ?? [];
+  if (!eligible) return null;
   return (
     <Card>
       <CardHeader title={t('seller.orders.rider')} />
       <div className="grid gap-2 p-5">
-        {riders.length === 0 ? (
+        {list.isLoading ? (
+          <Skeleton className="h-10 w-full" />
+        ) : list.isError ? (
+          <ErrorState error={list.error} onRetry={() => void list.refetch()} compact />
+        ) : riders.length === 0 ? (
           <p className="text-sm text-fg-muted">{t('seller.orders.noRiders')}</p>
         ) : (
           <Select
@@ -243,7 +247,7 @@ function RiderCard({ o, canListStaff }: { o: OrderDTO; canListStaff: boolean }) 
                 { onSuccess: () => toast.success(t('seller.orders.riderAssigned')), onError: (e) => toast.error(getErrorMessage(e)) },
               )
             }
-            options={riders.map((r) => ({ value: r.id, label: r.user.name }))}
+            options={riders.map((r) => ({ value: r.memberId, label: t('seller.orders.riderOption', { name: r.user.name, count: r.activeDeliveries }) }))}
           />
         )}
         <p className="flex items-center gap-1.5 text-xs text-fg-muted">

@@ -7,7 +7,9 @@ export type Breakdown = {
   itemsSubtotal: number;
   /** `null` = calculated at checkout. */
   shippingTotal: number | null;
+  /** Excludes coins (shown on their own row). */
   discountTotal: number;
+  coinsDiscount?: number;
   total: number;
   savings?: number;
   count?: number;
@@ -35,6 +37,7 @@ export function PriceBreakdown({ b, className }: { b: Breakdown; className?: str
         value={b.shippingTotal === null ? <span className="font-medium text-fg-subtle">{t('cart.shippingAtCheckout')}</span> : b.shippingTotal === 0 ? t('cart.free') : money(b.shippingTotal)}
       />
       {b.discountTotal > 0 && <Row label={t('cart.discounts')} value={`− ${money(b.discountTotal)}`} tone="success" />}
+      {!!b.coinsDiscount && b.coinsDiscount > 0 && <Row label={t('cart.coinsDiscount')} value={`− ${money(b.coinsDiscount)}`} tone="success" />}
       <div className="border-t border-dashed border-border pt-2.5">
         <div className="flex items-baseline justify-between gap-3">
           <dt className="font-bold text-fg">{t('cart.total')}</dt>

@@ -39,7 +39,9 @@ export default function SellerReturnsPage() {
               )}
             >
               {s ? t(`returns.status.${s}`) : t('returns.seller.all')}
-              {s && !!counts?.[s] && <span className={cn('rounded-pill px-1.5 text-[11px]', s === 'requested' ? 'bg-accent text-ink-900' : 'bg-surface-2')}>{counts[s]}</span>}
+              {!!counts?.[s ?? 'all'] && (
+                <span className={cn('rounded-pill px-1.5 text-[11px]', s === 'requested' ? 'bg-accent text-ink-900' : 'bg-surface-2')}>{counts[s ?? 'all']}</span>
+              )}
             </button>
           ))}
         </div>

@@ -29,6 +29,7 @@
     "freeShippingUnlocked": "You've unlocked free shipping from this store",
     "freeShippingProgress": "Progress towards free shipping",
     "discounts": "Discounts",
+    "coinsDiscount": "Souqly coins",
     "total": "Total",
     "youSave": "You save {{amount}}",
     "checkoutN": "Check out ({{count}})",

@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 import { Archive, Copy, MoreHorizontal, Package, Pencil, Plus, Search, Send } from 'lucide-react';
 import { PERMISSIONS, PRODUCT_STATUSES, type ProductStatus, type SellerProduct } from '@souqly/shared';
 import { getErrorMessage } from '@/api/client';
-import { useProductAction, useSellerProducts } from '@/api/seller';
+import { useBulkProducts, useProductAction, useSellerProducts } from '@/api/seller';
 import { Seo } from '@/components/layout/Seo';
 import {
   Badge,
@@ -40,7 +40,7 @@ export const PRODUCT_TONES: Record<ProductStatus, BadgeTone> = {
 };
 
 export default function ProductsPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const can = useCan();
   const manage = can(PERMISSIONS.STORE_PRODUCTS_MANAGE);
   const [sp, setSp] = useSearchParams();
@@ -49,6 +49,7 @@ export default function ProductsPage() {
   const dq = useDebounced(q.trim(), 350);
   const list = useSellerProducts({ status, q: dq || undefined });
   const action = useProductAction();
+  const bulkMut = useBulkProducts();
   const [selected, setSelected] = useState<string[]>([]);
   const [confirmArchive, setConfirmArchive] = useState<string[] | null>(null);
   const items = list.data?.pages.flatMap((p) => p.data) ?? [];
@@ -63,12 +64,18 @@ export default function ProductsPage() {
   };
 
   async function bulk(kind: 'publish' | 'archive', ids: string[]) {
-    const res = await Promise.allSettled(ids.map((id) => action.mutateAsync({ id, action: kind })));
-    const ok = res.filter((r) => r.status === 'fulfilled').length;
-    const failed = res.find((r): r is PromiseRejectedResult => r.status === 'rejected');
-    if (ok) toast.success(t(kind === 'publish' ? 'seller.products.publishedN' : 'seller.products.archivedN', { count: ok }));
-    if (failed) toast.error(getErrorMessage(failed.reason));
-    setSelected([]);
+    try {
+      const res = await bulkMut.mutateAsync({ ids, action: kind });
+      if (res.ok.length) toast.success(t(kind === 'publish' ? 'seller.products.publishedN' : 'seller.products.archivedN', { count: res.ok.length }));
+      for (const f of res.failed) {
+        const title = items.find((p) => p.id === f.id)?.title ?? f.id;
+        const reason = i18n.exists(`errors.${f.code}`) ? t(`errors.${f.code}`) : f.message;
+        toast.error(t('seller.products.bulkFailed', { title, reason }));
+      }
+      setSelected((s) => s.filter((id) => !res.ok.includes(id)));
+    } catch (e) {
+      toast.error(getErrorMessage(e));
+    }
   }
 
   async function duplicate(p: SellerProduct) {
@@ -135,7 +142,7 @@ export default function ProductsPage() {
               size="sm"
               variant="outline"
               leftIcon={<Send className="size-4" />}
-              loading={action.isPending}
+              loading={bulkMut.isPending}
               onClick={() => void bulk('publish', selected)}
             >
               {t('seller.products.publish')}
@@ -255,7 +262,7 @@ export default function ProductsPage() {
             </Button>
             <Button
               variant="danger"
-              loading={action.isPending}
+              loading={bulkMut.isPending}
               onClick={() => {
                 const ids = confirmArchive ?? [];
                 setConfirmArchive(null);

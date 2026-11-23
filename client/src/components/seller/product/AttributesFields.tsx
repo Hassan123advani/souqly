@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import type { AttributeDef } from '@souqly/shared';
-import { useCategory } from '@/api/catalog';
-import { FormField, Input, Select, Skeleton } from '@/components/ui';
+import { useCategoryAttributes } from '@/api/catalog';
+import { ErrorState, FormField, Input, Select, Skeleton } from '@/components/ui';
 import { useLocalized } from '@/lib/catalog';
 import { cn } from '@/lib/cn';
 
@@ -11,10 +11,11 @@ type Value = Record<string, string | string[]>;
 export function AttributesFields({ categorySlug, value, onChange }: { categorySlug?: string; value: Value; onChange: (v: Value) => void }) {
   const { t } = useTranslation();
   const loc = useLocalized();
-  const { data, isLoading } = useCategory(categorySlug);
+  const q = useCategoryAttributes(categorySlug);
   if (!categorySlug) return <p className="text-sm text-fg-muted">{t('seller.editor.attributesPickCategory')}</p>;
-  if (isLoading) return <Skeleton className="h-24 w-full" />;
-  const defs = (data?.filters.attributes ?? []).filter((a) => !a.variantDefining);
+  if (q.isLoading) return <Skeleton className="h-24 w-full" />;
+  if (q.isError) return <ErrorState error={q.error} onRetry={() => void q.refetch()} compact />;
+  const defs = (q.data ?? []).filter((a) => !a.variantDefining);
   if (!defs.length) return <p className="text-sm text-fg-muted">{t('seller.editor.attributesNone')}</p>;
 
   const set = (k: string, v: string | string[]) => onChange({ ...value, [k]: v });

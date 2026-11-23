@@ -205,7 +205,7 @@ export default function OrderDetailPage() {
             <p className="text-xs text-fg-subtle">{t(`orders.paymentStatus.${o.payment.status}`, { defaultValue: o.payment.status })}</p>
           </Section>
           <Section title={t('orders.summary')}>
-            <PriceBreakdown b={{ itemsSubtotal: o.subtotal, shippingTotal: o.shippingFee, discountTotal: discount, total: o.total, count: units }} />
+            <PriceBreakdown b={{ itemsSubtotal: o.subtotal, shippingTotal: o.shippingFee, discountTotal: discount, coinsDiscount: o.discounts.coins, total: o.total, count: units }} />
             {o.payment.method === 'cod' && !['delivered', 'cancelled', 'returned', 'refunded'].includes(o.status) && (
               <p className="mt-3 rounded-md bg-accent-50 px-3 py-2 text-xs font-medium text-accent-800">
                 {t('orders.codPrepare', { amount: money(o.total) })}

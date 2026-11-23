@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Search } from 'lucide-react';
-import type { OrderDTO, OrderStatus } from '@souqly/shared';
+import type { OrderStatus } from '@souqly/shared';
 import { useProductList } from '@/api/catalog';
-import { useMyOrdersWithStore } from '@/api/chat';
+import { useConversationOrders, type ChatSide, type PickerOrder } from '@/api/chat';
 import { OrderStatusBadge } from '@/components/orders/OrderStatusBadge';
 import { ProductImage } from '@/components/product/ProductImage';
 import { EmptyState, ErrorState, Input, Modal, Skeleton } from '@/components/ui';
@@ -69,23 +69,27 @@ export function ProductPicker({
   );
 }
 
-/** Pick one of my orders with this store to send as a card. */
+/** Pick one of this buyer's orders with this store to send as a card (either side). */
 export function OrderPicker({
   open,
   onOpenChange,
-  storeSlug,
+  side,
+  convId,
+  storeId,
   highlight,
   onPick,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
-  storeSlug: string;
+  side: ChatSide;
+  convId: string;
+  storeId?: string;
   highlight?: string;
-  onPick: (o: OrderDTO) => void;
+  onPick: (o: PickerOrder) => void;
 }) {
   const { t } = useTranslation();
   const lang = useLang();
-  const q = useMyOrdersWithStore(storeSlug, open);
+  const q = useConversationOrders(side, convId, storeId, open);
   return (
     <Modal open={open} onOpenChange={onOpenChange} title={t('chat.pickOrder')} size="md">
       <div className="max-h-[55dvh] space-y-1.5 overflow-y-auto">
@@ -106,7 +110,7 @@ export function OrderPicker({
                 o.number === highlight ? 'border-primary bg-primary-50/50' : 'border-transparent',
               )}
             >
-              <ProductImage src={o.items[0]?.image ?? ''} alt="" className="size-12 shrink-0 rounded-sm" />
+              <ProductImage src={o.image ?? ''} alt="" className="size-12 shrink-0 rounded-sm" />
               <span className="min-w-0 flex-1">
                 <span className="block text-sm font-semibold text-fg">{t('chat.orderN', { n: o.number })}</span>
                 <span className="block text-xs text-fg-muted">{formatDate(o.createdAt, lang)}</span>

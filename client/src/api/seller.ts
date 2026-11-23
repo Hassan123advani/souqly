@@ -17,6 +17,7 @@ import type {
   ProductUpdateInput,
   SellerDashboard,
   SellerProduct,
+  SellerProductBulkResult,
   SellerStore,
   ShippingSettings,
   SlugAvailability,
@@ -192,6 +193,16 @@ export function useProductAction() {
   });
 }
 
+/** Bulk publish / archive; each id succeeds or fails on its own. */
+export function useBulkProducts() {
+  const s = useSc();
+  const done = useProductsInvalidation();
+  return useMutation({
+    mutationFn: (b: { ids: string[]; action: 'publish' | 'archive' }) => s.send<SellerProductBulkResult>('post', '/seller/products/bulk', b),
+    onSuccess: done,
+  });
+}
+
 // ---------------------------------------------------------------------------------------------
 // Inventory & warehouses
 // ---------------------------------------------------------------------------------------------
@@ -330,6 +341,20 @@ export function useOrderNote() {
   const done = useOrdersInvalidation();
   return useMutation({ mutationFn: ({ id, text }: { id: string; text: string }) => s.send<OrderDTO>('post', `/seller/orders/${id}/notes`, { text }), onSuccess: done });
 }
+export type OrderRiderOption = { memberId: string; user: { id: string; name: string; phone?: string }; activeDeliveries: number };
+
+/** Rider picker for order assignment (needs only orders.view, unlike `/seller/riders`). */
+export function useOrderRiders(enabled: boolean) {
+  const s = useSc();
+  const key = useSellerKey();
+  return useQuery({
+    queryKey: [...key, 'orders', 'riders'],
+    queryFn: () => s.get<OrderRiderOption[]>('/seller/orders/riders'),
+    enabled,
+    staleTime: 60_000,
+  });
+}
+
 export function useAssignRider() {
   const s = useSc();
   const done = useOrdersInvalidation();

@@ -41,13 +41,11 @@ export function useSelectAll() {
   return useCartMutation((selected: boolean) => post<CartDTO>('/cart/select-all', { selected }));
 }
 
-/** Select / unselect several lines (one store). The API has no bulk endpoint, so lines are patched in turn. */
-export function useSelectMany() {
-  return useCartMutation(async ({ ids, selected }: { ids: string[]; selected: boolean }) => {
-    let cart: CartDTO | undefined;
-    for (const id of ids) cart = await patch<CartDTO>(`/cart/items/${id}`, { selected });
-    return cart ?? get<CartDTO>('/cart');
-  });
+/** Select / unselect every line of one store. */
+export function useSelectStore() {
+  return useCartMutation(({ storeId, selected }: { storeId: string; selected: boolean }) =>
+    post<CartDTO>('/cart/select-store', { storeId, selected }),
+  );
 }
 
 export function useApplyVoucher() {

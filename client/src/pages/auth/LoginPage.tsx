@@ -20,10 +20,11 @@ function useAfterLogin() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [params] = useSearchParams();
-  return (user: MeUser, isNew?: boolean) => {
+  /** `next` (e.g. from the Google 2FA response) wins over the `?next=` query param; both are sanitized. */
+  return (user: MeUser, isNew?: boolean, next?: string | null) => {
     toast.success(isNew ? t('auth.welcomeNew') : t('auth.welcomeBack', { name: user.name.split(' ')[0] }));
     const fallback = user.platformRole ? '/admin' : '/';
-    navigate(safeNext(params.get('next'), fallback), { replace: true });
+    navigate(safeNext(next || params.get('next'), fallback), { replace: true });
   };
 }
 
@@ -354,7 +355,7 @@ function GoogleTwoFactor({ ticket, next }: { ticket: string; next?: string }) {
     finish.mutate(
       { ticket, totp: code },
       {
-        onSuccess: (d) => afterLogin(d.user),
+        onSuccess: (d) => afterLogin(d.user, false, d.next),
         onError: (err) => {
           const c = getErrorCode(err);
           setTotp('');

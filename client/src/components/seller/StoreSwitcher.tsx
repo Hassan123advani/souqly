@@ -1,9 +1,12 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { Bell, BellOff, Check, ChevronsUpDown } from 'lucide-react';
+import { PERMISSIONS } from '@souqly/shared';
 import { useMe } from '@/api/auth';
+import { useSaveSellerSettings } from '@/api/seller';
 import { Avatar, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger, Tooltip } from '@/components/ui';
 import { useActiveStore, useActiveStoreId } from './useActiveStore';
+import { useCan } from './usePermissions';
 import { useSellerPrefs } from './useSellerPrefs';
 
 /** Store switcher (only when the user belongs to several stores) + new-order sound toggle. */
@@ -14,6 +17,13 @@ export function SellerSidebarFooter() {
   const setStoreId = useActiveStore((s) => s.setStoreId);
   const qc = useQueryClient();
   const { muted, setMuted } = useSellerPrefs();
+  const can = useCan();
+  const saveNotify = useSaveSellerSettings('notifications');
+  // The store setting wins on load (see OrderAlerts), so keep it in step when this member may edit it.
+  const toggleSound = () => {
+    setMuted(!muted);
+    if (can(PERMISSIONS.STORE_SETTINGS_MANAGE)) saveNotify.mutate({ newOrderSound: muted });
+  };
   const stores = me?.stores ?? [];
   const active = stores.find((s) => s.id === activeId);
 
@@ -51,7 +61,7 @@ export function SellerSidebarFooter() {
       <Tooltip content={muted ? t('seller.switcher.soundOff') : t('seller.switcher.soundOn')} side="right">
         <button
           type="button"
-          onClick={() => setMuted(!muted)}
+          onClick={toggleSound}
           aria-pressed={!muted}
           aria-label={t('seller.switcher.sound')}
           className="grid size-10 place-items-center rounded-md text-fg-muted hover:bg-surface-2 hover:text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"

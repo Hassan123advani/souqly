@@ -1,8 +1,8 @@
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { ArrowRight, PackageOpen } from 'lucide-react';
-import type { ProductSort, StorePublic, StoreSectionType } from '@souqly/shared';
-import { useProductsPreview, useStoreCategories } from '@/api/catalog';
+import type { CategoryNode, ProductSort, StorePublic, StoreSectionType } from '@souqly/shared';
+import { useCategoryTree, useProductsPreview, useStoreCategories } from '@/api/catalog';
 import { Button, EmptyState, ErrorState, ProductCardSkeleton, Skeleton } from '@/components/ui';
 import { ProductCard } from '@/components/product/ProductCard';
 import { ProductGrid, ProductGridSkeleton } from '@/components/product/ProductGrid';
@@ -81,11 +81,33 @@ function ProductSection({ store, section }: { store: StorePublic; section: Secti
   const { t } = useTranslation();
   const q = SECTION_QUERY[section.type]!;
   const limit = num(section.config.limit, 8);
-  const params = { sort: q.sort, limit: String(limit), ...(q.extra ?? {}) };
+  return (
+    <ProductsBlock
+      store={store}
+      params={{ sort: q.sort, limit: String(limit), ...(q.extra ?? {}) }}
+      limit={limit}
+      title={section.title ?? t(`store.section.${section.type}`)}
+      allLink={`/store/${store.slug}?tab=products&sort=${q.sort}${q.extra?.discount ? `&discount=${q.extra.discount}` : ''}`}
+    />
+  );
+}
+
+/** A titled grid / rail of this store's products for one query; hidden when the query has no results. */
+function ProductsBlock({
+  store,
+  params,
+  limit,
+  title,
+  allLink,
+}: {
+  store: StorePublic;
+  params: Record<string, string>;
+  limit: number;
+  title: string;
+  allLink: string;
+}) {
   const { data, isLoading, error, refetch } = useProductsPreview(`/stores/${store.slug}/products`, params);
   const tpl = TEMPLATE[store.layoutTemplate];
-  const title = section.title ?? t(`store.section.${section.type}`);
-  const allLink = `/store/${store.slug}?tab=products&sort=${q.sort}${q.extra?.discount ? `&discount=${q.extra.discount}` : ''}`;
 
   if (!isLoading && !error && !data?.length) return null;
   return (
@@ -106,7 +128,47 @@ function ProductSection({ store, section }: { store: StorePublic; section: Secti
   );
 }
 
+function findCategory(nodes: CategoryNode[], id: string): CategoryNode | undefined {
+  for (const n of nodes) {
+    if (n.id === id) return n;
+    const hit = findCategory(n.children, id);
+    if (hit) return hit;
+  }
+  return undefined;
+}
+
+/** `category_row` with `config.categoryId`: that category's products in this store; otherwise the store's category chips. */
 function CategoryRow({ store, section }: { store: StorePublic; section: Section }) {
+  const categoryId = str(section.config.categoryId);
+  const tree = useCategoryTree();
+  if (!categoryId) return <CategoryChips store={store} section={section} />;
+  if (tree.isLoading)
+    return (
+      <div className="mt-10">
+        <ProductGridSkeleton count={4} density={TEMPLATE[store.layoutTemplate].density} />
+      </div>
+    );
+  const cat = tree.data && findCategory(tree.data, categoryId);
+  // Unknown / removed category (or the tree failed): fall back to the chips row rather than an empty block.
+  if (!cat) return <CategoryChips store={store} section={section} />;
+  return <CategoryProducts store={store} section={section} cat={cat} />;
+}
+
+function CategoryProducts({ store, section, cat }: { store: StorePublic; section: Section; cat: CategoryNode }) {
+  const localized = useLocalized();
+  const limit = num(section.config.limit, 8);
+  return (
+    <ProductsBlock
+      store={store}
+      params={{ category: cat.slug, sort: 'best_selling', limit: String(limit) }}
+      limit={limit}
+      title={section.title ?? localized(cat.name)}
+      allLink={`/store/${store.slug}?tab=products&category=${encodeURIComponent(cat.slug)}`}
+    />
+  );
+}
+
+function CategoryChips({ store, section }: { store: StorePublic; section: Section }) {
   const { t } = useTranslation();
   const localized = useLocalized();
   const { data, isLoading } = useStoreCategories(store.slug);

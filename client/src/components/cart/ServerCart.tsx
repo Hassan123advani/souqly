@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { Bookmark, ShoppingCart, Trash2 } from 'lucide-react';
 import type { CartDTO, CartItemDTO } from '@souqly/shared';
-import { allCartItems, useRemoveCartItem, useSelectAll, useSelectMany, useUpdateCartItem } from '@/api/cart';
+import { allCartItems, useRemoveCartItem, useSelectAll, useSelectStore, useUpdateCartItem } from '@/api/cart';
 import { getErrorMessage } from '@/api/client';
 import { Alert, Button, Card, Checkbox } from '@/components/ui';
 import { money } from '@/lib/format';
@@ -38,7 +38,7 @@ export function ServerCart({ cart }: { cart: CartDTO }) {
   const update = useUpdateCartItem();
   const remove = useRemoveCartItem();
   const selectAll = useSelectAll();
-  const selectMany = useSelectMany();
+  const selectStore = useSelectStore();
   const issueText = useIssueText();
 
   const items = allCartItems(cart);
@@ -101,7 +101,7 @@ export function ServerCart({ cart }: { cart: CartDTO }) {
                     disabled={busy || !groupSelectable.length}
                     aria-label={t('cart.selectStore', { store: g.store.name })}
                     onChange={(e) =>
-                      selectMany.mutate({ ids: groupSelectable.map((i) => i.id), selected: e.target.checked }, { onError })
+                      selectStore.mutate({ storeId: g.store.id, selected: e.target.checked }, { onError })
                     }
                   />
                 }
@@ -175,7 +175,7 @@ export function ServerCart({ cart }: { cart: CartDTO }) {
               <VoucherInput applied={s.platformVoucher} placeholder={t('cart.platformVoucherPlaceholder')} />
             </div>
             <PriceBreakdown
-              b={{ itemsSubtotal: s.itemsSubtotal, shippingTotal: s.shippingTotal, discountTotal: s.discountTotal, total: s.total, savings: s.savings, count: s.selectedCount }}
+              b={{ itemsSubtotal: s.itemsSubtotal, shippingTotal: s.shippingTotal, discountTotal: s.discountTotal, coinsDiscount: s.coinsDiscount, total: s.total, savings: s.savings, count: s.selectedCount }}
             />
             <Button block size="lg" variant="accent" className="hidden lg:inline-flex" disabled={!s.selectedCount} onClick={goCheckout}>
               {t('cart.checkoutN', { count: s.selectedCount })}

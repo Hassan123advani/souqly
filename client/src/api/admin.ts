@@ -1,6 +1,6 @@
 import { keepPreviousData, useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { LocalizedName, OrderDTO } from '@souqly/shared';
-import { api, del, get, patch, post } from './client';
+import { api, del, get, getErrorStatus, patch, post } from './client';
 
 /**
  * Super Admin API hooks (docs/api-admin.md). Every list is cursor paginated (`meta.nextCursor`);
@@ -96,7 +96,7 @@ export function useStopImpersonation() {
         return '/admin/users';
       } catch (err) {
         // The admin session could not be restored: still end the impersonated session, then sign in again.
-        const status = (err as { response?: { status?: number } }).response?.status;
+        const status = getErrorStatus(err);
         if (status !== 401 && status !== 403) throw err;
         await post('/auth/logout').catch(() => undefined);
         return '/login?next=%2Fadmin%2Fusers';
