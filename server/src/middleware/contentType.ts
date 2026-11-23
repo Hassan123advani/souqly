@@ -4,7 +4,7 @@ import { AppError } from '../lib/AppError';
 const MUTATING = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
 /** API paths (relative to /api/v1) that accept multipart/form-data uploads. */
-export const MULTIPART_PATHS = new Set(['/account/avatar', '/seller/uploads', '/uploads/temp', '/rider/uploads', '/returns/uploads', '/social/uploads']);
+export const MULTIPART_PATHS = new Set(['/account/avatar', '/seller/uploads', '/uploads/temp', '/rider/uploads', '/returns/uploads', '/social/uploads', '/seller/products/import']);
 
 /**
  * CSRF hardening for the cookie-authenticated API. HTML forms can only send urlencoded, multipart or

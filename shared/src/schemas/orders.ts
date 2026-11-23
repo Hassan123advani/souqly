@@ -68,6 +68,8 @@ export const checkoutSchema = z
     notes: notesSchema,
     coins: z.number().int().min(0).max(1_000_000).optional(),
     idempotencyKey: z.string().trim().min(8).max(100).regex(/^[A-Za-z0-9_:-]+$/, 'Invalid idempotency key'),
+    /** Affiliate code (Phase 10, flag affiliateLinks); also read from the sq_aff cookie. */
+    aff: z.string().trim().regex(/^[A-Za-z0-9]{4,16}$/).optional(),
   })
   .strict();
 export type CheckoutInput = z.infer<typeof checkoutSchema>;

@@ -48,7 +48,9 @@ export interface IOrder {
   subtotal: number;
   shippingFee: number;
   /** `coins`: platform-funded coin redemption share (Phase 8). */
-  discounts: { store: number; platform: number; shipping: number; coins?: number };
+  discounts: { store: number; platform: number; shipping: number; coins?: number; promo?: number };
+  /** Phase 10: applied bundle / BXGY promotions. */
+  promotions?: { id: string; kind: string; name: string; discount: number }[];
   /** Whole coins spent on this order (share of the checkout's coins; refunded on cancel / return). */
   coinsUsed?: number;
   vouchers: { store?: string; platform?: string };
@@ -72,6 +74,10 @@ export interface IOrder {
   stockRestored: boolean;
   /** Sum of admin refunds to the buyer's wallet (Phase 9; never exceeds `total`). */
   adminRefunded?: number;
+  /** Phase 10 POS: offline client id (idempotency), payments, shift, customer + stock conflict flag. */
+  pos?: { clientId: string; shiftId?: Types.ObjectId; cashierId: Types.ObjectId; payments: { method: string; amount: number }[]; change: number; customer?: { phone?: string; name?: string }; stockConflict: boolean; soldAt: Date };
+  /** Phase 10 affiliate attribution (referrer user). */
+  affiliateUserId?: Types.ObjectId;
   demo: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -82,7 +88,8 @@ const orderSchema = new Schema<IOrder>(
     storeId: { type: Schema.Types.ObjectId, ref: 'Store', required: true },
     checkoutId: { type: Schema.Types.ObjectId, ref: 'Checkout', default: null },
     number: { type: String, required: true, unique: true },
-    buyerId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+    // POS walk-in sales (Phase 10) have no buyer account.
+    buyerId: { type: Schema.Types.ObjectId, ref: 'User', required: function (this: { channel?: string }) { return this.channel !== 'pos'; } },
     items: [
       {
         productId: { type: Schema.Types.ObjectId, ref: 'Product', required: true },
@@ -101,7 +108,8 @@ const orderSchema = new Schema<IOrder>(
     ],
     subtotal: { type: Number, required: true, min: 0 },
     shippingFee: { type: Number, default: 0, min: 0 },
-    discounts: { store: { type: Number, default: 0 }, platform: { type: Number, default: 0 }, shipping: { type: Number, default: 0 }, coins: { type: Number, default: 0 } },
+    discounts: { store: { type: Number, default: 0 }, platform: { type: Number, default: 0 }, shipping: { type: Number, default: 0 }, coins: { type: Number, default: 0 }, promo: { type: Number, default: 0 } },
+    promotions: { type: [{ id: String, kind: String, name: String, discount: Number, _id: false }], default: undefined },
     coinsUsed: { type: Number, default: 0, min: 0 },
     vouchers: { store: String, platform: String },
     total: { type: Number, required: true, min: 0 },
@@ -144,6 +152,8 @@ const orderSchema = new Schema<IOrder>(
     invoiceNumber: { type: String, required: true },
     stockRestored: { type: Boolean, default: false },
     adminRefunded: { type: Number, default: 0, min: 0 },
+    pos: { type: Schema.Types.Mixed, default: undefined },
+    affiliateUserId: { type: Schema.Types.ObjectId, ref: 'User', default: undefined },
     demo: { type: Boolean, default: false, index: true },
   },
   { timestamps: true, minimize: false },
@@ -157,6 +167,8 @@ orderSchema.index({ checkoutId: 1 });
 // Admin: all-orders list / reports.
 orderSchema.index({ status: 1, createdAt: -1 });
 orderSchema.index({ createdAt: -1 });
+// Phase 10: POS offline-sync idempotency.
+orderSchema.index({ storeId: 1, 'pos.clientId': 1 }, { unique: true, partialFilterExpression: { 'pos.clientId': { $exists: true } } });
 
 export const Order = model<IOrder>('Order', orderSchema);
 export type OrderDoc = HydratedDocument<IOrder>;

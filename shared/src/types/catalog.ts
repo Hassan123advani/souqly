@@ -123,6 +123,8 @@ export type ProductDetail = {
   holidayMessage?: string;
   store: StoreSummaryCard;
   breadcrumbs: Breadcrumb[];
+  /** Phase 10: branded 1200x630 SVG for og:image (D-073). */
+  shareImage?: string;
 };
 
 /** Seller Center view of a product (includes status and stock details). */
@@ -166,6 +168,10 @@ export type StorePublic = StoreCard & {
   responseTimeHours: number;
   contact: { whatsapp?: string };
   joinedAt: string;
+  /** Phase 10: branded 1200x630 SVG for og:image (D-073). */
+  shareImage?: string;
+  /** Phase 10: seller-pinned products for the `featured` section. */
+  featuredProductIds?: string[];
 };
 
 export type HeroSlide = { image: string; title: string; subtitle?: string; ctaText?: string; ctaLink?: string; theme?: string };

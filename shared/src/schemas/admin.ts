@@ -30,6 +30,8 @@ export const adminUserListQuerySchema = adminListQuerySchema.extend({
   role: z.enum([...PLATFORM_ROLES, 'none']).optional(),
   status: z.enum(['active', 'blocked', 'deleted']).optional(),
   seller: boolish.optional(),
+  /** newest (default) | oldest | wallet (highest wallet balance first). */
+  sort: z.enum(['newest', 'oldest', 'wallet']).optional(),
 });
 export const adminReasonSchema = z.object({ reason }).strict();
 export const adminSetRoleSchema = z.object({ platformRole: z.enum(PLATFORM_ROLES).nullable() }).strict();
@@ -43,6 +45,8 @@ export const adminStoreListQuerySchema = adminListQuerySchema.extend({
   status: z.enum(STORE_STATUSES).optional(),
   mall: boolish.optional(),
   plan: z.enum(STORE_PLANS).optional(),
+  /** newest (default) | oldest | followers (most followed first). */
+  sort: z.enum(['newest', 'oldest', 'followers']).optional(),
 });
 export const adminStoreMallSchema = z.object({ isMall: z.boolean() }).strict();
 export const adminStorePlanSchema = z.object({ plan: z.enum(STORE_PLANS) }).strict();
@@ -53,6 +57,8 @@ export const adminProductListQuerySchema = adminListQuerySchema.extend({
   q: z.string().trim().max(100).optional(),
   status: z.enum(PRODUCT_STATUSES).optional(),
   storeId: objectIdSchema.optional(),
+  /** newest (default; pending queue defaults to oldest) | oldest | best_selling (soldCount). */
+  sort: z.enum(['newest', 'oldest', 'best_selling']).optional(),
 });
 export const adminModerationNoteSchema = z.object({ note: z.string().trim().min(3).max(500) }).strict();
 export const adminProductBulkSchema = z
@@ -105,6 +111,8 @@ export const adminOrderListQuerySchema = adminListQuerySchema.extend({
   buyerId: objectIdSchema.optional(),
   from: isoDate.optional(),
   to: isoDate.optional(),
+  /** newest (default) | oldest | total (highest order total first). */
+  sort: z.enum(['newest', 'oldest', 'total']).optional(),
 });
 export const adminOrderStatusSchema = z.object({ status: z.enum(ORDER_STATUSES), reason }).strict();
 export const adminOrderRefundSchema = z.object({ amount: z.number().int().positive(), reason }).strict();

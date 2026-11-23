@@ -4,11 +4,13 @@ import {
   productListQuerySchema,
   searchSuggestQuerySchema,
   storeListQuerySchema,
+  trafficParamsSchema,
   type ProductListQuery,
   type StoreListQuery,
 } from '@souqly/shared';
 import { Router } from 'express';
 import { z } from 'zod';
+import { track, trafficSource } from '../analytics/analytics.service';
 import { asyncHandler } from '../../lib/asyncHandler';
 import { optionalAuth, requireAuth } from '../../middleware/auth';
 import { rateLimits } from '../../middleware/rateLimit';
@@ -106,10 +108,13 @@ marketplaceRouter.get(
 marketplaceRouter.get(
   '/products/:slug',
   optionalAuth,
-  validate({ params: slugParams }),
+  validate({ params: slugParams, query: trafficParamsSchema }),
   asyncHandler(async (req, res) => {
     const viewerKey = req.user?.sessionId ?? `ip:${req.ip ?? 'unknown'}`;
-    res.json({ data: await getProductDetail(req.params.slug!, { userId: req.user?.id, viewerKey }) });
+    const data = await getProductDetail(req.params.slug!, { userId: req.user?.id, viewerKey });
+    // Phase 10 analytics: product view counter + traffic source (?ref= / ?utm_source=).
+    track('product_view', data.store.id, { productId: data.id, source: trafficSource(req.query) });
+    res.json({ data });
   }),
 );
 
@@ -226,10 +231,11 @@ marketplaceRouter.get(
 marketplaceRouter.get(
   '/stores/:slug',
   optionalAuth,
-  validate({ params: slugParams }),
+  validate({ params: slugParams, query: trafficParamsSchema }),
   asyncHandler(async (req, res) => {
     const store = await getStorePublic(req.params.slug!);
     recordStoreVisit(store.id, req.user?.sessionId ?? `ip:${req.ip ?? 'unknown'}`);
+    track('store_view', store.id, { source: trafficSource(req.query) });
     res.json({ data: store });
   }),
 );

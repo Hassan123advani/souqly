@@ -11,6 +11,7 @@ import { seedOrders } from './orders';
 import { seedDelivery } from './delivery';
 import { seedSocial } from './social';
 import { seedAdminDemo, seedPages } from './admin';
+import { seedGrowth } from './growth';
 import { clearDemoData } from './clear';
 import { SEED_STORES } from './data/stores';
 
@@ -100,7 +101,8 @@ export async function runSeed(opts: { reset?: boolean; demo?: boolean; productio
   const delivery = await seedDelivery(demoHash);
   const social = await seedSocial();
   const adminDemo = await seedAdminDemo(demoHash);
-  logger.info({ admin, pages, demoBuyersCreated: buyers, catalog, orders, delivery, social, adminDemo }, 'Seed complete');
+  const growth = await seedGrowth(); // Phase 10 (after payouts so the ledger includes them)
+  logger.info({ admin, pages, demoBuyersCreated: buyers, catalog, orders, delivery, social, adminDemo, growth }, 'Seed complete');
   logger.info(
     `Login: ${env.ADMIN_EMAIL} (Super Admin) | demo buyers: ${DEMO_BUYERS.map((b) => b.email).join(', ')} | ` +
       `demo sellers: ${SEED_STORES.map((s) => s.owner.email).join(', ')} — password ${DEMO_PASSWORD}`,

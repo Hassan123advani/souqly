@@ -11,6 +11,7 @@ import { invalidateHomeCache } from '../catalog/home.service';
 import { Campaign, FlashSale } from '../catalog/marketing.models';
 import { Product } from '../catalog/product.model';
 import { Voucher } from '../vouchers/voucher.model';
+import { withFlashItemNames } from './names';
 import { can, oid } from './common';
 
 export const adminMarketingRouter = Router();
@@ -66,7 +67,8 @@ for (const r of resources) {
       const now = new Date();
       const filter = { ...r.baseFilter, ...(f.active === 'true' ? { startsAt: { $lte: now }, endsAt: { $gte: now } } : f.active === 'false' ? { $or: [{ startsAt: { $gt: now } }, { endsAt: { $lt: now } }] } : {}) };
       const rows = (await r.model.find(filter).sort({ startsAt: -1 }).limit(f.limit).lean()) as Record<string, unknown>[];
-      res.json({ data: rows.map(toDTO) });
+      const dtos = rows.map(toDTO);
+      res.json({ data: r.path === 'flash-sales' ? await withFlashItemNames(dtos as { items?: { productId: unknown }[] }[]) : dtos });
     }),
   );
 
@@ -77,7 +79,7 @@ for (const r of resources) {
     asyncHandler(async (req, res) => {
       const d = (await r.model.findOne({ _id: oid(req.params.id!), ...r.baseFilter }).lean()) as Record<string, unknown> | null;
       if (!d) throw notFound(r.name);
-      res.json({ data: toDTO(d) });
+      res.json({ data: r.path === 'flash-sales' ? (await withFlashItemNames([toDTO(d) as { items?: { productId: unknown }[] }]))[0] : toDTO(d) });
     }),
   );
 

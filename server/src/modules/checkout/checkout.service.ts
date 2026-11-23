@@ -1,4 +1,4 @@
-import { applyBps, formatMoney, type CheckoutDTO, type CheckoutPreviewDTO, type CheckoutInput, type CheckoutPreviewInput, type PaymentMethod } from '@souqly/shared';
+import { applyBps, formatMoney, planCommissionBps, type CheckoutDTO, type CheckoutPreviewDTO, type CheckoutInput, type CheckoutPreviewInput, type PaymentMethod } from '@souqly/shared';
 import type { Request } from 'express';
 import { Types } from 'mongoose';
 import { AppError } from '../../lib/AppError';
@@ -26,6 +26,8 @@ import { changeCoins } from '../loyalty/coins.service';
 import { isFlagOn } from '../loyalty/flags';
 import { getPaymentToggles } from '../settings/settings.service';
 import { notifyNewOrder, notifyOrderStatus } from '../notifications/orderNotifications';
+import { AFFILIATE_COOKIE, recordAffiliateCommission, resolveAffiliate } from '../affiliate/affiliate.service';
+import { recordStoreDealSales } from '../marketing/marketing.service';
 
 const oid = (s: string | Types.ObjectId) => new Types.ObjectId(String(s));
 
@@ -90,7 +92,7 @@ export async function preview(userId: string, input: CheckoutPreviewInput): Prom
     stores: quote.pricing.stores.map((s) => ({
       storeId: s.storeId,
       itemsSubtotal: s.itemsSubtotal,
-      storeDiscount: s.storeDiscount,
+      storeDiscount: s.storeDiscount + s.promoDiscount,
       platformDiscount: s.platformDiscount,
       shippingBase: s.shippingBase,
       shippingFee: s.shippingFee,
@@ -217,13 +219,20 @@ export async function placeCheckout(req: Request, input: CheckoutInput): Promise
     const docs = [];
     let i = 0;
     // Whole coins per store order, split with the same weights as the coin discount.
+    // Phase 10 affiliate attribution (body `aff` or the sq_aff cookie); never blocks the checkout.
+    const affCookie = (req.cookies as Record<string, string> | undefined)?.[AFFILIATE_COOKIE];
+    const affiliateUserId = await resolveAffiliate(input.aff ?? affCookie, userId).catch(() => undefined);
     const coinShares = prorate(coinsSpent, quote.pricing.stores.map((s) => s.coinsDiscount));
     for (const sp of quote.pricing.stores) {
       const storeLines = quote.lines.filter((l) => String(l.store._id) === sp.storeId);
       const pricedById = new Map(sp.lines.map((pl) => [pl.id, pl]));
-      const bps = await resolveCommissionBps(sp.storeId, storeLines.map((l) => l.product.categoryPath ?? []));
-      // Commission on what the seller actually sells: items minus the store's own discount (platform-funded discounts do not reduce it).
-      const commissionBase = Math.max(0, sp.itemsSubtotal - sp.storeDiscount);
+      // Phase 10: the store's plan lowers the resolved commission rate (PLANS.commissionDiscountBps).
+      const bps = planCommissionBps(
+        await resolveCommissionBps(sp.storeId, storeLines.map((l) => l.product.categoryPath ?? [])),
+        quote.stores.get(sp.storeId)?.plan,
+      );
+      // Commission on what the seller actually sells: items minus the store's own promo + voucher discounts (platform-funded discounts do not reduce it).
+      const commissionBase = Math.max(0, sp.itemsSubtotal - sp.promoDiscount - sp.storeDiscount);
       const commissionAmount = applyBps(commissionBase, bps);
       const number = `${checkout.number}-${orderSuffix(i++)}`;
       docs.push({
@@ -249,7 +258,9 @@ export async function placeCheckout(req: Request, input: CheckoutInput): Promise
         }),
         subtotal: sp.itemsSubtotal,
         shippingFee: sp.shippingFee,
-        discounts: { store: sp.storeDiscount, platform: sp.platformDiscount, shipping: sp.shippingDiscount, coins: sp.coinsDiscount },
+        discounts: { store: sp.storeDiscount, platform: sp.platformDiscount, shipping: sp.shippingDiscount, coins: sp.coinsDiscount, promo: sp.promoDiscount },
+        ...(sp.promotions.length ? { promotions: sp.promotions.map((p) => ({ id: p.id, kind: p.kind, name: p.name, discount: p.discount })) } : {}),
+        ...(affiliateUserId ? { affiliateUserId } : {}),
         coinsUsed: coinShares[i - 1] ?? 0,
         vouchers: {
           ...(sp.storeVoucher?.valid ? { store: sp.storeVoucher.code } : {}),
@@ -257,7 +268,7 @@ export async function placeCheckout(req: Request, input: CheckoutInput): Promise
         },
         total: sp.total,
         commission: { bps, amount: commissionAmount },
-        // Seller receives items - own discount + shipping - commission (platform discounts are platform-funded).
+        // Seller receives items - own promo/voucher discounts + shipping - commission (platform discounts are platform-funded).
         sellerNet: commissionBase + sp.shippingFee - commissionAmount,
         status: input.paymentMethod === 'cod' ? 'placed' : 'pending_payment',
         timeline: [{ status: input.paymentMethod === 'cod' ? 'placed' : 'pending_payment', at: now, by: oid(userId), actor: 'buyer' }],
@@ -319,6 +330,10 @@ async function postCheckout(
         { $inc: { 'items.$.sold': l.item.qty } },
       );
     }
+
+    // Phase 10: store flash-deal sold counters + affiliate commissions (idempotent).
+    await recordStoreDealSales(quote.lines.filter((x) => x.flash).map((l) => ({ storeId: l.store._id, productId: l.product._id, variantId: l.variant._id, qty: l.item.qty })));
+    for (const o of orders) await recordAffiliateCommission(o);
 
     for (const o of orders) {
       for (const it of o.items) {

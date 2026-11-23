@@ -13,6 +13,7 @@ import { Product } from '../catalog/product.model';
 import { invalidateVocabulary } from '../catalog/search.service';
 import { notify } from '../notifications/notification.service';
 import { Store } from '../stores/store.model';
+import { listSort } from './common';
 import { can, iso, oid, q } from './common';
 
 export const adminProductsRouter = Router();
@@ -28,7 +29,7 @@ function productFilter(f: ProductListQuery): Record<string, unknown> {
   return filter;
 }
 
-const FIELDS = 'storeId title slug status moderationNote priceMin priceMax totalStock images isFeatured categoryId createdAt updatedAt';
+const FIELDS = 'storeId title slug status moderationNote priceMin priceMax totalStock soldCount images isFeatured categoryId createdAt updatedAt';
 type Row = { _id: unknown; storeId: unknown; title: string; slug: string; status: string; moderationNote?: string; priceMin: number; priceMax: number; totalStock: number; images: { url: string }[]; isFeatured: boolean; createdAt: Date; updatedAt: Date };
 const toRow = (p: Row, storeName?: string) => ({
   id: String(p._id),
@@ -53,9 +54,11 @@ adminProductsRouter.get(
   validate({ query: adminProductListQuerySchema }),
   asyncHandler(async (req, res) => {
     const f = q<ProductListQuery>(req);
+    // The pending queue defaults to oldest-first (FIFO); other lists newest-first.
+    const srt = listSort(f.sort, { key: 'best_selling', field: 'soldCount' }, f.status === 'pending_review' ? 'oldest' : 'newest');
     if (f.format === 'csv') {
       await audit({ action: 'admin.export_csv', targetType: 'Product', meta: { resource: 'products' }, req });
-      const cursor = Product.find(productFilter(f)).select(FIELDS).sort({ _id: -1 }).lean<Row[]>().cursor() as AsyncIterable<Row>;
+      const cursor = Product.find(productFilter(f)).select(FIELDS).sort(cursorSort(srt.field, srt.dir)).lean<Row[]>().cursor() as AsyncIterable<Row>;
       return streamCsv(res, 'products.csv', [
         { header: 'id', value: (p: Row) => String(p._id) },
         { header: 'storeId', value: (p) => String(p.storeId) },
@@ -66,10 +69,8 @@ adminProductsRouter.get(
         { header: 'createdAt', value: (p) => p.createdAt },
       ], cursor);
     }
-    // The pending queue is oldest-first (FIFO); other lists newest-first.
-    const dir = f.status === 'pending_review' ? 1 : -1;
-    const rows = await Product.find({ ...productFilter(f), ...cursorFilter('_id', dir, f.cursor) }).select(FIELDS).sort(cursorSort('_id', dir)).limit(f.limit + 1).lean();
-    const page = paginate(rows, f.limit, '_id');
+    const rows = await Product.find({ ...productFilter(f), ...cursorFilter(srt.field, srt.dir, f.cursor) }).select(FIELDS).sort(cursorSort(srt.field, srt.dir)).limit(f.limit + 1).lean();
+    const page = paginate(rows, f.limit, srt.field);
     const stores = await Store.find({ _id: { $in: page.items.map((p) => p.storeId) } }).select('name').lean();
     const names = new Map(stores.map((s) => [String(s._id), s.name]));
     res.json({ data: page.items.map((p) => toRow(p as unknown as Row, names.get(String(p.storeId)))), meta: { nextCursor: page.nextCursor } });

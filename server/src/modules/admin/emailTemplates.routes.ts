@@ -48,6 +48,32 @@ adminEmailTemplatesRouter.get(
   }),
 );
 
+/** Replaces sample variable values with `{{var}}` placeholders (longest value first). */
+export function toPlaceholders(s: string, vars: Record<string, string>): string {
+  let out = s;
+  for (const [k, v] of Object.entries(vars).filter(([, v]) => v.length >= 3).sort((a, b) => b[1].length - a[1].length)) out = out.split(v).join(`{{${k}}}`);
+  return out;
+}
+const escHtml = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
+
+/**
+ * Default content for the editor's "reset to default": subject + body HTML with `{{var}}` placeholders
+ * (the override format; the branded layout is added at send time) and the fully rendered sample.
+ */
+adminEmailTemplatesRouter.get(
+  '/email-templates/:key/default',
+  ...can(SETTINGS),
+  validate({ params: keyParams }),
+  asyncHandler(async (req, res) => {
+    const t = builtIn(req.params.key!);
+    const s = t.sample();
+    const vars = s.template?.vars ?? {};
+    const paragraphs = (s.text ?? '').split(/\n{2,}/).map((para) => para.trim()).filter(Boolean);
+    const html = paragraphs.map((para) => `<p>${escHtml(toPlaceholders(para, vars)).replace(/\n/g, '<br>')}</p>`).join('\n');
+    res.json({ data: { key: t.key, description: t.description, variables: Object.keys(vars), subject: toPlaceholders(s.subject, vars), html, previewHtml: s.html } });
+  }),
+);
+
 adminEmailTemplatesRouter.put(
   '/email-templates/:key',
   ...can(SETTINGS),

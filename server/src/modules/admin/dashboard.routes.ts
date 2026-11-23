@@ -20,9 +20,30 @@ export const GMV_EXCLUDED = ['pending_payment', 'cancelled'];
 /** Orders whose commission is platform revenue (not cancelled / refunded). */
 export const REVENUE_EXCLUDED = ['pending_payment', 'cancelled', 'returned', 'refunded'];
 
+/** Percentage change vs the previous period (1 decimal); null when the previous value is 0 and the current is not. */
+export const deltaPct = (cur: number, prev: number): number | null => (prev === 0 ? (cur === 0 ? 0 : null) : Math.round(((cur - prev) / prev) * 1000) / 10);
+
+async function periodTotals(match: Record<string, unknown>) {
+  const [t] = await Order.aggregate<{ gmv: number; commission: number; orders: number }>([
+    { $match: { ...match, status: { $nin: GMV_EXCLUDED } } },
+    {
+      $group: {
+        _id: null,
+        gmv: { $sum: '$total' },
+        orders: { $sum: 1 },
+        commission: { $sum: { $cond: [{ $in: ['$status', REVENUE_EXCLUDED] }, 0, '$commission.amount'] } },
+      },
+    },
+  ]);
+  return { gmv: t?.gmv ?? 0, commission: t?.commission ?? 0, orders: t?.orders ?? 0, newSignups: await User.countDocuments(match) };
+}
+
 export async function dashboard(fromQ?: Date, toQ?: Date) {
   const { from, to } = range(fromQ, toQ);
   const inRange = { createdAt: { $gte: from, $lte: to } };
+  // Previous period of the same length, immediately before `from`.
+  const prevFrom = new Date(from.getTime() - (to.getTime() - from.getTime()));
+  const previous = await periodTotals({ createdAt: { $gte: prevFrom, $lt: from } });
   const [totals] = await Order.aggregate<{ gmv: number; commission: number; orders: number }>([
     { $match: { ...inRange, status: { $nin: GMV_EXCLUDED } } },
     {
@@ -102,6 +123,13 @@ export async function dashboard(fromQ?: Date, toQ?: Date) {
       users,
       newSignups,
       stores: Object.fromEntries(storeStatus.map((s) => [s._id, s.n])),
+    },
+    previous: { range: { from: prevFrom.toISOString(), to: from.toISOString() }, ...previous },
+    deltas: {
+      gmv: deltaPct(totals?.gmv ?? 0, previous.gmv),
+      commission: deltaPct(totals?.commission ?? 0, previous.commission),
+      orders: deltaPct(totals?.orders ?? 0, previous.orders),
+      newSignups: deltaPct(newSignups, previous.newSignups),
     },
     series: series.map((s) => ({ date: s._id, gmv: s.gmv, orders: s.orders, commission: s.commission, signups: signups.get(s._id) ?? 0 })),
     top: {

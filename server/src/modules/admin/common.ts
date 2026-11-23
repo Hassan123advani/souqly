@@ -27,3 +27,13 @@ export function range(from?: Date, to?: Date, days = 30): { from: Date; to: Date
 }
 
 export const iso = (d?: Date | null) => (d ? d.toISOString() : null);
+
+/**
+ * Admin list sort → (field, direction) for cursor pagination. `newest`/`oldest` use _id; the metric
+ * sort uses a field that always exists (numeric, default 0) with _id as the tie-breaker.
+ */
+export function listSort(sort: string | undefined, metric: { key: string; field: string }, fallback: 'newest' | 'oldest' = 'newest'): { field: string; dir: 1 | -1 } {
+  const s = sort ?? fallback;
+  if (s === metric.key) return { field: metric.field, dir: -1 };
+  return { field: '_id', dir: s === 'oldest' ? 1 : -1 };
+}

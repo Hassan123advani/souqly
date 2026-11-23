@@ -13,7 +13,7 @@ import { Store, type IStore } from './store.model';
  * contact email/phone, healthScore or plan.
  */
 const CARD_SELECT = 'slug name tagline logo banner themeColor isMall ratingAvg ratingCount followerCount productCount address.city createdAt';
-const PUBLIC_SELECT = `${CARD_SELECT} description categoryIds policies layoutTemplate sections seo holidayMode responseRate responseTimeHours contact.whatsapp`;
+const PUBLIC_SELECT = `${CARD_SELECT} description categoryIds policies layoutTemplate sections seo holidayMode responseRate responseTimeHours contact.whatsapp featuredProductIds`;
 
 type StoreLean = Partial<IStore> & { _id: Types.ObjectId; slug: string; name: string };
 
@@ -83,6 +83,8 @@ export async function getStorePublic(slug: string): Promise<StorePublic> {
     responseTimeHours: s.responseTimeHours ?? 24,
     contact: { ...(s.contact?.whatsapp ? { whatsapp: s.contact.whatsapp } : {}) },
     joinedAt: (s.createdAt ?? new Date()).toISOString(),
+    shareImage: `/api/v1/stores/${encodeURIComponent(s.slug)}/share-image.svg`,
+    ...(s.featuredProductIds?.length ? { featuredProductIds: s.featuredProductIds.map(String) } : {}),
   };
 }
 

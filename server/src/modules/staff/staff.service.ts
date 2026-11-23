@@ -1,3 +1,4 @@
+import { assertStaffLimit } from '../plans/plan.service';
 import { STORE_ROLE_PERMISSIONS } from '@souqly/shared';
 import type { ActivityEntry, CustomRoleDTO, StaffInviteInput, StaffMemberDTO, StaffUpdateInput, StoreInvitationDTO, StoreRole } from '@souqly/shared';
 import type { Request } from 'express';
@@ -61,6 +62,7 @@ async function resolveRole(req: Request, input: { role?: string; customRoleId?: 
 
 export async function inviteStaff(req: Request, input: StaffInviteInput): Promise<{ status: 'invited' | 'email_sent'; member?: StaffMemberDTO }> {
   const store = req.store!;
+  await assertStaffLimit(store); // Phase 10 plan limit
   const { role, customRoleId } = await resolveRole(req, input);
   const invitee = await User.findOne({ email: input.email }).select('_id name email').lean();
   const signupUrl = `${env.CLIENT_URL}/signup?email=${encodeURIComponent(input.email)}`;

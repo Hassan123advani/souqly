@@ -3,7 +3,8 @@ import { Types } from 'mongoose';
 import { FlashSale } from '../catalog/marketing.models';
 import { Product, type IVariant, type ProductLean } from '../catalog/product.model';
 import { Store, type IStore } from '../stores/store.model';
-import { computePricing, unitPriceFor, type PricingLine, type PricingResult } from '../orders/pricing';
+import { computePricing, resolveFlashPrice, unitPriceFor, type PricingLine, type PricingResult } from '../orders/pricing';
+import { activePromotionsForStores, activeStoreDealPrices } from '../marketing/promotions.service';
 import { loadCartVouchers, toPricingVoucher } from '../vouchers/voucher.service';
 import type { IVoucher } from '../vouchers/voucher.model';
 import type { CartDoc, ICartItem } from './cart.model';
@@ -67,14 +68,23 @@ export function isStoreOpen(store: StoreLean | undefined): boolean {
  */
 export async function buildQuote(cart: CartDoc, userId: string, buyerCity?: string | null, coinOpts: { coins?: number; coinsBalance?: number } = {}): Promise<Quote> {
   const productIds = [...new Set(cart.items.map((i) => String(i.productId)))].map((id) => new Types.ObjectId(id));
-  const [products, flash] = await Promise.all([
+  const [products, platformFlash] = await Promise.all([
     Product.find({ _id: { $in: productIds } }).select(PRODUCT_FIELDS).lean<ProductLean[]>(),
     activeFlashPrices(productIds),
   ]);
+  // Phase 10: store flash deals; a platform flash price for the same item always wins (resolveFlashPrice).
+  const storeDeals = await activeStoreDealPrices(products);
+  const flash = {
+    get(key: string): number | undefined {
+      const [pid] = key.split(':');
+      const platform = platformFlash.get(key) ?? platformFlash.get(`${pid}:*`);
+      return resolveFlashPrice(platform, storeDeals.get(key) ?? storeDeals.get(`${pid}:*`));
+    },
+  };
   const productMap = new Map(products.map((p) => [String(p._id), p]));
   const storeIds = [...new Set([...cart.items.map((i) => String(i.storeId)), ...products.map((p) => String(p.storeId))])];
   const storeDocs = await Store.find({ _id: { $in: storeIds.map((s) => new Types.ObjectId(s)) } })
-    .select('name slug logo isMall status address holidayMode')
+    .select('name slug logo isMall status address holidayMode plan')
     .lean<StoreLean[]>();
   const stores = new Map(storeDocs.map((s) => [String(s._id), s]));
 
@@ -159,6 +169,7 @@ export async function buildQuote(cart: CartDoc, userId: string, buyerCity?: stri
       id: String(l.item._id),
       storeId: String(l.store._id),
       productId: String(l.product._id),
+      variantId: String(l.variant._id),
       categoryPath: (l.product.categoryPath ?? []).map(String),
       basePrice: l.variant.price,
       ...(l.variant.compareAtPrice ? { compareAtPrice: l.variant.compareAtPrice } : {}),
@@ -168,11 +179,14 @@ export async function buildQuote(cart: CartDoc, userId: string, buyerCity?: stri
       freeShipping: !!l.product.freeShipping,
     };
   });
+  const promos = await activePromotionsForStores(lineStoreIds);
   const storeVouchers = Object.fromEntries(Object.entries(vouchers.store).map(([sid, v]) => [sid, toPricingVoucher(v)]));
   const pricing = computePricing({
     lines: pricingLines,
     shipping,
     storeVouchers,
+    bundles: promos.bundles,
+    promotions: promos.promotions,
     ...(vouchers.platform ? { platformVoucher: toPricingVoucher(vouchers.platform) } : {}),
     ...(coinOpts.coinsBalance !== undefined ? { coins: coinOpts.coins ?? 0, coinsBalance: coinOpts.coinsBalance } : {}),
   });
@@ -203,7 +217,8 @@ export async function buildQuote(cart: CartDoc, userId: string, buyerCity?: stri
       items: groupItems.get(sid)!,
       subtotal: sp?.itemsSubtotal ?? 0,
       shipping: sp?.shippingFee ?? 0,
-      storeDiscount: sp?.storeDiscount ?? 0,
+      // Phase 10: bundle / BXGY savings are seller-funded store discounts in the cart DTO.
+      storeDiscount: (sp?.storeDiscount ?? 0) + (sp?.promoDiscount ?? 0),
       platformDiscount: sp?.platformDiscount ?? 0,
       total: sp?.total ?? 0,
       ...(sv

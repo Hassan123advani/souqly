@@ -15,6 +15,7 @@ import { restoreOrderStock } from '../orders/stock';
 import { ReturnRequest } from '../returns/return.model';
 import { User } from '../users/user.model';
 import { credit } from '../wallet/wallet.service';
+import { listSort } from './common';
 import { can, oid, q } from './common';
 
 export const adminOrdersRouter = Router();
@@ -37,9 +38,10 @@ adminOrdersRouter.get(
   validate({ query: adminOrderListQuerySchema }),
   asyncHandler(async (req, res) => {
     const f = q<OrderListQuery>(req);
+    const srt = listSort(f.sort, { key: 'total', field: 'total' });
     if (f.format === 'csv') {
       await audit({ action: 'admin.export_csv', targetType: 'Order', meta: { resource: 'orders' }, req });
-      const cursor = Order.find(orderFilter(f)).sort({ _id: -1 }).lean<OrderLean[]>().cursor() as AsyncIterable<OrderLean>;
+      const cursor = Order.find(orderFilter(f)).sort(cursorSort(srt.field, srt.dir)).lean<OrderLean[]>().cursor() as AsyncIterable<OrderLean>;
       return streamCsv(res, 'orders.csv', [
         { header: 'number', value: (o: OrderLean) => o.number },
         { header: 'storeId', value: (o) => String(o.storeId) },
@@ -55,8 +57,8 @@ adminOrdersRouter.get(
         { header: 'createdAt', value: (o) => o.createdAt },
       ], cursor);
     }
-    const rows = await Order.find({ ...orderFilter(f), ...cursorFilter('_id', -1, f.cursor) }).sort(cursorSort('_id', -1)).limit(f.limit + 1).lean<OrderLean[]>();
-    const page = paginate(rows, f.limit, '_id');
+    const rows = await Order.find({ ...orderFilter(f), ...cursorFilter(srt.field, srt.dir, f.cursor) }).sort(cursorSort(srt.field, srt.dir)).limit(f.limit + 1).lean<OrderLean[]>();
+    const page = paginate(rows, f.limit, srt.field);
     const stores = await storeInfoMap(page.items.map((o) => o.storeId));
     res.json({ data: page.items.map((o) => ({ ...toOrderDTO(o, stores.get(String(o.storeId)), 'seller'), buyerId: String(o.buyerId) })), meta: { nextCursor: page.nextCursor } });
   }),

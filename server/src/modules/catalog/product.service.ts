@@ -359,6 +359,7 @@ export async function getProductDetail(slug: string, viewer: { userId?: string; 
       ...(store.address?.city ? { city: store.address.city } : {}),
     },
     breadcrumbs: cat ? breadcrumbsOf(cat) : [],
+    shareImage: `/api/v1/products/${encodeURIComponent(p.slug)}/share-image.svg`,
   };
 }
 

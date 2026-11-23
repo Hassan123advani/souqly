@@ -8,6 +8,11 @@ import { Product } from '../modules/catalog/product.model';
 import { Store } from '../modules/stores/store.model';
 import { StoreMember } from '../modules/stores/storeMember.model';
 import { User } from '../modules/users/user.model';
+import { AnalyticsEvent } from '../modules/analytics/analyticsEvent.model';
+import { SellerLedger } from '../modules/finance/ledger.model';
+import { Bundle, Promotion, StoreFlashDeal } from '../modules/marketing/marketing.model';
+import { Order } from '../modules/orders/order.model';
+import { PosShift } from '../modules/pos/posShift.model';
 import { setStorage, type StorageService } from '../services/storage';
 import { api } from '../test/helpers';
 import { clearDemoData } from './clear';
@@ -52,6 +57,16 @@ describe('demo seed', () => {
     expect((await HomeContent.findOne({ key: 'home' }).lean())!.heroSlides).toHaveLength(4);
     expect((await FlashSale.findOne({ demo: true }).lean())!.items.length).toBe(16);
     expect(await Campaign.countDocuments({ demo: true })).toBe(3);
+    // Phase 10 growth data.
+    expect(await StoreFlashDeal.countDocuments({ demo: true })).toBeGreaterThanOrEqual(2);
+    expect(await Bundle.countDocuments({ demo: true })).toBeGreaterThanOrEqual(2);
+    expect(await Promotion.countDocuments({ demo: true })).toBeGreaterThanOrEqual(2);
+    expect(await Store.countDocuments({ demo: true, plan: 'pro' })).toBeGreaterThanOrEqual(1); // plans come from data/stores.ts
+    expect(await Store.countDocuments({ demo: true, plan: 'business' })).toBeGreaterThanOrEqual(1);
+    expect(await Order.countDocuments({ demo: true, channel: 'pos' })).toBeGreaterThan(0);
+    expect(await PosShift.countDocuments({ demo: true, status: 'closed' })).toBe(1);
+    expect(await SellerLedger.countDocuments({ demo: true })).toBeGreaterThan(0);
+    expect(await AnalyticsEvent.countDocuments({ demo: true })).toBeGreaterThan(100);
     expect([...files.keys()].every((k) => k.startsWith('seed/'))).toBe(true);
     expect(files.get([...files.keys()].find((k) => k.startsWith('seed/products/'))!)).toMatch(/^<svg/);
 

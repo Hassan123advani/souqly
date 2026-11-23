@@ -15,6 +15,8 @@ import { Order, type OrderDoc, type OrderLean } from './order.model';
 import { restoreOrderStock } from './stock';
 import { notifyOrderStatus } from '../notifications/orderNotifications';
 import { refundOrderCoins } from '../loyalty/coinsRefund';
+import { creditAffiliateOnDelivery, voidAffiliateCommission } from '../affiliate/affiliate.service';
+import { ledgerOnDelivered } from '../finance/finance.service';
 import { onOrderDelivered } from '../loyalty/rewards.service';
 
 /** `SQ-YYMMDD-XXXXX` (UTC date + 5 unambiguous uppercase chars). */
@@ -161,7 +163,12 @@ export async function transitionOrder(
   });
   void notifyStatus(updated, to, otp);
   void notifyOrderStatus(updated, to);
-  if (to === 'delivered') await onOrderDelivered(updated); // Phase 8: coins + referral rewards (idempotent, never throws)
+  if (to === 'delivered') {
+    await onOrderDelivered(updated); // Phase 8: coins + referral rewards (idempotent, never throws)
+    await ledgerOnDelivered(updated); // Phase 10: seller ledger credit (idempotent, never throws)
+    await creditAffiliateOnDelivery(updated); // Phase 10: affiliate commission (idempotent, never throws)
+  }
+  if (to === 'cancelled') await voidAffiliateCommission(updated._id);
   return updated;
 }
 

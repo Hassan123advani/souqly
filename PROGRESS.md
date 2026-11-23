@@ -44,7 +44,14 @@ Admin: souqly@gmail.com / souqly123 (from server/.env)
 
 - Phase 7+8 BACKEND committed (361cba7). Phase 5+6 FRONTEND committed (6e03507). 214 tests.
 
-## In progress (3 agents) — as of 2026-11-23
+- Phase 7 FE (5bfc948), Phase 8 FE (f2ebb32), Phase 9 BE + follow-ups 1–20 (9e74db5) committed. 238 tests.
+
+## In progress — as of 2026-11-23 (later)
+- Phase 9 FRONTEND admin panel (owns pages/admin, components/admin, api/admin.ts, locales/admin, pages/support, CMS page rendering).
+- Phase 10 BACKEND seller growth (docs/api-growth.md).
+- NEXT after these: client follow-up agent to adopt new endpoints (cart select-store, google2fa next, GET conversation by id, seller order picker for chat, orders?store=, coinsDiscount in summary, products meta.counts + bulk, category attributes endpoint, /seller/orders/riders, returns counts); then Phase 10 FE (marketing, finance, analytics, POS offline, bulk CSV, plans).
+
+## Previous in-progress notes
 - Backend: follow-ups (coins refund, unreadChats, select-store, COD race, google2fa next, product counts, bulk, riders list, all attributes, newOrderSound) + Phase 9 admin API (docs/api-admin.md).
 - Frontend Phase 7 (notifications center, tracking map, returns, Rider PWA /rider) — owns pages/rider, components/{rider,notifications,tracking,returns}, locales/delivery.
 - Frontend Phase 8 (reviews, Q&A, follow, wishlist, chat, wallet/coins/referrals) — owns components/{reviews,qa,chat,wallet,wishlist}, pages/{chat,wishlist,wallet}, locales/social.

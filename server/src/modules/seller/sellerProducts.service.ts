@@ -1,3 +1,4 @@
+import { assertProductLimit } from '../plans/plan.service';
 import type { ProductCreateInput, ProductUpdateInput, SellerProductBulkInput, SellerProductBulkResult, ProductVariantInput, SellerProduct, SellerProductListQuery, UploadResult } from '@souqly/shared';
 import { slugify } from '@souqly/shared';
 import type { Request } from 'express';
@@ -79,7 +80,7 @@ function checkVariantsAgainstOptions(options: { key: string; values: string[] }[
 }
 
 /** Applies whitelisted, sanitized fields. Never touches storeId, status, counters or ratings. */
-async function applyInput(product: ProductDoc, store: StoreDoc, input: ProductUpdateInput): Promise<void> {
+export async function applyInput(product: ProductDoc, store: StoreDoc, input: ProductUpdateInput): Promise<void> {
   if (input.title !== undefined) product.title = stripHtml(input.title);
   if (input.description !== undefined) product.description = sanitizeRichText(input.description);
   if (input.highlights !== undefined) product.highlights = input.highlights.map(stripHtml).filter(Boolean);
@@ -263,6 +264,7 @@ export async function getOwn(store: StoreDoc, id: string): Promise<SellerProduct
 
 export async function createProduct(req: Request, input: ProductCreateInput): Promise<SellerProduct> {
   const store = req.store!;
+  await assertProductLimit(store); // Phase 10 plan limit
   const product = new Product({ storeId: store._id, title: input.title, slug: newProductSlug(input.title), status: 'draft', categoryId: input.categoryId });
   await applyInput(product, store, input);
   await product.save();
@@ -293,6 +295,7 @@ export async function deleteProduct(req: Request, id: string): Promise<void> {
 
 export async function duplicateProduct(req: Request, id: string): Promise<SellerProduct> {
   const store = req.store!;
+  await assertProductLimit(store);
   const src = await loadOwn(store, id);
   const o = src.toObject();
   const title = `${o.title} (Copy)`.slice(0, 150);

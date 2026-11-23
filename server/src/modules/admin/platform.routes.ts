@@ -1,4 +1,4 @@
-import { PERMISSIONS, adminAuditQuerySchema, adminStaffInviteSchema, objectIdSchema } from '@souqly/shared';
+import { ADMIN_PERMISSIONS, PERMISSIONS, PLATFORM_ROLES, PLATFORM_ROLE_PERMISSIONS, type Permission, adminAuditQuerySchema, adminStaffInviteSchema, objectIdSchema } from '@souqly/shared';
 import { Router } from 'express';
 import mongoose from 'mongoose';
 import { z } from 'zod';
@@ -23,6 +23,22 @@ export const adminPlatformRouter = Router();
 const idParams = z.object({ id: objectIdSchema });
 
 // ---------------- staff ----------------
+/**
+ * Staff who hold `permission` (e.g. ticket assignment: admin.support.manage). Available to support
+ * managers, who cannot list all staff. Returns names only (no emails / security fields).
+ */
+adminPlatformRouter.get(
+  '/staff/assignable',
+  ...can(PERMISSIONS.ADMIN_SUPPORT_MANAGE),
+  validate({ query: z.object({ permission: z.enum(ADMIN_PERMISSIONS as [Permission, ...Permission[]]).default(PERMISSIONS.ADMIN_SUPPORT_MANAGE) }) }),
+  asyncHandler(async (req, res) => {
+    const perm = req.query.permission as Permission;
+    const roles = PLATFORM_ROLES.filter((r) => PLATFORM_ROLE_PERMISSIONS[r].includes(perm));
+    const rows = await User.find({ platformRole: { $in: roles }, status: 'active' }).select('name platformRole').sort({ name: 1 }).limit(500).lean();
+    res.json({ data: rows.map((u) => ({ id: String(u._id), name: u.name, platformRole: u.platformRole })) });
+  }),
+);
+
 adminPlatformRouter.get(
   '/staff',
   ...can(PERMISSIONS.ADMIN_STAFF_MANAGE),

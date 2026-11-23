@@ -24,13 +24,15 @@ import { Payout, type PayoutLean, type PayoutStatus } from '../payouts/payout.mo
 import { Store } from '../stores/store.model';
 import { WalletTransaction } from '../wallet/walletTransaction.model';
 import { can, iso, oid, q, range } from './common';
+import { categoryNames, storeNames } from './names';
 import { GMV_EXCLUDED, REVENUE_EXCLUDED } from './dashboard.routes';
 
 export const adminFinanceRouter = Router();
 const idParams = z.object({ id: objectIdSchema });
 
 // ---------------- commission rules ----------------
-const ruleDTO = (r: { _id: unknown; scope: string; categoryId?: unknown; storeId?: unknown; bps: number; isActive: boolean }) => ({
+type RuleLike = { _id: unknown; scope: string; categoryId?: unknown; storeId?: unknown; bps: number; isActive: boolean };
+const ruleDTO = (r: RuleLike) => ({
   id: String(r._id),
   scope: r.scope,
   categoryId: r.categoryId ? String(r.categoryId) : null,
@@ -38,13 +40,18 @@ const ruleDTO = (r: { _id: unknown; scope: string; categoryId?: unknown; storeId
   bps: r.bps,
   isActive: r.isActive,
 });
+/** Rule DTOs with display names (`category` / `store`) for the admin UI. */
+async function rulesWithNames(rules: RuleLike[]) {
+  const [cats, stores] = await Promise.all([categoryNames(rules.map((r) => r.categoryId)), storeNames(rules.map((r) => r.storeId))]);
+  return rules.map((r) => ({ ...ruleDTO(r), category: r.categoryId ? (cats.get(String(r.categoryId)) ?? null) : null, store: r.storeId ? (stores.get(String(r.storeId)) ?? null) : null }));
+}
 
 adminFinanceRouter.get(
   '/commission-rules',
   ...can(PERMISSIONS.ADMIN_FINANCE_VIEW),
   asyncHandler(async (_req, res) => {
     const rows = await CommissionRule.find().sort({ scope: 1, bps: -1 }).lean();
-    res.json({ data: rows.map(ruleDTO) });
+    res.json({ data: await rulesWithNames(rows) });
   }),
 );
 
@@ -56,7 +63,7 @@ adminFinanceRouter.post(
     const b = req.body as z.infer<typeof adminCommissionRuleSchema>;
     const r = await CommissionRule.create({ scope: b.scope, categoryId: b.categoryId ? oid(b.categoryId) : null, storeId: b.storeId ? oid(b.storeId) : null, bps: b.bps, isActive: b.isActive });
     await audit({ action: 'admin.commission_rule_created', targetType: 'CommissionRule', targetId: r._id, meta: ruleDTO(r), req });
-    res.status(201).json({ data: ruleDTO(r) });
+    res.status(201).json({ data: (await rulesWithNames([r]))[0] });
   }),
 );
 
@@ -71,7 +78,7 @@ adminFinanceRouter.patch(
     const r = await CommissionRule.findByIdAndUpdate(req.params.id, { $set: set }, { new: true }).lean();
     if (!r) throw notFound('Commission rule');
     await audit({ action: 'admin.commission_rule_updated', targetType: 'CommissionRule', targetId: r._id, meta: set, req });
-    res.json({ data: ruleDTO(r) });
+    res.json({ data: (await rulesWithNames([r]))[0] });
   }),
 );
 
@@ -150,7 +157,7 @@ async function movePayout(req: Request, from: PayoutStatus[], to: PayoutStatus, 
   if (store) {
     void notify({ userId: store.ownerId, type: `payout.${to}`, title: `Payout ${to}`, body: `Your payout of ${formatMoney(p.amount)} is ${to}.`, link: '/seller/finance' });
   }
-  return payoutDTO(p);
+  return payoutDTO(p, (await storeNames([p.storeId])).get(String(p.storeId))?.name);
 }
 
 adminFinanceRouter.post(

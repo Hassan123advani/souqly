@@ -35,7 +35,11 @@ export interface IStore {
   responseRate: number;
   responseTimeHours: number;
   healthScore: number;
+  /** Phase 10: factor breakdown + recommendations from the health job. */
+  health?: { score: number; factors: { key: string; value: number; weight: number }[]; recommendations: string[]; computedAt: Date };
   plan: StorePlan;
+  /** Phase 10: pinned products for the store page featured section (max 12, own products only). */
+  featuredProductIds?: Types.ObjectId[];
   /** Encrypted fields (`*Enc`) + `*Last4` for masking; see modules/onboarding/sensitive.ts. */
   business?: Record<string, unknown>;
   payout?: Record<string, unknown>;
@@ -84,7 +88,9 @@ const storeSchema = new Schema<IStore>(
     responseRate: { type: Number, default: 100 },
     responseTimeHours: { type: Number, default: 24 },
     healthScore: { type: Number, default: 100 },
+    health: { type: Schema.Types.Mixed, default: undefined },
     plan: { type: String, enum: STORE_PLANS, default: 'free' },
+    featuredProductIds: { type: [Schema.Types.ObjectId], default: undefined },
     business: { type: Schema.Types.Mixed, select: false },
     payout: { type: Schema.Types.Mixed, select: false },
     pickupAddress: { type: Schema.Types.Mixed, select: false },

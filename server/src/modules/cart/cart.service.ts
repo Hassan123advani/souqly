@@ -5,6 +5,7 @@ import { Address } from '../account/address.model';
 import { Product } from '../catalog/product.model';
 import { Store } from '../stores/store.model';
 import { findUsableVoucher } from '../vouchers/voucher.service';
+import { track } from '../analytics/analytics.service';
 import { Cart, type CartDoc } from './cart.model';
 import { buildQuote, isStoreOpen, type StoreLean } from './quote';
 
@@ -62,6 +63,7 @@ export async function addItem(userId: string, input: CartAddItemInput): Promise<
   if (available <= 0) throw new AppError(409, 'OUT_OF_STOCK', 'This item is out of stock');
   const cart = await getOrCreateCart(userId);
   addOrIncrement(cart, input, storeId, available, 'add');
+  track('add_to_cart', storeId, { productId: input.productId }); // Phase 10 funnel counter
   return cartView(userId, cart);
 }
 

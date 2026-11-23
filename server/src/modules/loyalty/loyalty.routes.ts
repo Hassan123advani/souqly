@@ -3,7 +3,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { asyncHandler } from '../../lib/asyncHandler';
 import { requireAuth } from '../../middleware/auth';
-import { requirePermission } from '../../middleware/permissions';
+import { can } from '../admin/common';
 import { validate } from '../../middleware/validate';
 import { audit } from '../audit/audit.service';
 import { checkIn, checkInStatus, coinBalance, coinHistory } from './coins.service';
@@ -64,12 +64,12 @@ loyaltyRouter.post(
 );
 
 /** Mounted at `/admin/gift-cards`. */
+// Per-route `can()`: requireAuth + not-impersonating guard + admin permission (like every other admin route).
 export const adminGiftCardsRouter = Router();
-adminGiftCardsRouter.use(requireAuth);
 
 adminGiftCardsRouter.get(
   '/',
-  requirePermission(PERMISSIONS.ADMIN_FINANCE_VIEW),
+  ...can(PERMISSIONS.ADMIN_FINANCE_VIEW),
   validate({ query: z.object({ limit: z.coerce.number().int().min(1).max(200).default(50) }) }),
   asyncHandler(async (req, res) => {
     res.json({ data: await listGiftCards(req.query as never) });
@@ -78,7 +78,7 @@ adminGiftCardsRouter.get(
 
 adminGiftCardsRouter.post(
   '/',
-  requirePermission(PERMISSIONS.ADMIN_FINANCE_MANAGE),
+  ...can(PERMISSIONS.ADMIN_FINANCE_MANAGE),
   validate({ body: adminGiftCardCreateSchema }),
   asyncHandler(async (req, res) => {
     const card = await createGiftCard({ ...req.body, createdBy: req.user!.id });

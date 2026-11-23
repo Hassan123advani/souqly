@@ -27,7 +27,12 @@ const schema = new Schema<IPayout>(
     storeId: { type: Schema.Types.ObjectId, ref: 'Store', required: true },
     amount: { type: Number, required: true, min: 1 },
     status: { type: String, enum: PAYOUT_STATUSES, default: 'requested' },
-    method: { type: { type: String, bankName: String, accountTitle: String, accountMasked: String, _id: false }, default: {} },
+    // Sub-schema with typeKey '$type' so the field literally named `type` is a String path (Phase 10 fix:
+    // the inline `{ type: { type: String, ... } }` form made Mongoose drop bankName/accountTitle/accountMasked).
+    method: {
+      type: new Schema({ type: String, bankName: String, accountTitle: String, accountMasked: String }, { _id: false, typeKey: '$type' }),
+      default: {},
+    },
     reference: { type: String, maxlength: 120 },
     notes: { type: String, maxlength: 1000 },
     requestedBy: { type: Schema.Types.ObjectId, ref: 'User' },

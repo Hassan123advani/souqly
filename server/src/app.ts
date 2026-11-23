@@ -43,6 +43,15 @@ import { socialUploadRouter } from './modules/reviews/media';
 import { reviewRouter, sellerReviewRouter } from './modules/reviews/review.routes';
 import { walletRouter } from './modules/wallet/wallet.routes';
 import { wishlistRouter } from './modules/wishlists/wishlist.routes';
+// Phase 10: seller growth
+import { affiliateRouter } from './modules/affiliate/affiliate.routes';
+import { sellerAnalyticsRouter } from './modules/analytics/analytics.routes';
+import { sellerBulkRouter } from './modules/bulk/bulk.routes';
+import { sellerFinanceRouter } from './modules/finance/finance.routes';
+import { sellerHealthRouter } from './modules/health/health.routes';
+import { adminNominationsRouter, publicMarketingRouter, sellerMarketingRouter } from './modules/marketing/marketing.routes';
+import { adminPlanRouter, sellerPlanRouter } from './modules/plans/plan.routes';
+import { publicReceiptRouter, sellerPosRouter } from './modules/pos/pos.routes';
 import { UPLOADS_DIR } from './services/storage';
 
 /** Paths whose query strings carry secrets (OAuth code/state) and are never logged. */
@@ -155,6 +164,19 @@ export function createApp() {
   api.use('/', reviewRouter); // /products/:slug/reviews*, /reviews*
   api.use('/', qaRouter); // /products/:slug/questions
   api.use('/uploads', tempUploadsRouter); // POST /uploads/temp
+  // Phase 10: seller growth (docs/api-growth.md)
+  api.use('/seller/marketing', sellerMarketingRouter);
+  api.use('/seller/finance', sellerFinanceRouter);
+  api.use('/seller/pos', sellerPosRouter);
+  api.use('/seller', sellerBulkRouter); // /seller/products/export.csv|import-template.csv|import (before /products/:id)
+  api.use('/seller', sellerAnalyticsRouter); // /seller/analytics
+  api.use('/seller', sellerHealthRouter); // /seller/health*
+  api.use('/seller', sellerPlanRouter); // /seller/plan*
+  api.use('/admin', adminPlanRouter); // /admin/plan-requests*
+  api.use('/admin', adminNominationsRouter); // /admin/campaigns/:id/nominations/:nominationId
+  api.use('/affiliate', affiliateRouter);
+  api.use('/', publicReceiptRouter); // /r/:token
+  api.use('/', publicMarketingRouter); // /products/:slug/promotions, share images
   api.use('/admin', adminStoresRouter);
   api.use('/admin', adminRouter); // Phase 9 Super Admin API
   api.use('/support', supportRouter);

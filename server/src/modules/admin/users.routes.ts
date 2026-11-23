@@ -17,6 +17,7 @@ import { Store } from '../stores/store.model';
 import { StoreMember } from '../stores/storeMember.model';
 import { User } from '../users/user.model';
 import { credit, debit } from '../wallet/wallet.service';
+import { listSort } from './common';
 import { can, iso, oid, q } from './common';
 
 export const adminUsersRouter = Router();
@@ -61,9 +62,10 @@ adminUsersRouter.get(
   validate({ query: adminUserListQuerySchema }),
   asyncHandler(async (req, res) => {
     const f = q<UserListQuery>(req);
+    const srt = listSort(f.sort, { key: 'wallet', field: 'walletBalance' });
     if (f.format === 'csv') {
       await audit({ action: 'admin.export_csv', targetType: 'User', meta: { resource: 'users' }, req });
-      const cursor = User.find(userFilter(f)).select(USER_FIELDS).sort({ _id: -1 }).lean<UserRow[]>().cursor();
+      const cursor = User.find(userFilter(f)).select(USER_FIELDS).sort(cursorSort(srt.field, srt.dir)).lean<UserRow[]>().cursor();
       return streamCsv(res, 'users.csv', [
         { header: 'id', value: (u: UserRow) => String(u._id) },
         { header: 'name', value: (u) => u.name },
@@ -75,8 +77,8 @@ adminUsersRouter.get(
         { header: 'createdAt', value: (u) => u.createdAt },
       ], cursor as AsyncIterable<UserRow>);
     }
-    const rows = await User.find({ ...userFilter(f), ...cursorFilter('_id', -1, f.cursor) }).select(USER_FIELDS).sort(cursorSort('_id', -1)).limit(f.limit + 1).lean<(UserRow & { _id: never })[]>();
-    const page = paginate(rows as never[], f.limit, '_id');
+    const rows = await User.find({ ...userFilter(f), ...cursorFilter(srt.field, srt.dir, f.cursor) }).select(USER_FIELDS).sort(cursorSort(srt.field, srt.dir)).limit(f.limit + 1).lean<(UserRow & { _id: never })[]>();
+    const page = paginate(rows as never[], f.limit, srt.field);
     res.json({ data: (page.items as UserRow[]).map(toRow), meta: { nextCursor: page.nextCursor } });
   }),
 );

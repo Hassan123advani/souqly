@@ -11,6 +11,7 @@ import { invalidateHomeCache } from '../catalog/home.service';
 import { HomeContent } from '../catalog/marketing.models';
 import { singleImage, storeUploadedImage } from '../delivery/imageUpload';
 import { Page, type PageLean } from './page.model';
+import { categoryNames, productNames, storeNames } from '../admin/names';
 
 /** Public CMS pages: GET /api/v1/pages/:slug (published only). */
 export const pagesPublicRouter = Router();
@@ -40,6 +41,9 @@ adminCmsRouter.get(
   ...can(CMS),
   asyncHandler(async (_req, res) => {
     const h = await HomeContent.findOne({ key: 'home' }).lean();
+    const f = h?.featured;
+    const [pn, sn, cn] = await Promise.all([productNames(f?.productIds ?? []), storeNames(f?.storeIds ?? []), categoryNames(f?.categoryIds ?? [])]);
+    const pick = <T>(list: unknown[] | undefined, m: Map<string, T>) => (list ?? []).flatMap((id) => (m.get(String(id)) ? [m.get(String(id))!] : []));
     res.json({
       data: {
         heroSlides: h?.heroSlides ?? [],
@@ -48,6 +52,10 @@ adminCmsRouter.get(
           productIds: (h?.featured?.productIds ?? []).map(String),
           storeIds: (h?.featured?.storeIds ?? []).map(String),
           categoryIds: (h?.featured?.categoryIds ?? []).map(String),
+          // Display names for the admin editor (same order as the ids; deleted items are skipped).
+          products: pick(f?.productIds, pn),
+          stores: pick(f?.storeIds, sn),
+          categories: pick(f?.categoryIds, cn),
         },
       },
     });

@@ -14,6 +14,7 @@ import { asyncHandler } from '../../lib/asyncHandler';
 import { validate } from '../../middleware/validate';
 import { audit } from '../audit/audit.service';
 import { getFeatureFlags, getPaymentToggles, getShippingZones, getSiteSettings, getTaxSettings, setSetting } from '../settings/settings.service';
+import { integrations } from '../../config/env';
 import { can } from './common';
 
 export const adminSettingsRouter = Router();
@@ -41,6 +42,26 @@ const sections: Section[] = [
   { path: 'shipping-zones', key: 'shippingZones', schema: adminShippingZonesSchema, get: async () => ({ zones: await getShippingZones() }), toStored: (b) => b.zones },
   { path: 'tax', key: 'tax', schema: adminTaxSettingsSchema, get: getTaxSettings },
 ];
+
+/**
+ * Payment methods: admin toggles + whether each integration's keys are configured (booleans only,
+ * never key values), so the settings page does not need SYSTEM_VIEW / system health.
+ */
+adminSettingsRouter.get(
+  '/settings/payments',
+  ...can(PERMISSIONS.ADMIN_SETTINGS_MANAGE),
+  asyncHandler(async (_req, res) => {
+    const toggles = await getPaymentToggles();
+    const configured = { cod: true, wallet: true, jazzcash: integrations.hasJazzCash, easypaisa: integrations.hasEasyPaisa, stripe: integrations.hasStripe };
+    res.json({
+      data: {
+        toggles,
+        integrations: configured,
+        methods: (Object.keys(toggles) as (keyof typeof toggles)[]).map((m) => ({ method: m, enabled: toggles[m], configured: configured[m], available: toggles[m] && configured[m] })),
+      },
+    });
+  }),
+);
 
 for (const s of sections) {
   adminSettingsRouter.get(

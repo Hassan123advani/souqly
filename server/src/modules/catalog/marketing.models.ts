@@ -85,7 +85,22 @@ export interface ICampaign {
   storeIds?: Types.ObjectId[];
   /** Landing page content (Phase 9 admin). */
   landing?: { headline?: string; subheadline?: string; body?: string; heroImage?: string };
+  /** Seller product nominations (Phase 10). Approved ones are copied into productIds. */
+  nominations?: ICampaignNomination[];
   demo: boolean;
+}
+
+export const NOMINATION_STATUSES = ['pending', 'approved', 'rejected'] as const;
+export interface ICampaignNomination {
+  _id: Types.ObjectId;
+  storeId: Types.ObjectId;
+  productId: Types.ObjectId;
+  campaignPrice: number;
+  status: (typeof NOMINATION_STATUSES)[number];
+  note?: string;
+  createdAt: Date;
+  reviewedAt?: Date;
+  reviewedBy?: Types.ObjectId;
 }
 
 const campaignSchema = new Schema<ICampaign>(
@@ -101,11 +116,27 @@ const campaignSchema = new Schema<ICampaign>(
     categoryIds: { type: [Schema.Types.ObjectId], default: undefined },
     storeIds: { type: [Schema.Types.ObjectId], default: undefined },
     landing: { type: { headline: String, subheadline: String, body: String, heroImage: String, _id: false }, default: undefined },
+    nominations: {
+      type: [
+        {
+          storeId: { type: Schema.Types.ObjectId, ref: 'Store', required: true },
+          productId: { type: Schema.Types.ObjectId, ref: 'Product', required: true },
+          campaignPrice: { type: Number, required: true, min: 0 },
+          status: { type: String, enum: NOMINATION_STATUSES, default: 'pending' },
+          note: { type: String, maxlength: 500 },
+          createdAt: { type: Date, default: () => new Date() },
+          reviewedAt: Date,
+          reviewedBy: { type: Schema.Types.ObjectId, ref: 'User' },
+        },
+      ],
+      default: undefined,
+    },
     demo: { type: Boolean, default: false, index: true },
   },
   { timestamps: true },
 );
 campaignSchema.index({ startsAt: 1, endsAt: 1 });
+campaignSchema.index({ 'nominations.storeId': 1 });
 export const Campaign = model<ICampaign>('Campaign', campaignSchema);
 
 // ---------------------------------------------------------------------------------------------

@@ -24,6 +24,7 @@ import { Order } from '../orders/order.model';
 import { Store } from '../stores/store.model';
 import { StoreMember } from '../stores/storeMember.model';
 import { User } from '../users/user.model';
+import { listSort } from './common';
 import { can, iso, oid, q } from './common';
 import { GMV_EXCLUDED } from './dashboard.routes';
 
@@ -68,9 +69,10 @@ adminStoresAdminRouter.get(
   validate({ query: adminStoreListQuerySchema }),
   asyncHandler(async (req, res) => {
     const f = q<StoreListQuery>(req);
+    const srt = listSort(f.sort, { key: 'followers', field: 'followerCount' });
     if (f.format === 'csv') {
       await audit({ action: 'admin.export_csv', targetType: 'Store', meta: { resource: 'stores' }, req });
-      const cursor = Store.find(storeFilter(f)).select(STORE_FIELDS).sort({ _id: -1 }).lean<StoreRow[]>().cursor() as AsyncIterable<StoreRow>;
+      const cursor = Store.find(storeFilter(f)).select(STORE_FIELDS).sort(cursorSort(srt.field, srt.dir)).lean<StoreRow[]>().cursor() as AsyncIterable<StoreRow>;
       return streamCsv(res, 'stores.csv', [
         { header: 'id', value: (s: StoreRow) => String(s._id) },
         { header: 'name', value: (s) => s.name },
@@ -82,8 +84,8 @@ adminStoresAdminRouter.get(
         { header: 'createdAt', value: (s) => s.createdAt },
       ], cursor);
     }
-    const rows = await Store.find({ ...storeFilter(f), ...cursorFilter('_id', -1, f.cursor) }).select(STORE_FIELDS).sort(cursorSort('_id', -1)).limit(f.limit + 1).lean();
-    const page = paginate(rows, f.limit, '_id');
+    const rows = await Store.find({ ...storeFilter(f), ...cursorFilter(srt.field, srt.dir, f.cursor) }).select(STORE_FIELDS).sort(cursorSort(srt.field, srt.dir)).limit(f.limit + 1).lean();
+    const page = paginate(rows, f.limit, srt.field);
     res.json({ data: page.items.map((s) => toRow(s as unknown as StoreRow)), meta: { nextCursor: page.nextCursor } });
   }),
 );
