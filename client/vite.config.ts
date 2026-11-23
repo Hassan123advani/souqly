@@ -22,6 +22,7 @@ export default defineConfig({
         start_url: '/',
         scope: '/',
         lang: 'en',
+        shortcuts: [{ name: 'Rider', short_name: 'Rider', url: '/rider', icons: [{ src: '/pwa-192.png', sizes: '192x192', type: 'image/png' }] }],
         icons: [
           { src: '/pwa-192.png', sizes: '192x192', type: 'image/png' },
           { src: '/pwa-512.png', sizes: '512x512', type: 'image/png' },
@@ -30,6 +31,8 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
+        // Web push + notification click handlers (plain script in public/).
+        importScripts: ['/push-sw.js'],
         // SPA shell is precached, so client routes work offline. Routes on the denylist
         // (server-rendered or API) are never served the shell. `offline.html` is precached as a
         // self-contained fallback page; the shell also shows an in-app offline notice.

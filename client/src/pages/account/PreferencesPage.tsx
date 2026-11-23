@@ -7,6 +7,7 @@ import { useUpdatePreferences } from '@/api/account';
 import { getErrorMessage } from '@/api/client';
 import type { Preferences, PreferencesPatch } from '@/api/types';
 import { ModeSwitch } from '@/components/layout/AccountMenu';
+import { PushToggle } from '@/components/notifications/PushToggle';
 import { Seo } from '@/components/layout/Seo';
 import { Card, CardBody, CardHeader, FormField, RadioGroup, Select, Switch } from '@/components/ui';
 import { usePreferenceSetters } from '@/hooks/usePreferenceSetters';
@@ -99,6 +100,7 @@ export default function PreferencesPage() {
           {notif('email')}
           {notif('sms')}
           {notif('push')}
+          <PushToggle />
           {notif('marketing')}
         </CardBody>
       </Card>

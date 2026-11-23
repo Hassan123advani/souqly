@@ -17,6 +17,7 @@ import { DeliveryOtpCard } from '@/components/orders/DeliveryOtpCard';
 import { OrderStatusBadge } from '@/components/orders/OrderStatusBadge';
 import { ReorderButton } from '@/components/orders/ReorderButton';
 import { TrackingTimeline } from '@/components/orders/TrackingTimeline';
+import { LiveTracking } from '@/components/tracking/LiveTracking';
 import { formatDateTime, money } from '@/lib/format';
 import { useUi } from '@/stores/ui';
 
@@ -121,6 +122,7 @@ export default function OrderDetailPage() {
       </Card>
 
       {o.deliveryOtp && <DeliveryOtpCard otp={o.deliveryOtp} />}
+      {o.status === 'out_for_delivery' && <LiveTracking orderId={o.id} number={o.number} />}
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div className="min-w-0 space-y-4">

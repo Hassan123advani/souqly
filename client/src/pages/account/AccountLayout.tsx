@@ -1,10 +1,12 @@
 import { NavLink, Outlet } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-import { BadgeCheck, Database, MapPin, Package, Settings2, ShieldCheck, User } from 'lucide-react';
+import { BadgeCheck, Bell, Database, MapPin, Package, Settings2, ShieldCheck, Undo2, User } from 'lucide-react';
 import { useMe, useResendVerification } from '@/api/auth';
 import { getErrorMessage } from '@/api/client';
 import { Alert, Avatar, Badge, Button, Container } from '@/components/ui';
+import { PendingReviewsBanner } from '@/components/reviews/PendingReviewsBanner';
+import { useSocialAccountNav } from '@/components/social/accountNav';
 import { cn } from '@/lib/cn';
 import { formatDate } from '@/lib/format';
 import { useUi } from '@/stores/ui';
@@ -44,10 +46,14 @@ export default function AccountLayout() {
   const { t } = useTranslation();
   const lang = useUi((s) => s.language);
   const { data: me } = useMe();
+  const socialNav = useSocialAccountNav();
   if (!me) return null;
   const nav = [
     { to: 'profile', label: t('account.nav.profile'), icon: User },
     { to: 'orders', label: t('orders.title'), icon: Package },
+    { to: 'returns', label: t('returns.title'), icon: Undo2 },
+    { to: 'notifications', label: t('notifications.title'), icon: Bell },
+    ...socialNav,
     { to: 'addresses', label: t('account.nav.addresses'), icon: MapPin },
     { to: 'security', label: t('account.nav.security'), icon: ShieldCheck },
     { to: 'preferences', label: t('account.nav.preferences'), icon: Settings2 },
@@ -98,6 +104,7 @@ export default function AccountLayout() {
         </nav>
         <div className="min-w-0 space-y-6">
           <EmailVerifyReminder />
+          <PendingReviewsBanner />
           <Outlet />
         </div>
       </div>

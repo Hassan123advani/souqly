@@ -10,7 +10,6 @@ import { RequireAuth, RequireGuest, RequirePlatformStaff, RequireSellerMode } fr
 
 // ---- Lazy pages ----
 const HomePage = lazy(() => import('@/pages/buyer/HomePage'));
-const ComingSoonPage = lazy(() => import('@/pages/buyer/ComingSoonPage'));
 const CategoriesPage = lazy(() => import('@/pages/buyer/CategoriesPage'));
 const CategoryPage = lazy(() => import('@/pages/buyer/CategoryPage'));
 const SearchPage = lazy(() => import('@/pages/buyer/SearchPage'));
@@ -28,6 +27,19 @@ const CheckoutPage = lazy(() => import('@/pages/checkout/CheckoutPage'));
 const CheckoutSuccessPage = lazy(() => import('@/pages/checkout/CheckoutSuccessPage'));
 const OrdersPage = lazy(() => import('@/pages/orders/OrdersPage'));
 const OrderDetailPage = lazy(() => import('@/pages/orders/OrderDetailPage'));
+// Phase 7: notifications, returns, rider
+const NotificationsPage = lazy(() => import('@/pages/notifications/NotificationsPage'));
+const ReturnRequestPage = lazy(() => import('@/pages/returns/ReturnRequestPage'));
+const ReturnsPage = lazy(() => import('@/pages/returns/ReturnsPage'));
+const ReturnDetailPage = lazy(() => import('@/pages/returns/ReturnDetailPage'));
+const SellerReturnsPage = lazy(() => import('@/pages/seller/returns/ReturnsPage'));
+const SellerReturnDetailPage = lazy(() => import('@/pages/seller/returns/ReturnDetailPage'));
+const SellerRidersPage = lazy(() => import('@/pages/seller/riders/RidersPage'));
+const RiderLayout = lazy(() => import('@/components/rider/RiderLayout'));
+const RiderHomePage = lazy(() => import('@/pages/rider/RiderHomePage'));
+const RiderDeliveryPage = lazy(() => import('@/pages/rider/RiderDeliveryPage'));
+const RiderCashPage = lazy(() => import('@/pages/rider/RiderCashPage'));
+const RiderEarningsPage = lazy(() => import('@/pages/rider/RiderEarningsPage'));
 
 const LoginPage = lazy(() => import('@/pages/auth/LoginPage'));
 const SignupPage = lazy(() => import('@/pages/auth/SignupPage'));
@@ -54,6 +66,17 @@ const SellerOrderDetailPage = lazy(() => import('@/pages/seller/orders/OrderDeta
 const SellerStoreSettingsPage = lazy(() => import('@/pages/seller/StoreSettingsPage'));
 const SellerStaffPage = lazy(() => import('@/pages/seller/StaffPage'));
 const SellerSettingsPage = lazy(() => import('@/pages/seller/SettingsPage'));
+// Phase 8: social, chat, wallet & loyalty
+const WishlistPage = lazy(() => import('@/pages/wishlist/WishlistPage'));
+const ChatPage = lazy(() => import('@/pages/chat/ChatPage'));
+const MyReviewsPage = lazy(() => import('@/pages/social/MyReviewsPage'));
+const FollowingPage = lazy(() => import('@/pages/social/FollowingPage'));
+const WalletPage = lazy(() => import('@/pages/wallet/WalletPage'));
+const CoinsPage = lazy(() => import('@/pages/wallet/CoinsPage'));
+const ReferralsPage = lazy(() => import('@/pages/wallet/ReferralsPage'));
+const SellerChatPage = lazy(() => import('@/pages/seller/chat/SellerChatPage'));
+const SellerReviewsPage = lazy(() => import('@/pages/seller/reviews/SellerReviewsPage'));
+const SellerQuestionsPage = lazy(() => import('@/pages/seller/reviews/SellerQuestionsPage'));
 
 const AdminLayout = lazy(() => import('@/components/layout/AdminLayout'));
 const AdminHomePage = lazy(() => import('@/pages/admin/AdminHomePage'));
@@ -80,8 +103,6 @@ export function App() {
             <Route path="campaigns/:slug" element={<CampaignPage />} />
             <Route path="brand/:slug" element={<BrandPage />} />
             <Route path="cart" element={<CartPage />} />
-            <Route path="wishlist" element={<ComingSoonPage feature="wishlist" />} />
-            <Route path="chat" element={<ComingSoonPage feature="chat" />} />
             <Route path="about" element={<StaticPage page="about" />} />
             <Route path="terms" element={<StaticPage page="terms" />} />
             <Route path="privacy" element={<StaticPage page="privacy" />} />
@@ -91,6 +112,9 @@ export function App() {
             <Route element={<RequireAuth />}>
               <Route path="seller/onboarding" element={<SellerOnboardingPage />} />
               <Route path="checkout" element={<CheckoutPage />} />
+              <Route path="wishlist" element={<WishlistPage />} />
+              <Route path="chat" element={<ChatPage />} />
+              <Route path="chat/:id" element={<ChatPage />} />
               <Route path="checkout/success/:number" element={<CheckoutSuccessPage />} />
               <Route path="account" element={<AccountLayout />}>
                 <Route index element={<Navigate to="profile" replace />} />
@@ -101,6 +125,15 @@ export function App() {
                 <Route path="security" element={<SecurityPage />} />
                 <Route path="preferences" element={<PreferencesPage />} />
                 <Route path="privacy" element={<PrivacyDataPage />} />
+                <Route path="notifications" element={<NotificationsPage />} />
+                <Route path="orders/:number/return" element={<ReturnRequestPage />} />
+                <Route path="returns" element={<ReturnsPage />} />
+                <Route path="returns/:id" element={<ReturnDetailPage />} />
+                <Route path="reviews" element={<MyReviewsPage />} />
+                <Route path="following" element={<FollowingPage />} />
+                <Route path="wallet" element={<WalletPage />} />
+                <Route path="coins" element={<CoinsPage />} />
+                <Route path="referrals" element={<ReferralsPage />} />
               </Route>
             </Route>
             <Route path="*" element={<NotFoundPage />} />
@@ -134,7 +167,20 @@ export function App() {
               <Route path="store" element={<SellerStoreSettingsPage />} />
               <Route path="staff" element={<SellerStaffPage />} />
               <Route path="settings" element={<SellerSettingsPage />} />
+              <Route path="chat" element={<SellerChatPage />} />
+              <Route path="reviews" element={<SellerReviewsPage />} />
+              <Route path="questions" element={<SellerQuestionsPage />} />
+              <Route path="returns" element={<SellerReturnsPage />} />
+              <Route path="returns/:id" element={<SellerReturnDetailPage />} />
+              <Route path="riders" element={<SellerRidersPage />} />
             </Route>
+          </Route>
+
+          <Route path="rider" element={<RiderLayout />}>
+            <Route index element={<RiderHomePage />} />
+            <Route path="d/:orderId" element={<RiderDeliveryPage />} />
+            <Route path="cash" element={<RiderCashPage />} />
+            <Route path="earnings" element={<RiderEarningsPage />} />
           </Route>
 
           <Route

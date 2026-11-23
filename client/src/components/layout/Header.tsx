@@ -8,6 +8,8 @@ import { CountBadge, IconButton } from '@/components/ui';
 import { CategoryMenu } from '@/components/catalog/CategoryMenu';
 import { SearchBox } from '@/components/catalog/SearchBox';
 import { useCart } from '@/stores/cart';
+import { NotificationBell } from '@/components/notifications/NotificationBell';
+import { HeaderChatLink } from '@/components/chat/HeaderChatLink';
 import { AccountMenu } from './AccountMenu';
 import { LanguageSwitcher, ThemeToggle } from './Switchers';
 
@@ -68,12 +70,14 @@ export function Header() {
           <IconButton label={t('nav.wishlist')} to="/wishlist" className="hidden md:inline-flex">
             <Heart className="size-[18px]" />
           </IconButton>
+          <HeaderChatLink />
           <span className="relative hidden md:inline-flex">
             <IconButton label={t('nav.cartCount', { count })} to="/cart">
               <ShoppingCart className="size-[18px]" />
             </IconButton>
             <CountBadge count={count} />
           </span>
+          <NotificationBell />
           <AccountMenu />
         </nav>
       </div>

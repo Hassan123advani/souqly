@@ -12,6 +12,7 @@ import { OrderActions } from '@/components/seller/orders/OrderActions';
 import { SellerOrderStatus } from '@/components/seller/OrderStatusBadge';
 import { useActiveStoreId } from '@/components/seller/useActiveStore';
 import { useCan } from '@/components/seller/usePermissions';
+import { LiveTracking } from '@/components/tracking/LiveTracking';
 import { useLang } from '@/lib/catalog';
 import { formatDateTime, money } from '@/lib/format';
 
@@ -69,6 +70,7 @@ export default function OrderDetailPage() {
 
       <div className="grid gap-5 lg:grid-cols-3">
         <div className="grid gap-5 lg:col-span-2">
+          {o.status === 'out_for_delivery' && <LiveTracking orderId={o.id} number={o.number} />}
           <Card>
             <CardHeader title={t('seller.orders.itemsTitle')} />
             <ul className="divide-y divide-border">
