@@ -1,15 +1,16 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-import { ArrowLeft, Lock, Mail, Phone, ShieldCheck, Smartphone } from 'lucide-react';
+import { ArrowLeft, Lock, Mail, Phone, RotateCcw, ShieldCheck, Smartphone } from 'lucide-react';
 import { loginSchema, otpRequestSchema, type LoginInput } from '@souqly/shared';
-import { useLogin, useOtpRequest, useOtpVerify } from '@/api/auth';
+import { useGoogleTwoFactor, useLogin, useOtpRequest, useOtpVerify } from '@/api/auth';
 import { getErrorCode, getErrorMessage } from '@/api/client';
 import type { MeUser } from '@/api/types';
 import { AuthHeading, DevCodeHint, GoogleLogin } from '@/components/auth/AuthBits';
+import { isSecondFactorComplete, SecondFactorInput } from '@/components/auth/SecondFactorInput';
 import { Seo } from '@/components/layout/Seo';
 import { Alert, Button, FormField, Input, OtpInput, PasswordInput, Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui';
 import { translateError } from '@/lib/validation';
@@ -26,6 +27,63 @@ function useAfterLogin() {
   };
 }
 
+/** Second-factor step shared by email, phone and Google sign-in. Accepts authenticator or recovery codes. */
+function TotpStep({
+  value,
+  onChange,
+  onSubmit,
+  loading,
+  error,
+  disabled,
+  onBack,
+  backLabel,
+  children,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  onSubmit: (code: string) => void;
+  loading: boolean;
+  error?: string;
+  disabled?: boolean;
+  onBack: () => void;
+  backLabel: string;
+  children?: ReactNode;
+}) {
+  const { t } = useTranslation();
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (isSecondFactorComplete(value)) onSubmit(value.trim());
+      }}
+      className="space-y-5"
+      noValidate
+    >
+      <div className="flex items-start gap-3 rounded-lg border border-primary-100 bg-primary-50 p-4">
+        <ShieldCheck className="mt-0.5 size-5 shrink-0 text-primary-700" />
+        <div>
+          <p className="text-sm font-bold text-fg">{t('auth.totp.title')}</p>
+          <p className="mt-0.5 text-sm text-fg-muted">{t('auth.totp.body')}</p>
+        </div>
+      </div>
+      {children}
+      <SecondFactorInput value={value} onChange={onChange} autoFocus invalid={!!error} disabled={disabled} onComplete={onSubmit} />
+      {error && (
+        <p className="text-center text-sm font-medium text-danger" role="alert">
+          {error}
+        </p>
+      )}
+      <Button type="submit" block size="lg" loading={loading} disabled={disabled || !isSecondFactorComplete(value)}>
+        {t('auth.totp.verify')}
+      </Button>
+      <button type="button" onClick={onBack} className="mx-auto flex items-center gap-1.5 text-sm font-medium text-fg-muted hover:text-fg">
+        <ArrowLeft className="flip-rtl size-4" />
+        {backLabel}
+      </button>
+    </form>
+  );
+}
+
 function EmailLogin() {
   const { t } = useTranslation();
   const login = useLogin();
@@ -36,9 +94,10 @@ function EmailLogin() {
   const form = useForm<LoginInput>({ resolver: zodResolver(loginSchema), defaultValues: { email: '', password: '' } });
   const { errors } = form.formState;
 
-  const submit = form.handleSubmit((values) => {
+  const submitWith = (code?: string) =>
+    form.handleSubmit((values) => {
     setErrorCode(null);
-    const body = needsTotp ? { ...values, totp } : values;
+    const body = needsTotp ? { ...values, totp: code ?? totp } : values;
     login.mutate(body, {
       onSuccess: (d) => afterLogin(d.user),
       onError: (err) => {
@@ -48,61 +107,47 @@ function EmailLogin() {
           return;
         }
         setErrorCode(code ?? 'GENERIC');
-        if (!code || !['INVALID_CREDENTIALS', 'ACCOUNT_LOCKED', 'ACCOUNT_BLOCKED', 'INVALID_TOTP'].includes(code)) {
+        if (code === 'INVALID_TOTP') setTotp('');
+        if (!code || !['INVALID_CREDENTIALS', 'ACCOUNT_BLOCKED', 'INVALID_TOTP'].includes(code)) {
           toast.error(getErrorMessage(err));
         }
       },
     });
-  });
+    })();
 
   if (needsTotp) {
     return (
-      <form onSubmit={submit} className="space-y-5" noValidate>
-        <div className="flex items-start gap-3 rounded-lg border border-primary-100 bg-primary-50 p-4">
-          <ShieldCheck className="mt-0.5 size-5 shrink-0 text-primary-700" />
-          <div>
-            <p className="text-sm font-bold text-fg">{t('auth.totp.title')}</p>
-            <p className="mt-0.5 text-sm text-fg-muted">{t('auth.totp.body')}</p>
-          </div>
-        </div>
-        <OtpInput
-          value={totp}
-          onChange={setTotp}
-          autoFocus
-          invalid={errorCode === 'INVALID_TOTP' || errorCode === 'INVALID_CREDENTIALS'}
-          onComplete={() => void submit()}
-        />
-        {(errorCode === 'INVALID_TOTP' || errorCode === 'INVALID_CREDENTIALS') && (
-          <p className="text-center text-sm font-medium text-danger" role="alert">
-            {t('errors.INVALID_TOTP')}
-          </p>
-        )}
-        <Button type="submit" block size="lg" loading={login.isPending} disabled={totp.length !== 6}>
-          {t('auth.totp.verify')}
-        </Button>
-        <button
-          type="button"
-          onClick={() => {
-            setNeedsTotp(false);
-            setTotp('');
-            setErrorCode(null);
-          }}
-          className="mx-auto flex items-center gap-1.5 text-sm font-medium text-fg-muted hover:text-fg"
-        >
-          <ArrowLeft className="flip-rtl size-4" />
-          {t('auth.back')}
-        </button>
-      </form>
+      <TotpStep
+        value={totp}
+        onChange={setTotp}
+        onSubmit={(c) => void submitWith(c)}
+        loading={login.isPending}
+        error={
+          errorCode === 'INVALID_TOTP'
+            ? t('errors.INVALID_TOTP')
+            : errorCode === 'INVALID_CREDENTIALS'
+              ? t('errors.INVALID_CREDENTIALS')
+              : undefined
+        }
+        onBack={() => {
+          setNeedsTotp(false);
+          setTotp('');
+          setErrorCode(null);
+        }}
+        backLabel={t('auth.back')}
+      />
     );
   }
 
   return (
-    <form onSubmit={submit} className="space-y-4" noValidate>
-      {errorCode === 'ACCOUNT_LOCKED' && (
-        <Alert tone="warning" title={t('auth.lockedTitle')}>
-          {t('errors.ACCOUNT_LOCKED')}
-        </Alert>
-      )}
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        void submitWith();
+      }}
+      className="space-y-4"
+      noValidate
+    >
       {errorCode === 'ACCOUNT_BLOCKED' && (
         <Alert tone="danger" title={t('auth.blockedTitle')}>
           {t('errors.ACCOUNT_BLOCKED')}
@@ -143,6 +188,9 @@ function PhoneLogin() {
   const [devCode, setDevCode] = useState<string>();
   const [cooldown, setCooldown] = useState(0);
   const [codeError, setCodeError] = useState<string>();
+  const [needsTotp, setNeedsTotp] = useState(false);
+  const [totp, setTotp] = useState('');
+  const [totpError, setTotpError] = useState<string>();
 
   useEffect(() => {
     if (cooldown <= 0) return;
@@ -170,15 +218,45 @@ function PhoneLogin() {
     });
   }
 
-  function submitCode(value = code) {
+  function submitCode(value = code, second?: string) {
     if (!sentTo || value.length !== 6) return;
     setCodeError(undefined);
+    setTotpError(undefined);
     verify.mutate(
-      { phone: sentTo, code: value },
+      { phone: sentTo, code: value, ...(second ? { totp: second } : {}) },
       {
         onSuccess: (d) => afterLogin(d.user, d.isNew),
-        onError: (err) => setCodeError(getErrorMessage(err)),
+        onError: (err) => {
+          const c = getErrorCode(err);
+          if (c === 'TOTP_REQUIRED') setNeedsTotp(true);
+          else if (c === 'INVALID_TOTP') {
+            setTotp('');
+            setTotpError(getErrorMessage(err));
+          } else {
+            setNeedsTotp(false);
+            setTotp('');
+            setCodeError(getErrorMessage(err));
+          }
+        },
       },
+    );
+  }
+
+  if (sentTo && needsTotp) {
+    return (
+      <TotpStep
+        value={totp}
+        onChange={setTotp}
+        onSubmit={(c) => submitCode(code, c)}
+        loading={verify.isPending}
+        error={totpError}
+        onBack={() => {
+          setNeedsTotp(false);
+          setTotp('');
+          setTotpError(undefined);
+        }}
+        backLabel={t('auth.back')}
+      />
     );
   }
 
@@ -261,10 +339,83 @@ function PhoneLogin() {
   );
 }
 
+/** `/login?google2fa=<ticket>`: Google sign-in for an account with two-step verification. */
+function GoogleTwoFactor({ ticket, next }: { ticket: string; next?: string }) {
+  const { t } = useTranslation();
+  const [, setParams] = useSearchParams();
+  const finish = useGoogleTwoFactor();
+  const afterLogin = useAfterLogin();
+  const [totp, setTotp] = useState('');
+  const [error, setError] = useState<string>();
+  const [dead, setDead] = useState<'ticket' | 'locked' | null>(null);
+
+  function submit(code: string) {
+    setError(undefined);
+    finish.mutate(
+      { ticket, totp: code },
+      {
+        onSuccess: (d) => afterLogin(d.user),
+        onError: (err) => {
+          const c = getErrorCode(err);
+          setTotp('');
+          if (c === 'INVALID_TICKET') setDead('ticket');
+          else if (c === 'TOO_MANY_ATTEMPTS') setDead('locked');
+          else setError(getErrorMessage(err));
+        },
+      },
+    );
+  }
+
+  const backToLogin = () => setParams(next ? { next } : {}, { replace: true });
+  const restartHref = `/api/v1/auth/google${next ? `?next=${encodeURIComponent(next)}` : ''}`;
+
+  return (
+    <TotpStep
+      value={totp}
+      onChange={setTotp}
+      onSubmit={submit}
+      loading={finish.isPending}
+      error={error}
+      disabled={!!dead}
+      onBack={backToLogin}
+      backLabel={t('auth.backToLogin')}
+    >
+      {dead === 'ticket' && (
+        <Alert
+          tone="warning"
+          title={t('auth.google2fa.expiredTitle')}
+          action={
+            <Button size="sm" variant="outline" href={restartHref} leftIcon={<RotateCcw className="size-4" />}>
+              {t('auth.google2fa.restart')}
+            </Button>
+          }
+        >
+          {t('errors.INVALID_TICKET')}
+        </Alert>
+      )}
+      {dead === 'locked' && (
+        <Alert tone="danger" title={t('auth.google2fa.lockedTitle')}>
+          {t('errors.TOO_MANY_ATTEMPTS')}
+        </Alert>
+      )}
+    </TotpStep>
+  );
+}
+
 export default function LoginPage() {
   const { t } = useTranslation();
   const [params] = useSearchParams();
   const next = params.get('next') ?? undefined;
+  const google2fa = params.get('google2fa');
+  if (google2fa) {
+    return (
+      <>
+        <Seo title={t('auth.totp.title')} noindex />
+        <AuthHeading title={t('auth.google2fa.title')} subtitle={t('auth.google2fa.subtitle')} />
+        <GoogleTwoFactor key={google2fa} ticket={google2fa} next={next} />
+      </>
+    );
+  }
   return (
     <>
       <Seo title={t('auth.login.title')} />

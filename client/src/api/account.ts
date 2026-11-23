@@ -14,13 +14,35 @@ function useSetMe() {
   return (user: MeUser) => qc.setQueryData(meKey, user);
 }
 
+/** Re-authentication for sensitive actions: `password`, or `otpCode` for passwordless accounts. */
+export type ReauthPayload = { password?: string; otpCode?: string };
+export type OtpSent = { sent: boolean; devCode?: string };
+
 // ---- Profile ----
+export type ProfilePatch = { name?: string; phone?: string } & ReauthPayload;
+
 export function useUpdateProfile() {
   const setMe = useSetMe();
   return useMutation({
-    mutationFn: (body: { name?: string; phone?: string }) => patch<{ user: MeUser }>('/account/profile', body),
+    mutationFn: (body: ProfilePatch) =>
+      patch<{ user: MeUser; phoneVerification?: OtpSent }>('/account/profile', body),
     onSuccess: (d) => d?.user && setMe(d.user),
   });
+}
+
+export function useVerifyPhone() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (code: string) => post<{ user: MeUser }>('/account/phone/verify', { code }),
+    onSuccess: (d) => d?.user && qc.setQueryData(meKey, d.user),
+    // PHONE_TAKEN / NO_PENDING_PHONE clear the pending change server-side.
+    onError: () => qc.invalidateQueries({ queryKey: meKey }),
+  });
+}
+
+/** Sends a re-auth code to the verified phone of a passwordless account. */
+export function useReauthOtp() {
+  return useMutation({ mutationFn: () => post<OtpSent>('/account/reauth/otp') });
 }
 
 export function useUploadAvatar() {
@@ -70,7 +92,8 @@ export function useChangePassword() {
 export function useChangeEmail() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (body: { newEmail: string; password: string }) => post<unknown>('/account/change-email', body),
+    mutationFn: (body: { newEmail: string; password: string }) =>
+      post<{ changed: boolean; verificationSent: boolean; revokedSessions: number }>('/account/change-email', body),
     onSuccess: () => qc.invalidateQueries({ queryKey: meKey }),
   });
 }
@@ -100,14 +123,16 @@ export function useRevokeAllSessions() {
 
 export function useTwoFactorSetup() {
   return useMutation({
-    mutationFn: () => post<{ secret: string; otpauthUrl: string; qrDataUrl: string }>('/account/2fa/setup'),
+    mutationFn: (body: ReauthPayload) =>
+      post<{ secret: string; otpauthUrl: string; qrDataUrl: string }>('/account/2fa/setup', body),
   });
 }
 
 export function useTwoFactorEnable() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (code: string) => post<unknown>('/account/2fa/enable', { code }),
+    mutationFn: (body: { code: string } & ReauthPayload) =>
+      post<{ enabled: boolean; recoveryCodes: string[] }>('/account/2fa/enable', body),
     onSuccess: () => qc.setQueryData<MeUser | null>(meKey, (u) => (u ? { ...u, twoFactorEnabled: true } : u)),
   });
 }
@@ -115,7 +140,7 @@ export function useTwoFactorEnable() {
 export function useTwoFactorDisable() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (body: { code: string; password: string }) => post<unknown>('/account/2fa/disable', body),
+    mutationFn: (body: { code: string } & ReauthPayload) => post<unknown>('/account/2fa/disable', body),
     onSuccess: () => qc.setQueryData<MeUser | null>(meKey, (u) => (u ? { ...u, twoFactorEnabled: false } : u)),
   });
 }
@@ -172,7 +197,7 @@ export function useExportData() {
 export function useDeleteAccount() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (password: string) => del('/account', { data: { password, confirm: 'DELETE' } }),
+    mutationFn: (body: ReauthPayload) => del('/account', { data: { ...body, confirm: 'DELETE' } }),
     onSuccess: () => {
       qc.setQueryData(meKey, null);
       qc.removeQueries({ predicate: (q) => q.queryKey[0] === 'account' });

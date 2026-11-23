@@ -38,6 +38,9 @@ import {
   PasswordStrength,
   Skeleton,
 } from '@/components/ui';
+import { isSecondFactorComplete, SecondFactorInput } from '@/components/auth/SecondFactorInput';
+import { ReauthFields, useReauth } from '@/components/account/ReauthFields';
+import { RecoveryCodesModal } from '@/components/account/RecoveryCodesModal';
 import { describeUserAgent, formatRelative } from '@/lib/format';
 import { translateError } from '@/lib/validation';
 import { useUi } from '@/stores/ui';
@@ -113,8 +116,10 @@ export function ChangeEmailCard() {
 
   const submit = form.handleSubmit((v) =>
     change.mutate(v, {
-      onSuccess: () => {
+      onSuccess: (d) => {
         toast.success(t('security.email.sent', { email: v.newEmail }));
+        const n = d?.revokedSessions ?? 0;
+        if (n > 0) toast.info(n === 1 ? t('security.email.revokedOne') : t('security.email.revokedMany', { n }));
         form.reset();
       },
       onError: (e) => {
@@ -162,22 +167,78 @@ export function TwoFactorCard() {
   const setup = useTwoFactorSetup();
   const enable = useTwoFactorEnable();
   const disable = useTwoFactorDisable();
+  const setupReauth = useReauth();
+  const disableReauth = useReauth();
   const [code, setCode] = useState('');
+  const [needsReauth, setNeedsReauth] = useState(false);
+  const [recoveryCodes, setRecoveryCodes] = useState<string[] | null>(null);
   const [disableOpen, setDisableOpen] = useState(false);
   const [disableCode, setDisableCode] = useState('');
-  const [disablePw, setDisablePw] = useState('');
   const enabled = !!me?.twoFactorEnabled;
+
+  // Try without re-auth first: the server says which method (if any) this account needs.
+  function startSetup() {
+    setupReauth.setError(undefined);
+    setup.mutate(setupReauth.payload(), {
+      onSuccess: () => setNeedsReauth(false),
+      onError: (e) => {
+        if (setupReauth.handleError(e)) setNeedsReauth(true);
+        else toast.error(getErrorMessage(e));
+      },
+    });
+  }
+
+  function cancelSetup() {
+    setup.reset();
+    setupReauth.reset();
+    setNeedsReauth(false);
+    setCode('');
+  }
 
   function confirmEnable(value = code) {
     if (value.length !== 6) return;
-    enable.mutate(value, {
-      onSuccess: () => {
-        toast.success(t('security.twofa.enabled'));
-        setup.reset();
-        setCode('');
+    enable.mutate(
+      { code: value, ...setupReauth.payload() },
+      {
+        onSuccess: (d) => {
+          toast.success(t('security.twofa.enabled'));
+          setRecoveryCodes(d?.recoveryCodes?.length ? d.recoveryCodes : null);
+          cancelSetup();
+        },
+        onError: (e) => {
+          setCode('');
+          if (setupReauth.handleError(e)) {
+            // The re-auth expired between setup and enable: confirm identity again.
+            setup.reset();
+            setNeedsReauth(true);
+          } else toast.error(getErrorMessage(e));
+        },
       },
-      onError: (e) => toast.error(getErrorMessage(e)),
-    });
+    );
+  }
+
+  function closeDisable(o: boolean) {
+    setDisableOpen(o);
+    if (!o) {
+      setDisableCode('');
+      disableReauth.reset();
+    }
+  }
+
+  function confirmDisable() {
+    disableReauth.setError(undefined);
+    disable.mutate(
+      { code: disableCode.trim(), ...disableReauth.payload() },
+      {
+        onSuccess: () => {
+          toast.success(t('security.twofa.disabled'));
+          closeDisable(false);
+        },
+        onError: (e) => {
+          if (!disableReauth.handleError(e)) toast.error(getErrorMessage(e));
+        },
+      },
+    );
   }
 
   const copySecret = async () => {
@@ -240,23 +301,39 @@ export function TwoFactorCard() {
                 <Button loading={enable.isPending} disabled={code.length !== 6} onClick={() => confirmEnable()}>
                   {t('security.twofa.confirm')}
                 </Button>
-                <Button variant="ghost" onClick={() => setup.reset()}>
+                <Button variant="ghost" onClick={cancelSetup}>
                   {t('common.cancel')}
                 </Button>
               </div>
             </div>
           </div>
+        ) : needsReauth ? (
+          <form
+            className="max-w-md space-y-4"
+            noValidate
+            onSubmit={(e) => {
+              e.preventDefault();
+              startSetup();
+            }}
+          >
+            <p className="text-sm text-fg-muted">{t('reauth.intro')}</p>
+            <ReauthFields reauth={setupReauth} autoFocus />
+            <div className="flex flex-wrap gap-2">
+              <Button type="submit" loading={setup.isPending} disabled={!setupReauth.ready}>
+                {t('reauth.continue')}
+              </Button>
+              <Button type="button" variant="ghost" onClick={cancelSetup}>
+                {t('common.cancel')}
+              </Button>
+            </div>
+          </form>
         ) : (
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="flex max-w-md items-start gap-3">
               <Smartphone className="mt-0.5 size-5 shrink-0 text-primary-700" />
               <p className="text-sm text-fg-muted">{t('security.twofa.offBody')}</p>
             </div>
-            <Button
-              loading={setup.isPending}
-              leftIcon={<ShieldCheck className="size-4" />}
-              onClick={() => setup.mutate(undefined, { onError: (e) => toast.error(getErrorMessage(e)) })}
-            >
+            <Button loading={setup.isPending} leftIcon={<ShieldCheck className="size-4" />} onClick={startSetup}>
               {t('security.twofa.setup')}
             </Button>
           </div>
@@ -265,33 +342,20 @@ export function TwoFactorCard() {
 
       <Modal
         open={disableOpen}
-        onOpenChange={setDisableOpen}
+        onOpenChange={closeDisable}
         size="sm"
         title={t('security.twofa.disableTitle')}
         description={t('security.twofa.disableBody')}
         footer={
           <>
-            <Button variant="ghost" onClick={() => setDisableOpen(false)}>
+            <Button variant="ghost" onClick={() => closeDisable(false)}>
               {t('common.cancel')}
             </Button>
             <Button
               variant="danger"
               loading={disable.isPending}
-              disabled={disableCode.length !== 6 || !disablePw}
-              onClick={() =>
-                disable.mutate(
-                  { code: disableCode, password: disablePw },
-                  {
-                    onSuccess: () => {
-                      toast.success(t('security.twofa.disabled'));
-                      setDisableOpen(false);
-                      setDisableCode('');
-                      setDisablePw('');
-                    },
-                    onError: (e) => toast.error(getErrorMessage(e)),
-                  },
-                )
-              }
+              disabled={!isSecondFactorComplete(disableCode) || !disableReauth.ready}
+              onClick={confirmDisable}
             >
               {t('security.twofa.disable')}
             </Button>
@@ -299,12 +363,12 @@ export function TwoFactorCard() {
         }
       >
         <div className="space-y-4">
-          <OtpInput value={disableCode} onChange={setDisableCode} />
-          <FormField label={t('form.currentPassword')}>
-            <PasswordInput value={disablePw} onChange={(e) => setDisablePw(e.target.value)} />
-          </FormField>
+          <SecondFactorInput value={disableCode} onChange={setDisableCode} />
+          <ReauthFields reauth={disableReauth} />
         </div>
       </Modal>
+
+      <RecoveryCodesModal codes={recoveryCodes} onClose={() => setRecoveryCodes(null)} />
     </Card>
   );
 }

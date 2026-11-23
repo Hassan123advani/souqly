@@ -71,6 +71,13 @@ export function getErrorCode(err: unknown): string | undefined {
   return undefined;
 }
 
+/** `error.details` of an API error, when it is an object. */
+export function getErrorDetails(err: unknown): Record<string, unknown> | undefined {
+  if (!axios.isAxiosError(err)) return undefined;
+  const d = (err as ApiError).response?.data?.error?.details;
+  return d && typeof d === 'object' ? (d as Record<string, unknown>) : undefined;
+}
+
 export function getErrorStatus(err: unknown): number | undefined {
   return axios.isAxiosError(err) ? err.response?.status : undefined;
 }
@@ -84,7 +91,11 @@ export function getErrorMessage(err: unknown): string {
     const e = err as ApiError;
     if (!e.response) return i18n.t('errors.NETWORK');
     const code = e.response.data?.error?.code;
-    if (code && i18n.exists(`errors.${code}`)) return i18n.t(`errors.${code}`);
+    if (code && i18n.exists(`errors.${code}`)) {
+      const msg = i18n.t(`errors.${code}`);
+      const left = getErrorDetails(err)?.attemptsLeft;
+      return typeof left === 'number' ? `${msg} ${i18n.t('errors.attemptsLeft', { n: left })}` : msg;
+    }
     if (e.response.status >= 500) return i18n.t('errors.SERVER');
     return e.response.data?.error?.message || i18n.t('errors.GENERIC');
   }

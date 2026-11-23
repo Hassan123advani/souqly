@@ -5,7 +5,10 @@ export type MeUser = {
   id: string;
   name: string;
   email: string;
+  /** Always a verified number. */
   phone?: string;
+  /** New number waiting for `POST /account/phone/verify`. */
+  pendingPhone?: string;
   avatarUrl?: string;
   emailVerified: boolean;
   phoneVerified: boolean;

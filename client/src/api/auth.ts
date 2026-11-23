@@ -65,7 +65,16 @@ export function useOtpRequest() {
 export function useOtpVerify() {
   const setMe = useSetMe();
   return useMutation({
-    mutationFn: (body: { phone: string; code: string }) => post<{ user: MeUser; isNew: boolean }>('/auth/otp/verify', body),
+    mutationFn: (body: { phone: string; code: string; totp?: string }) => post<{ user: MeUser; isNew: boolean }>('/auth/otp/verify', body),
+    onSuccess: (d) => setMe(d.user),
+  });
+}
+
+/** Completes a Google sign-in for a 2FA account (`/login?google2fa=<ticket>`). */
+export function useGoogleTwoFactor() {
+  const setMe = useSetMe();
+  return useMutation({
+    mutationFn: (body: { ticket: string; totp: string }) => post<{ user: MeUser }>('/auth/google/2fa', body),
     onSuccess: (d) => setMe(d.user),
   });
 }

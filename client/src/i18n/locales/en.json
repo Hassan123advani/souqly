@@ -117,8 +117,7 @@
     "GENERIC": "Something went wrong. Please try again.",
     "NETWORK": "We can't reach Souqly right now. Check your connection and try again.",
     "SERVER": "Our servers hit a snag. Please try again in a moment.",
-    "INVALID_CREDENTIALS": "That email and password don't match. Please try again.",
-    "ACCOUNT_LOCKED": "Too many failed attempts. For your safety this account is locked for 15 minutes.",
+    "INVALID_CREDENTIALS": "That email and password don't match. After several failed attempts, sign-in is paused for 15 minutes.",
     "ACCOUNT_BLOCKED": "This account has been suspended. Please contact Souqly support.",
     "TOTP_REQUIRED": "Enter the code from your authenticator app.",
     "INVALID_TOTP": "That code didn't work. Check your authenticator app and try again.",
@@ -131,7 +130,21 @@
     "UNAUTHORIZED": "Please sign in to continue.",
     "NOT_FOUND": "We couldn't find what you were looking for.",
     "FORBIDDEN": "You don't have permission to view this page.",
-    "FORBIDDEN_TITLE": "Access restricted"
+    "FORBIDDEN_TITLE": "Access restricted",
+    "attemptsLeft": "Attempts left: {{n}}.",
+    "INVALID_TICKET": "This sign-in link has expired or was already used. Please continue with Google again.",
+    "TOO_MANY_ATTEMPTS": "Too many incorrect codes. Sign-in is paused for a while for your safety. Please try again later.",
+    "IMPERSONATION_FORBIDDEN": "This action isn't available while an admin is viewing your account.",
+    "STORE_SUSPENDED": "This store is suspended or was not approved, so Seller Center is unavailable. Please contact Souqly support.",
+    "REAUTH_REQUIRED": "Please confirm it’s you to continue.",
+    "INVALID_PASSWORD": "That password is incorrect.",
+    "OTP_INVALID": "That code is incorrect.",
+    "OTP_EXPIRED": "That code has expired. Request a new one.",
+    "PHONE_TAKEN": "This phone number is already verified on another account.",
+    "NO_PENDING_PHONE": "There is no phone number waiting to be verified.",
+    "USE_PASSWORD": "Your account has a password. Please use it to confirm.",
+    "NO_VERIFIED_PHONE": "Your account has no verified phone number to send a code to.",
+    "UNSUPPORTED_MEDIA_TYPE": "Your browser sent the request in an unexpected format. Please refresh and try again."
   },
   "crash": {
     "title": "This page tripped over a lantern",
@@ -239,7 +252,6 @@
     "loggedOut": "You've been signed out",
     "welcomeBack": "Welcome back, {{name}}!",
     "welcomeNew": "Welcome to Souqly!",
-    "lockedTitle": "Account temporarily locked",
     "blockedTitle": "Account suspended",
     "login": {
       "title": "Sign in to Souqly",
@@ -252,7 +264,7 @@
     },
     "totp": {
       "title": "Two-step verification",
-      "body": "Enter the 6-digit code from your authenticator app to finish signing in.",
+      "body": "Enter the 6-digit code from your authenticator app, or one of your recovery codes.",
       "verify": "Verify and sign in"
     },
     "otp": {
@@ -307,6 +319,14 @@
       "missingBody": "Open the link from your email again, or request a new one from your account page.",
       "continue": "Continue",
       "startShopping": "Start shopping"
+    },
+    "recovery": { "label": "Recovery code", "use": "Use a recovery code", "useApp": "Use authenticator app code" },
+    "google2fa": {
+      "title": "Finish signing in with Google",
+      "subtitle": "Your account has two-step verification turned on.",
+      "expiredTitle": "Sign-in link expired",
+      "restart": "Continue with Google again",
+      "lockedTitle": "Too many attempts"
     }
   },
   "account": {
@@ -368,6 +388,14 @@
       "emptyBody": "Add your home or office so your next checkout is a single tap.",
       "deleteTitle": "Remove this address?",
       "deleteBody": "You can always add it again later."
+    },
+    "phone": {
+      "pending": "Pending verification",
+      "enterCode": "Enter the 6-digit code we sent to your new number. Your current number stays active until then.",
+      "verify": "Verify number",
+      "verified": "Phone number verified",
+      "codeSent": "We sent a code to your new number",
+      "cancelChange": "Cancel change"
     }
   },
   "map": {
@@ -396,7 +424,9 @@
       "current": "Current:",
       "submit": "Change email",
       "hint": "We'll send a verification link to the new address. Until you verify it, some features may be limited.",
-      "sent": "Check {{email}} to confirm your new address"
+      "sent": "Check {{email}} to confirm your new address",
+      "revokedOne": "Signed out of 1 other device",
+      "revokedMany": "Signed out of {{n}} other devices"
     },
     "twofa": {
       "title": "Two-step verification",
@@ -414,7 +444,7 @@
       "enabled": "Two-step verification is on",
       "disable": "Turn off",
       "disableTitle": "Turn off two-step verification?",
-      "disableBody": "Enter a current code from your app and your password to confirm.",
+      "disableBody": "Enter a code from your authenticator app (or a recovery code), then confirm it’s you.",
       "disabled": "Two-step verification is off"
     },
     "sessions": {
@@ -432,6 +462,16 @@
       "allRevoked": "Signed out on all devices",
       "allHint": "Don't recognise a device? Sign it out and change your password.",
       "empty": "No active sessions"
+    },
+    "recovery": {
+      "title": "Save your recovery codes",
+      "body": "If you lose your phone, each of these codes lets you sign in once instead of an authenticator code.",
+      "once": "This is the only time these codes will be shown. Store them somewhere safe.",
+      "copyAll": "Copy all",
+      "download": "Download .txt",
+      "confirm": "I’ve saved my recovery codes",
+      "done": "Done",
+      "fileHeader": "Souqly recovery codes. Each code can be used once."
     }
   },
   "prefs": {
@@ -862,5 +902,18 @@
     "eyebrow": "Brand",
     "featured": "Featured brand",
     "metaDescription": "Shop {{name}} products on Souqly from trusted sellers."
+  },
+  "reauth": {
+    "title": "Confirm it’s you",
+    "intro": "For your security, confirm it’s you before changing two-step verification.",
+    "phoneBody": "Confirm it’s you before changing your phone number.",
+    "passwordHint": "Signed up with Google and never set a password? Leave this blank.",
+    "usePhone": "No password? Get a code on your phone instead",
+    "usePassword": "Use my password instead",
+    "otpBody": "We’ll text a confirmation code to",
+    "sendCode": "Send code to your phone",
+    "continue": "Continue",
+    "requiredPassword": "Enter your current password to continue.",
+    "requiredOtp": "Send a code to your phone and enter it to continue."
   }
 }

@@ -6,7 +6,8 @@ import { Download, Store, Trash2 } from 'lucide-react';
 import { useDeleteAccount, useExportData } from '@/api/account';
 import { getErrorCode, getErrorMessage } from '@/api/client';
 import { Seo } from '@/components/layout/Seo';
-import { Alert, Button, Card, CardBody, CardFooter, CardHeader, FormField, Input, Modal, PasswordInput } from '@/components/ui';
+import { ReauthFields, useReauth } from '@/components/account/ReauthFields';
+import { Alert, Button, Card, CardBody, CardFooter, CardHeader, FormField, Input, Modal } from '@/components/ui';
 
 export default function PrivacyDataPage() {
   const { t } = useTranslation();
@@ -14,14 +15,14 @@ export default function PrivacyDataPage() {
   const exp = useExportData();
   const del = useDeleteAccount();
   const [open, setOpen] = useState(false);
-  const [password, setPassword] = useState('');
+  const reauth = useReauth();
   const [confirm, setConfirm] = useState('');
   const ownsStore = getErrorCode(del.error) === 'OWNS_STORE';
 
   const close = (o: boolean) => {
     setOpen(o);
     if (!o) {
-      setPassword('');
+      reauth.reset();
       setConfirm('');
       del.reset();
     }
@@ -91,15 +92,15 @@ export default function PrivacyDataPage() {
             <Button
               variant="danger"
               loading={del.isPending}
-              disabled={confirm !== 'DELETE' || !password}
+              disabled={confirm !== 'DELETE' || !reauth.ready}
               onClick={() =>
-                del.mutate(password, {
+                del.mutate(reauth.payload(), {
                   onSuccess: () => {
                     toast.success(t('dataPage.delete.done'));
                     navigate('/', { replace: true });
                   },
                   onError: (e) => {
-                    if (getErrorCode(e) !== 'OWNS_STORE') toast.error(getErrorMessage(e));
+                    if (getErrorCode(e) !== 'OWNS_STORE' && !reauth.handleError(e)) toast.error(getErrorMessage(e));
                   },
                 })
               }
@@ -123,9 +124,7 @@ export default function PrivacyDataPage() {
               {t('errors.OWNS_STORE')}
             </Alert>
           )}
-          <FormField label={t('form.currentPassword')} required>
-            <PasswordInput autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} />
-          </FormField>
+          <ReauthFields reauth={reauth} />
           <FormField label={t('dataPage.delete.typeLabel')} hint={t('dataPage.delete.typeHint')} required>
             <Input
               value={confirm}
