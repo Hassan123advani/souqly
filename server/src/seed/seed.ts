@@ -10,6 +10,7 @@ import { seedCatalog } from './catalog';
 import { seedOrders } from './orders';
 import { seedDelivery } from './delivery';
 import { seedSocial } from './social';
+import { seedAdminDemo, seedPages } from './admin';
 import { clearDemoData } from './clear';
 import { SEED_STORES } from './data/stores';
 
@@ -19,6 +20,7 @@ import { SEED_STORES } from './data/stores';
  *   bilal@demo.souqly.pk   — Bilal Ahmed  (buyer)
  *   sana@demo.souqly.pk    — Sana Malik   (buyer)
  * Demo sellers (store owners): see src/seed/data/stores.ts, e.g. noor@demo.souqly.pk (Noor Textiles).
+ * Admin staff: moderator@demo.souqly.pk (MODERATOR). Pending store owners: pending1/pending2@demo.souqly.pk.
  * Super Admin: ADMIN_EMAIL / ADMIN_PASSWORD from server/.env (defaults souqly@gmail.com / souqly123 in
  * development; production refuses the default / weak passwords and skips demo users unless `--demo`).
  */
@@ -85,8 +87,9 @@ export async function runSeed(opts: { reset?: boolean; demo?: boolean; productio
   const includeDemo = opts.demo ?? !production;
   if (opts.reset) await clearDemoData();
   const admin = await ensureSuperAdmin(production);
+  const pages = await seedPages();
   if (!includeDemo) {
-    logger.info({ admin }, 'Seed complete (demo users skipped; pass --demo to include them)');
+    logger.info({ admin, pages }, 'Seed complete (demo users skipped; pass --demo to include them)');
     return;
   }
   // Hash the demo password ONCE and reuse it for every demo user (bcrypt is slow on purpose).
@@ -96,7 +99,8 @@ export async function runSeed(opts: { reset?: boolean; demo?: boolean; productio
   const orders = await seedOrders();
   const delivery = await seedDelivery(demoHash);
   const social = await seedSocial();
-  logger.info({ admin, demoBuyersCreated: buyers, catalog, orders, delivery, social }, 'Seed complete');
+  const adminDemo = await seedAdminDemo(demoHash);
+  logger.info({ admin, pages, demoBuyersCreated: buyers, catalog, orders, delivery, social, adminDemo }, 'Seed complete');
   logger.info(
     `Login: ${env.ADMIN_EMAIL} (Super Admin) | demo buyers: ${DEMO_BUYERS.map((b) => b.email).join(', ')} | ` +
       `demo sellers: ${SEED_STORES.map((s) => s.owner.email).join(', ')} — password ${DEMO_PASSWORD}`,

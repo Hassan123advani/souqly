@@ -139,6 +139,8 @@ const productSchema = new Schema<IProduct, ProductModel, IProductMethods>(
 );
 
 productSchema.index({ storeId: 1, status: 1, createdAt: -1 });
+productSchema.index({ status: 1, updatedAt: -1 }); // admin moderation queue
+productSchema.index({ categoryPath: 1 }); // category move recompute
 productSchema.index({ status: 1, categoryPath: 1, priceMin: 1 });
 productSchema.index({ status: 1, soldCount: -1 });
 productSchema.index({ status: 1, publishedAt: -1 });

@@ -71,9 +71,16 @@ describe('rider deliveries', () => {
     let res = await buyer.agent.get(api(`/orders/${o.number}/tracking`));
     expect(res.status).toBe(200);
     expect(res.body.data).toMatchObject({ status: 'out_for_delivery', active: true, lastLocation: { lat: 31.52, lng: 74.35 } });
-    expect(res.body.data.rider.phone).toBe('+92300*****33');
-    expect((await sellerA.agent.get(api(`/orders/${o.number}/tracking`))).status).toBe(200);
-    expect((await admin.agent.get(api(`/orders/${o.number}/tracking`))).status).toBe(200);
+    // The order's buyer gets the rider's real number (to call); everyone else sees it masked.
+    const riderPhone = (await User.findById(riderA.user._id).select('phone').lean())!.phone!;
+    expect(riderPhone).toMatch(/33$/);
+    expect(res.body.data.rider.phone).toBe(riderPhone);
+    const sellerView = await sellerA.agent.get(api(`/orders/${o.number}/tracking`));
+    expect(sellerView.status).toBe(200);
+    expect(sellerView.body.data.rider.phone).toBe('+92300*****33');
+    const adminView = await admin.agent.get(api(`/orders/${o.number}/tracking`));
+    expect(adminView.status).toBe(200);
+    expect(adminView.body.data.rider.phone).toBe('+92300*****33');
     expect((await buyer2.agent.get(api(`/orders/${o.number}/tracking`))).status).toBe(404);
     expect((await sellerB.agent.get(api(`/orders/${o.number}/tracking`))).status).toBe(404);
 

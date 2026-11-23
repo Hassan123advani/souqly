@@ -5,7 +5,7 @@ import { env, integrations, isProd } from '../../config/env';
 import { isInMemoryDb } from '../../config/db';
 import { asyncHandler } from '../../lib/asyncHandler';
 import { paymentAvailability } from '../../services/payment';
-import { getFeatureFlags, getSiteSettings } from '../settings/settings.service';
+import { getFeatureFlags, getPaymentToggles, getSiteSettings } from '../settings/settings.service';
 
 export const configRouter = Router();
 
@@ -24,12 +24,12 @@ configRouter.get('/health', (_req, res) => {
 configRouter.get(
   '/config/public',
   asyncHandler(async (_req, res) => {
-    const [flags, site] = await Promise.all([getFeatureFlags(), getSiteSettings()]);
+    const [flags, site, toggles] = await Promise.all([getFeatureFlags(), getSiteSettings(), getPaymentToggles()]);
     // The AI description helper needs an API key even when the flag is on.
     if (!integrations.hasOpenAI) flags.aiDescriptionHelper = false;
     const payments = paymentAvailability();
     const data: PublicConfig = {
-      site: { name: 'Souqly', tagline: 'Every shop, one souq.', ...site },
+      site,
       integrations: {
         googleLogin: integrations.hasGoogleAuth,
         cloudStorage: integrations.hasCloudinary,
@@ -38,7 +38,14 @@ configRouter.get(
         webPush: integrations.hasVapid,
         ...(integrations.hasVapid ? { vapidPublicKey: env.VAPID_PUBLIC_KEY } : {}),
         // Wallet payments arrive with the wallet phase.
-        payments: { cod: true, jazzcash: payments.jazzcash, easypaisa: payments.easypaisa, stripe: payments.stripe, wallet: false },
+        // A method is offered only when its keys are present AND the admin has it enabled.
+        payments: {
+          cod: toggles.cod,
+          jazzcash: payments.jazzcash && toggles.jazzcash,
+          easypaisa: payments.easypaisa && toggles.easypaisa,
+          stripe: payments.stripe && toggles.stripe,
+          wallet: false,
+        },
       },
       flags,
       devMode: !isProd,

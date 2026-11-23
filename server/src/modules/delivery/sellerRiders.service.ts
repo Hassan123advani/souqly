@@ -12,10 +12,16 @@ import { User } from '../users/user.model';
 import { DEFAULT_RIDER_FEE, DeliverySession, DeliverySettings, RiderCashEntry } from './delivery.model';
 import { cashBalances } from './rider.service';
 
+/**
+ * Members listed as riders: role RIDER, or a CUSTOM role granting store.delivery.perform. OWNER /
+ * MANAGER (who technically hold the permission) are not listed (they can still self-deliver, D-062).
+ */
 async function storeRiders(storeId: Types.ObjectId) {
-  const members = await StoreMember.find({ storeId, status: 'active' });
+  const members = await StoreMember.find({ storeId, status: 'active', role: { $in: ['RIDER', 'CUSTOM'] } });
   const out = [];
-  for (const m of members) if ((await resolveMemberPermissions(m)).includes(PERMISSIONS.STORE_DELIVERY_PERFORM)) out.push(m);
+  for (const m of members) {
+    if (m.role === 'RIDER' || (await resolveMemberPermissions(m)).includes(PERMISSIONS.STORE_DELIVERY_PERFORM)) out.push(m);
+  }
   return out;
 }
 
@@ -56,7 +62,25 @@ export async function settleCod(req: Request, memberId: string, amount: number) 
   const [bal] = await cashBalances(member.userId, [store._id]);
   const outstanding = bal?.outstanding ?? 0;
   if (amount > outstanding) throw new AppError(400, 'AMOUNT_EXCEEDS_OUTSTANDING', 'Amount is more than the cash this rider holds', { outstanding });
-  await RiderCashEntry.create({ storeId: store._id, riderId: member.userId, type: 'settled', amount, by: new Types.ObjectId(req.user!.id) });
+  // Insert first, then guard with an aggregate over the ledger: settlements are ordered by _id and a
+  // settlement whose prefix (all earlier settlements + itself) exceeds the collected cash is rolled
+  // back. Two concurrent settlements can never both pass, so the ledger never goes negative.
+  const entry = await RiderCashEntry.create({ storeId: store._id, riderId: member.userId, type: 'settled', amount, by: new Types.ObjectId(req.user!.id) });
+  const [g] = await RiderCashEntry.aggregate<{ collected: number; settled: number }>([
+    { $match: { storeId: store._id, riderId: member.userId } },
+    {
+      $group: {
+        _id: null,
+        collected: { $sum: { $cond: [{ $eq: ['$type', 'collected'] }, '$amount', 0] } },
+        settled: { $sum: { $cond: [{ $and: [{ $eq: ['$type', 'settled'] }, { $lte: ['$_id', entry._id] }] }, '$amount', 0] } },
+      },
+    },
+  ]);
+  if (!g || g.settled > g.collected) {
+    await RiderCashEntry.deleteOne({ _id: entry._id });
+    const [now] = await cashBalances(member.userId, [store._id]);
+    throw new AppError(409, 'AMOUNT_EXCEEDS_OUTSTANDING', 'Amount is more than the cash this rider holds', { outstanding: now?.outstanding ?? 0 });
+  }
   await audit({ action: 'rider.cod_settled', req, targetType: 'StoreMember', targetId: member._id, meta: { riderUserId: String(member.userId), amount } });
   void notify({ userId: member.userId, type: 'rider.cod_settled', title: 'Cash settled', body: `${store.name} recorded ${formatMoney(amount)} cash received from you.`, link: '/rider/cod' });
   return { outstanding: outstanding - amount };

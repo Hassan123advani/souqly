@@ -21,6 +21,9 @@ export const cartUpdateItemSchema = z
 export type CartUpdateItemInput = z.infer<typeof cartUpdateItemSchema>;
 
 export const cartSelectAllSchema = z.object({ selected: z.boolean() }).strict();
+/** POST /cart/select-store: (de)select every item of one store's group. */
+export const cartSelectStoreSchema = z.object({ storeId: objectIdSchema, selected: z.boolean() }).strict();
+export type CartSelectStoreInput = z.infer<typeof cartSelectStoreSchema>;
 
 export const cartMergeSchema = z
   .object({
@@ -75,6 +78,8 @@ export const checkoutNumberParamsSchema = z.object({ number: z.string().trim().r
 export const buyerOrderListQuerySchema = cursorQuerySchema.extend({
   tab: z.enum(Object.keys(BUYER_ORDER_TABS) as [keyof typeof BUYER_ORDER_TABS, ...(keyof typeof BUYER_ORDER_TABS)[]]).optional(),
   limit: z.coerce.number().int().min(1).max(50).default(10),
+  /** Only orders with this store (store id or slug). */
+  store: z.string().trim().toLowerCase().regex(/^[a-z0-9-]{1,40}$/).optional(),
 });
 export type BuyerOrderListQuery = z.infer<typeof buyerOrderListQuerySchema>;
 

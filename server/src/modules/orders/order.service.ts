@@ -14,6 +14,7 @@ import { User } from '../users/user.model';
 import { Order, type OrderDoc, type OrderLean } from './order.model';
 import { restoreOrderStock } from './stock';
 import { notifyOrderStatus } from '../notifications/orderNotifications';
+import { refundOrderCoins } from '../loyalty/coinsRefund';
 import { onOrderDelivered } from '../loyalty/rewards.service';
 
 /** `SQ-YYMMDD-XXXXX` (UTC date + 5 unambiguous uppercase chars). */
@@ -81,7 +82,7 @@ export function toOrderDTO(
     })),
     subtotal: o.subtotal,
     shippingFee: o.shippingFee,
-    discounts: { store: o.discounts?.store ?? 0, platform: o.discounts?.platform ?? 0 },
+    discounts: { store: o.discounts?.store ?? 0, platform: o.discounts?.platform ?? 0, coins: o.discounts?.coins ?? 0 },
     total: o.total,
     payment: { method: o.payment.method, status: o.payment.status },
     shippingAddress: { ...o.shippingAddress },
@@ -147,6 +148,7 @@ export async function transitionOrder(
     const claimed = await Order.updateOne({ _id: updated._id, stockRestored: false }, { $set: { stockRestored: true } });
     if (claimed.modifiedCount === 1) await restoreOrderStock(updated, actor.userId, 'cancel');
   }
+  if (to === 'cancelled') await refundOrderCoins(updated); // idempotent (coins-refund:<orderId>)
 
   await audit({
     action: `order.${to}`,

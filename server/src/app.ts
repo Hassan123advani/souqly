@@ -5,9 +5,11 @@ import express, { Router } from 'express';
 import helmet from 'helmet';
 import { pinoHttp } from 'pino-http';
 import { env } from './config/env';
+import { corsOrigin } from './config/origins';
 import { logger } from './lib/logger';
 import { requireJsonContentType } from './middleware/contentType';
 import { errorHandler, notFoundHandler } from './middleware/error';
+import { maintenanceGate } from './middleware/maintenance';
 import { rateLimits } from './middleware/rateLimit';
 import { accountRouter } from './modules/account/account.routes';
 import { authRouter } from './modules/auth/auth.routes';
@@ -27,6 +29,9 @@ import { sellerRouter } from './modules/seller/seller.routes';
 import { sellerPreStoreRouter } from './modules/onboarding/onboarding.routes';
 import { tempUploadsRouter } from './modules/onboarding/tempUpload.routes';
 import { adminStoresRouter } from './modules/stores/adminStores.routes';
+import { adminRouter } from './modules/admin/admin.routes';
+import { pagesPublicRouter } from './modules/cms/cms.routes';
+import { supportRouter } from './modules/support/support.routes';
 import { storesPublicRouter } from './modules/stores/stores.routes';
 import { alertRouter } from './modules/alerts/alert.routes';
 import { chatRouter, sellerChatRouter } from './modules/chat/chat.routes';
@@ -101,7 +106,7 @@ export function createApp() {
   const api = Router();
   api.use(
     cors({
-      origin: env.CLIENT_URL,
+      origin: corsOrigin,
       credentials: true,
       methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
       allowedHeaders: ['Content-Type', 'x-store-id', 'x-requested-with'],
@@ -117,6 +122,7 @@ export function createApp() {
     next();
   });
   api.use(rateLimits.general);
+  api.use(maintenanceGate);
 
   api.use('/', configRouter); // /health, /config/public
   api.use('/auth', authRouter);
@@ -150,6 +156,9 @@ export function createApp() {
   api.use('/', qaRouter); // /products/:slug/questions
   api.use('/uploads', tempUploadsRouter); // POST /uploads/temp
   api.use('/admin', adminStoresRouter);
+  api.use('/admin', adminRouter); // Phase 9 Super Admin API
+  api.use('/support', supportRouter);
+  api.use('/pages', pagesPublicRouter);
   api.use('/seller', sellerPreStoreRouter); // onboarding, invitations, rejected-store routes (before storeContext)
   api.use('/seller', sellerRouter);
   api.use('/stores', storesPublicRouter); // /stores/slug-available (before marketplace /stores/:slug)

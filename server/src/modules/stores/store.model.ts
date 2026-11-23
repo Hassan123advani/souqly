@@ -17,6 +17,8 @@ export interface IStore {
   categoryIds: Types.ObjectId[];
   status: StoreStatus;
   rejectionReason?: string;
+  /** Set by an admin suspension (Phase 9). */
+  suspension?: { reason: string; at: Date; by: Types.ObjectId };
   isMall: boolean;
   mallRequested: boolean;
   contact: { email?: string; phone?: string; whatsapp?: string };
@@ -58,6 +60,7 @@ const storeSchema = new Schema<IStore>(
     categoryIds: { type: [Schema.Types.ObjectId], default: [] },
     status: { type: String, enum: STORE_STATUSES, default: 'pending', index: true },
     rejectionReason: String,
+    suspension: { type: { reason: String, at: Date, by: Schema.Types.ObjectId, _id: false }, default: undefined },
     isMall: { type: Boolean, default: false },
     mallRequested: { type: Boolean, default: false },
     contact: { email: String, phone: String, whatsapp: String },
@@ -92,6 +95,8 @@ const storeSchema = new Schema<IStore>(
   { timestamps: true, minimize: false },
 );
 storeSchema.index({ status: 1, isMall: 1 });
+storeSchema.index({ status: 1, createdAt: -1 });
+storeSchema.index({ mallRequested: 1, isMall: 1 });
 storeSchema.index({ status: 1, followerCount: -1 });
 storeSchema.index({ status: 1, ratingAvg: -1 });
 storeSchema.index({ name: 'text' }, { name: 'store_text' });

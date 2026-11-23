@@ -1,4 +1,4 @@
-import { cartAddItemSchema, cartMergeSchema, cartSelectAllSchema, cartUpdateItemSchema, cartVoucherParamsSchema, cartVoucherSchema, objectIdSchema } from '@souqly/shared';
+import { cartAddItemSchema, cartMergeSchema, cartSelectAllSchema, cartSelectStoreSchema, cartUpdateItemSchema, cartVoucherParamsSchema, cartVoucherSchema, objectIdSchema } from '@souqly/shared';
 import { Router } from 'express';
 import { z } from 'zod';
 import { asyncHandler } from '../../lib/asyncHandler';
@@ -48,6 +48,14 @@ cartRouter.post(
   validate({ body: cartSelectAllSchema }),
   asyncHandler(async (req, res) => {
     res.json({ data: await svc.selectAll(req.user!.id, req.body.selected) });
+  }),
+);
+
+cartRouter.post(
+  '/select-store',
+  validate({ body: cartSelectStoreSchema }),
+  asyncHandler(async (req, res) => {
+    res.json({ data: await svc.selectStore(req.user!.id, req.body.storeId, req.body.selected) });
   }),
 );
 

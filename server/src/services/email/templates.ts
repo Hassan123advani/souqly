@@ -35,6 +35,7 @@ export function verifyEmail(name: string, token: string): Rendered {
       cta: { label: 'Verify email', url },
       footerNote: 'This link expires in 24 hours.',
     }),
+    template: { key: 'verify_email', vars: { name, url } },
     text: `Hi ${name},\n\nConfirm your email for Souqly:\n${url}\n\nThis link expires in 24 hours.`,
   };
 }
@@ -49,6 +50,7 @@ export function resetPassword(name: string, token: string): Rendered {
       cta: { label: 'Choose a new password', url },
       footerNote: 'This link expires in 1 hour and can be used once.',
     }),
+    template: { key: 'reset_password', vars: { name, url } },
     text: `Hi ${name},\n\nReset your Souqly password:\n${url}\n\nThis link expires in 1 hour. If you did not ask for this, ignore this email.`,
   };
 }
@@ -62,6 +64,7 @@ export function welcome(name: string): Rendered {
       bodyHtml: p('Thousands of shops, one souq. Discover deals, follow your favourite stores, or open your own shop in minutes.'),
       cta: { label: 'Start shopping', url },
     }),
+    template: { key: 'welcome', vars: { name, url } },
     text: `Welcome to Souqly, ${name}!\n\nStart shopping: ${url}`,
   };
 }
@@ -78,6 +81,7 @@ export function orderPlaced(name: string, orderNumber: string, totalFormatted: s
         p('We will let you know when the seller ships it.'),
       cta: { label: 'Track your order', url },
     }),
+    template: { key: 'order_placed', vars: { name, orderNumber, total: totalFormatted, url } },
     text: `Hi ${name},\n\nYour order ${orderNumber} has been placed. Total: ${totalFormatted}.\nTrack it: ${url}`,
   };
 }
@@ -147,6 +151,7 @@ export function newOrderForSeller(storeName: string, orderNumber: string, totalF
         p('Please confirm it in the Seller Center.'),
       cta: { label: 'Open orders', url },
     }),
+    template: { key: 'new_order_seller', vars: { storeName, orderNumber, total: totalFormatted, itemCount: String(itemCount), url } },
     text: `${storeName} received order ${orderNumber} (${itemCount} items, ${totalFormatted}).\nOpen orders: ${url}`,
   };
 }
@@ -161,6 +166,7 @@ export function orderStatusChanged(name: string, orderNumber: string, statusLabe
       bodyHtml: p(`Hi ${esc(name)},`) + p(`Order <strong>${esc(orderNumber)}</strong> is now <strong>${esc(statusLabel)}</strong>.`) + (extra ? p(esc(extra)) : ''),
       cta: { label: 'View order', url },
     }),
+    template: { key: 'order_status_changed', vars: { name, orderNumber, status: statusLabel, extra: extra ?? '', url } },
     text: `Hi ${name},\n\nOrder ${orderNumber} is now ${statusLabel}.${extra ? `\n${extra}` : ''}\nView it: ${url}`,
   };
 }

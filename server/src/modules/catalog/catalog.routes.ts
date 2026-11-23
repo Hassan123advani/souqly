@@ -14,7 +14,7 @@ import { optionalAuth, requireAuth } from '../../middleware/auth';
 import { rateLimits } from '../../middleware/rateLimit';
 import { validate } from '../../middleware/validate';
 import { findApprovedStore, getStorePublic, listStores, storeCategories } from '../stores/stores.service';
-import { getBrand, getCategoryDetail, getCategoryTree, listBrands } from './catalog.service';
+import { getBrand, getCategoryAttributes, getCategoryDetail, getCategoryTree, listBrands } from './catalog.service';
 import { getCampaign, getCurrentFlashSale, getHome, suggest } from './home.service';
 import {
   boughtTogether,
@@ -45,6 +45,14 @@ marketplaceRouter.get(
   publicCache(60),
   asyncHandler(async (_req, res) => {
     res.json({ data: await getCategoryTree() });
+  }),
+);
+
+marketplaceRouter.get(
+  '/catalog/categories/:slug/attributes',
+  validate({ params: slugParams }),
+  asyncHandler(async (req, res) => {
+    res.json({ data: await getCategoryAttributes(req.params.slug!) });
   }),
 );
 

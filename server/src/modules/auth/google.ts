@@ -7,11 +7,13 @@ import { logger } from '../../lib/logger';
 import { audit } from '../audit/audit.service';
 import { User, type UserDoc } from '../users/user.model';
 import { generateReferralCode } from '../users/user.service';
-import { issueGoogle2faTicket, revokeAllSessions, startSession } from './auth.service';
+import { issueGoogle2faTicket, revokeAllSessions, safeNextPath, startSession } from './auth.service';
 import { Otp } from './otp.model';
 import { Token } from './token.model';
 
 const STATE_COOKIE = 'sq_oauth_state';
+/** Post-login return path chosen on GET /auth/google?next= (validated relative path). */
+export const NEXT_COOKIE = 'sq_oauth_next';
 const CALLBACK_PATH = '/api/v1/auth/google/callback';
 
 type GoogleIdToken = { iss: string; aud: string; sub: string; email?: string; email_verified?: boolean; name?: string; exp: number };
@@ -60,6 +62,7 @@ async function resetUntrustedAccount(user: UserDoc, req: Request): Promise<void>
  * POST /auth/google/2fa with the ticket and a TOTP / recovery code.
  */
 export async function handleGoogleProfile(req: Request, res: Response, profile: GoogleProfile): Promise<string> {
+  const next = safeNextPath((req.cookies as Record<string, string> | undefined)?.[NEXT_COOKIE] ?? req.query.next);
   const fail = (reason: string) => `${env.CLIENT_URL}/login?error=${encodeURIComponent(reason)}`;
   const email = profile.email.toLowerCase();
 
@@ -86,15 +89,15 @@ export async function handleGoogleProfile(req: Request, res: Response, profile: 
   if (user.status === 'blocked') return fail('blocked');
 
   if (user.twoFactor?.enabled) {
-    const ticket = await issueGoogle2faTicket(user._id as Types.ObjectId);
+    const ticket = await issueGoogle2faTicket(user._id as Types.ObjectId, next);
     await audit({ action: 'auth.google_2fa_challenge', actorId: user._id, req });
-    return `${env.CLIENT_URL}/login?google2fa=${encodeURIComponent(ticket)}`;
+    return `${env.CLIENT_URL}/login?google2fa=${encodeURIComponent(ticket)}${next ? `&next=${encodeURIComponent(next)}` : ''}`;
   }
   user.lastLoginAt = new Date();
   await user.save();
   await startSession(req, res, user._id);
   await audit({ action: 'auth.login', actorId: user._id, meta: { method: 'google' }, req });
-  return env.CLIENT_URL;
+  return next ? `${env.CLIENT_URL}${next}` : env.CLIENT_URL;
 }
 
 /** Google OAuth (authorization code flow). Routes return 404 unless GOOGLE_CLIENT_ID/SECRET are set. */
@@ -108,8 +111,11 @@ googleRouter.use((_req, res, next) => {
   next();
 });
 
-googleRouter.get('/', (_req, res) => {
+googleRouter.get('/', (req, res) => {
   const state = randomToken(16);
+  const next = safeNextPath(req.query.next);
+  if (next) res.cookie(NEXT_COOKIE, next, { httpOnly: true, sameSite: 'lax', secure: env.COOKIE_SECURE, path: CALLBACK_PATH, maxAge: 10 * 60_000 });
+  else res.clearCookie(NEXT_COOKIE, { path: CALLBACK_PATH });
   res.cookie(STATE_COOKIE, state, {
     httpOnly: true,
     sameSite: 'lax',
@@ -136,6 +142,7 @@ googleRouter.get(
     const code = typeof req.query.code === 'string' ? req.query.code : '';
     const expected = (req.cookies as Record<string, string>)[STATE_COOKIE] ?? '';
     res.clearCookie(STATE_COOKIE, { path: CALLBACK_PATH });
+    res.clearCookie(NEXT_COOKIE, { path: CALLBACK_PATH });
     if (!state || !code || !expected || !safeEqual(state, expected)) return fail('google_state');
 
     const tokenRes = await fetch('https://oauth2.googleapis.com/token', {

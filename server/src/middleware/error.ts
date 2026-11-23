@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import multer from 'multer';
 import { ZodError } from 'zod';
 import { AppError } from '../lib/AppError';
+import { recordError } from '../lib/errorRing';
 import { logger } from '../lib/logger';
 
 export const notFoundHandler: RequestHandler = (req, res) => {
@@ -12,6 +13,8 @@ export const notFoundHandler: RequestHandler = (req, res) => {
 type ErrorBody = { code: string; message: string; details?: unknown };
 
 function send(res: Parameters<ErrorRequestHandler>[2], status: number, body: ErrorBody) {
+  const req = res.req;
+  recordError({ at: new Date().toISOString(), method: req?.method ?? '', path: req?.path ?? '', status, code: body.code, message: body.message });
   res.status(status).json({ error: body });
 }
 

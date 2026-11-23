@@ -1,4 +1,4 @@
-import { applyBps, formatMoney, type CheckoutDTO, type CheckoutInput, type CheckoutPreviewInput, type PaymentMethod } from '@souqly/shared';
+import { applyBps, formatMoney, type CheckoutDTO, type CheckoutPreviewDTO, type CheckoutInput, type CheckoutPreviewInput, type PaymentMethod } from '@souqly/shared';
 import type { Request } from 'express';
 import { Types } from 'mongoose';
 import { AppError } from '../../lib/AppError';
@@ -16,6 +16,7 @@ import { FlashSale } from '../catalog/marketing.models';
 import { Order, type IAddressSnapshot, type OrderLean } from '../orders/order.model';
 import { invoiceNumberFor, newCheckoutNumber, orderSuffix, storeInfoMap, toOrderDTO } from '../orders/order.service';
 import { releaseAll, reserveAll, writeStockMovement, type StockLine } from '../orders/stock';
+import { prorate } from '../orders/pricing';
 import { Store } from '../stores/store.model';
 import { User } from '../users/user.model';
 import { releaseVoucherUse, takeVoucherUse } from '../vouchers/voucher.service';
@@ -23,6 +24,7 @@ import { VoucherUsage } from '../vouchers/voucher.model';
 import { Checkout, type CheckoutDoc } from './checkout.model';
 import { changeCoins } from '../loyalty/coins.service';
 import { isFlagOn } from '../loyalty/flags';
+import { getPaymentToggles } from '../settings/settings.service';
 import { notifyNewOrder, notifyOrderStatus } from '../notifications/orderNotifications';
 
 const oid = (s: string | Types.ObjectId) => new Types.ObjectId(String(s));
@@ -44,7 +46,8 @@ async function loadAddress(userId: string, addressId: string): Promise<IAddressS
 }
 
 /** Only COD is placeable until a gateway is integrated; others → 400 PAYMENT_NOT_CONFIGURED. */
-function assertPaymentMethod(method: PaymentMethod) {
+async function assertPaymentMethod(method: PaymentMethod) {
+  if (!(await getPaymentToggles())[method]) throw new AppError(400, 'PAYMENT_DISABLED', 'This payment method is currently unavailable');
   if (method === 'wallet') throw new AppError(400, 'PAYMENT_NOT_CONFIGURED', 'Wallet payments are coming soon');
   getPaymentProvider(method);
   if (method !== 'cod') throw new AppError(400, 'PAYMENT_NOT_CONFIGURED', 'Online payments are coming soon. Please choose Cash on Delivery.');
@@ -75,7 +78,7 @@ function assertQuotePlaceable(quote: Quote, method: PaymentMethod) {
   }
 }
 
-export async function preview(userId: string, input: CheckoutPreviewInput) {
+export async function preview(userId: string, input: CheckoutPreviewInput): Promise<CheckoutPreviewDTO> {
   const address = await loadAddress(userId, input.addressId);
   const { quote } = await quoteFor(userId, address.city, input.coins);
   return {
@@ -130,7 +133,7 @@ export async function placeCheckout(req: Request, input: CheckoutInput): Promise
   const prior = await existingCheckout(userId, input.idempotencyKey);
   if (prior) return { checkout: prior, created: false };
 
-  assertPaymentMethod(input.paymentMethod);
+  await assertPaymentMethod(input.paymentMethod);
   const address = await loadAddress(userId, input.addressId);
   const { cart, quote } = await quoteFor(userId, address.city, input.coins);
   assertQuotePlaceable(quote, input.paymentMethod);
@@ -213,6 +216,8 @@ export async function placeCheckout(req: Request, input: CheckoutInput): Promise
     const buyerNotes = input.notes ?? {};
     const docs = [];
     let i = 0;
+    // Whole coins per store order, split with the same weights as the coin discount.
+    const coinShares = prorate(coinsSpent, quote.pricing.stores.map((s) => s.coinsDiscount));
     for (const sp of quote.pricing.stores) {
       const storeLines = quote.lines.filter((l) => String(l.store._id) === sp.storeId);
       const pricedById = new Map(sp.lines.map((pl) => [pl.id, pl]));
@@ -245,6 +250,7 @@ export async function placeCheckout(req: Request, input: CheckoutInput): Promise
         subtotal: sp.itemsSubtotal,
         shippingFee: sp.shippingFee,
         discounts: { store: sp.storeDiscount, platform: sp.platformDiscount, shipping: sp.shippingDiscount, coins: sp.coinsDiscount },
+        coinsUsed: coinShares[i - 1] ?? 0,
         vouchers: {
           ...(sp.storeVoucher?.valid ? { store: sp.storeVoucher.code } : {}),
           ...(quote.pricing.platformVoucher?.valid ? { platform: quote.pricing.platformVoucher.code } : {}),

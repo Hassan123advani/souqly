@@ -1,6 +1,6 @@
 import type { Server as HttpServer, IncomingMessage } from 'node:http';
 import { Server } from 'socket.io';
-import { env } from '../config/env';
+import { corsOrigin, isAllowedOrigin } from '../config/origins';
 import { AppError } from '../lib/AppError';
 import { logger } from '../lib/logger';
 import { resolveAccessToken } from '../middleware/auth';
@@ -16,27 +16,20 @@ export const userRoom = (userId: string) => `user:${userId}`;
 export const sessionRoom = (sessionId: string) => `session:${sessionId}`;
 export const storeRoom = (storeId: string) => `store:${storeId}`;
 
-const clientOrigin = (() => {
-  try {
-    return new URL(env.CLIENT_URL).origin;
-  } catch {
-    return env.CLIENT_URL;
-  }
-})();
-
 /**
  * Cross-site WebSocket hijacking guard: browsers always send Origin on WebSocket handshakes and
- * cross-origin polling, so any Origin other than the client's is refused. Requests without an Origin
+ * cross-origin polling, so any Origin the CORS policy does not allow (CLIENT_URL, CORS_EXTRA_ORIGINS,
+ * and local http origins outside production) is refused. Requests without an Origin
  * (same-origin polling, non-browser clients) carry no ambient-cookie risk and are allowed.
  */
 export function isAllowedSocketOrigin(origin: string | undefined): boolean {
-  return !origin || origin === clientOrigin;
+  return !origin || isAllowedOrigin(origin);
 }
 
 /** Attaches Socket.io; authenticates from the `sq_at` cookie and joins `user:{id}` + `session:{sid}`. */
 export function initSocket(server: HttpServer): Server {
   io = new Server(server, {
-    cors: { origin: env.CLIENT_URL, credentials: true },
+    cors: { origin: corsOrigin, credentials: true },
     serveClient: false,
     allowRequest: (req: IncomingMessage, cb) => {
       const ok = isAllowedSocketOrigin(req.headers.origin);

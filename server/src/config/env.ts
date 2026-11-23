@@ -77,6 +77,8 @@ export const envSchema = z
     COOKIE_SECURE: bool(),
     /** Express `trust proxy`: false (default), a hop count, or proxy IPs/CIDRs. Never `true` in production. */
     TRUST_PROXY: trustProxy(),
+    /** Extra allowed browser origins (comma-separated), on top of CLIENT_URL. */
+    CORS_EXTRA_ORIGINS: str(),
     /** Return OTP codes in API responses when no SMS provider is configured (local development only). */
     DEV_OTP_ECHO: z.preprocess((v) => bool().parse(v) ?? false, z.boolean()),
     ADMIN_EMAIL: strDefault('souqly@gmail.com'),

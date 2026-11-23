@@ -78,6 +78,13 @@ export function breadcrumbsOf(category: Pick<CategoryLean, 'ancestors' | 'slug' 
   return [...category.ancestors.map((a) => ({ slug: a.slug, name: a.name })), { slug: category.slug, name: category.name }];
 }
 
+/** Every effective attribute of a category (filterable or not) — used by the product editor. */
+export async function getCategoryAttributes(slug: string): Promise<AttributeDef[]> {
+  const cat = await findCategoryBySlug(slug);
+  if (!cat) throw notFound('Category');
+  return effectiveAttributes(cat);
+}
+
 export const STANDARD_FILTERS = ['price', 'rating', 'brand', 'freeShipping', 'cod', 'discount', 'inStock', 'mall', 'city'];
 
 export async function getCategoryDetail(slug: string): Promise<CategoryDetail> {

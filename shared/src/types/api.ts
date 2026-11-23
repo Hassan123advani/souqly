@@ -37,7 +37,19 @@ export type Address = AddressInput & { id: string };
 export type SessionInfo = { id: string; userAgent: string; ip: string; createdAt: string; lastUsedAt: string; current: boolean };
 
 export type PublicConfig = {
-  site: { name: string; tagline: string; maintenance: boolean; announcement?: { text: string; link?: string; tone: string } };
+  site: {
+    name: string;
+    tagline: string;
+    logoUrl?: string;
+    primaryColor?: string;
+    seo: { title?: string; description?: string; keywords?: string };
+    maintenance: boolean;
+    maintenanceMessage?: string;
+    announcement?: { text: string; link?: string; tone: string };
+    social: Partial<Record<'facebook' | 'instagram' | 'x' | 'youtube' | 'tiktok', string>>;
+    supportEmail?: string;
+    supportPhone?: string;
+  };
   integrations: {
     googleLogin: boolean;
     cloudStorage: boolean;
@@ -45,7 +57,7 @@ export type PublicConfig = {
     sms: boolean;
     webPush: boolean;
     vapidPublicKey?: string;
-    payments: { cod: true; jazzcash: boolean; easypaisa: boolean; stripe: boolean; wallet: boolean };
+    payments: { cod: boolean; jazzcash: boolean; easypaisa: boolean; stripe: boolean; wallet: boolean };
   };
   flags: Record<string, boolean>;
   devMode: boolean;

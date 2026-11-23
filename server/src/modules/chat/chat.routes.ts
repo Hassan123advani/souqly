@@ -10,6 +10,7 @@ import { validate } from '../../middleware/validate';
 import { socialLimits } from '../loyalty/limits';
 import { Conversation, type ConversationLean } from './chat.models';
 import * as svc from './chat.service';
+import { Order } from '../orders/order.model';
 
 /** Buyer conversation: only the buyer's own (404 otherwise, no enumeration). */
 async function buyerConv(req: Request): Promise<ConversationLean> {
@@ -51,6 +52,14 @@ chatRouter.post(
   validate({ body: conversationCreateSchema }),
   asyncHandler(async (req, res) => {
     res.status(201).json({ data: await svc.startConversation(req.user!.id, req.body.storeSlug, req.body.productId) });
+  }),
+);
+
+chatRouter.get(
+  '/conversations/:id',
+  validate({ params: idParamsSchema }),
+  asyncHandler(async (req, res) => {
+    res.json({ data: await svc.getConversation(await buyerConv(req), 'buyer') });
   }),
 );
 
@@ -104,6 +113,35 @@ sellerChatRouter.get(
   '/quick-replies',
   asyncHandler(async (req, res) => {
     res.json({ data: await svc.quickReplies(req.store!._id) });
+  }),
+);
+
+sellerChatRouter.get(
+  '/conversations/:id',
+  validate({ params: idParamsSchema }),
+  asyncHandler(async (req, res) => {
+    res.json({ data: await svc.getConversation(await storeConv(req), 'store') });
+  }),
+);
+
+/** This buyer's orders with MY store (newest first, max 50) — for attaching order cards. */
+sellerChatRouter.get(
+  '/conversations/:id/orders',
+  validate({ params: idParamsSchema }),
+  asyncHandler(async (req, res) => {
+    const conv = await storeConv(req);
+    const rows = await Order.find({ storeId: req.store!._id, buyerId: conv.buyerId }).sort({ createdAt: -1 }).limit(50).select('number status total items createdAt').lean();
+    res.json({
+      data: rows.map((o) => ({
+        id: String(o._id),
+        number: o.number,
+        status: o.status,
+        total: o.total,
+        itemCount: o.items.reduce((n, i) => n + i.qty, 0),
+        ...(o.items[0]?.image ? { image: o.items[0].image } : {}),
+        createdAt: o.createdAt.toISOString(),
+      })),
+    });
   }),
 );
 

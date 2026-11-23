@@ -13,7 +13,11 @@ export interface JobQueue {
   schedule<P>(name: string, runAt: Date, payload: P): void;
   every(name: string, ms: number, fn: () => Promise<void> | void): void;
   stop(): void;
+  /** Snapshot for the admin system-health page. */
+  stats(): JobStats;
 }
+
+export type JobStats = { name: string; registered: string[]; periodic: string[]; scheduled: number; completed: number; failed: number; lastError?: { job: string; at: string } };
 
 const MAX_TIMEOUT = 2_147_483_647; // setTimeout limit (~24.8 days)
 
@@ -23,6 +27,21 @@ class InProcessJobQueue implements JobQueue {
   private timers = new Set<NodeJS.Timeout>();
   private intervals = new Map<string, NodeJS.Timeout>();
   private stopped = false;
+  private completed = 0;
+  private failed = 0;
+  private lastError?: { job: string; at: string };
+
+  stats(): JobStats {
+    return {
+      name: this.name,
+      registered: [...this.handlers.keys()],
+      periodic: [...this.intervals.keys()],
+      scheduled: this.timers.size,
+      completed: this.completed,
+      failed: this.failed,
+      ...(this.lastError ? { lastError: this.lastError } : {}),
+    };
+  }
 
   register<P>(name: string, handler: JobHandler<P>): void {
     this.handlers.set(name, handler as JobHandler<unknown>);
@@ -73,7 +92,10 @@ class InProcessJobQueue implements JobQueue {
     if (!handler) return logger.error({ job: name }, 'No handler registered for job');
     try {
       await handler(payload);
+      this.completed++;
     } catch (err) {
+      this.failed++;
+      this.lastError = { job: name, at: new Date().toISOString() };
       logger.error({ err, job: name }, 'Job failed');
     }
   }

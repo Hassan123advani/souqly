@@ -19,3 +19,4 @@ export * from './schemas/social';
 export * from './types/social';
 export * from './schemas/delivery';
 export * from './types/delivery';
+export * from './schemas/admin';

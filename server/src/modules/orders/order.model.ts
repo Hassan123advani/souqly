@@ -49,6 +49,8 @@ export interface IOrder {
   shippingFee: number;
   /** `coins`: platform-funded coin redemption share (Phase 8). */
   discounts: { store: number; platform: number; shipping: number; coins?: number };
+  /** Whole coins spent on this order (share of the checkout's coins; refunded on cancel / return). */
+  coinsUsed?: number;
   vouchers: { store?: string; platform?: string };
   total: number;
   commission: { bps: number; amount: number };
@@ -68,6 +70,8 @@ export interface IOrder {
   riderId?: Types.ObjectId | null;
   invoiceNumber: string;
   stockRestored: boolean;
+  /** Sum of admin refunds to the buyer's wallet (Phase 9; never exceeds `total`). */
+  adminRefunded?: number;
   demo: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -98,6 +102,7 @@ const orderSchema = new Schema<IOrder>(
     subtotal: { type: Number, required: true, min: 0 },
     shippingFee: { type: Number, default: 0, min: 0 },
     discounts: { store: { type: Number, default: 0 }, platform: { type: Number, default: 0 }, shipping: { type: Number, default: 0 }, coins: { type: Number, default: 0 } },
+    coinsUsed: { type: Number, default: 0, min: 0 },
     vouchers: { store: String, platform: String },
     total: { type: Number, required: true, min: 0 },
     commission: { bps: { type: Number, default: 0 }, amount: { type: Number, default: 0 } },
@@ -138,6 +143,7 @@ const orderSchema = new Schema<IOrder>(
     riderId: { type: Schema.Types.ObjectId, ref: 'User', default: null },
     invoiceNumber: { type: String, required: true },
     stockRestored: { type: Boolean, default: false },
+    adminRefunded: { type: Number, default: 0, min: 0 },
     demo: { type: Boolean, default: false, index: true },
   },
   { timestamps: true, minimize: false },
@@ -148,6 +154,9 @@ orderSchema.index({ storeId: 1, createdAt: -1 });
 orderSchema.index({ buyerId: 1, status: 1, createdAt: -1 });
 orderSchema.index({ buyerId: 1, createdAt: -1 });
 orderSchema.index({ checkoutId: 1 });
+// Admin: all-orders list / reports.
+orderSchema.index({ status: 1, createdAt: -1 });
+orderSchema.index({ createdAt: -1 });
 
 export const Order = model<IOrder>('Order', orderSchema);
 export type OrderDoc = HydratedDocument<IOrder>;

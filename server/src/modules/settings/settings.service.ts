@@ -32,11 +32,52 @@ export async function getFeatureFlags(): Promise<Record<FeatureFlag, boolean>> {
 }
 
 export type SiteSettings = {
+  name: string;
+  tagline: string;
+  logoUrl?: string;
+  primaryColor?: string;
+  seo: { title?: string; description?: string; keywords?: string };
   maintenance: boolean;
+  maintenanceMessage?: string;
   announcement?: { text: string; link?: string; tone: 'info' | 'promo' | 'warning' };
+  social: Partial<Record<'facebook' | 'instagram' | 'x' | 'youtube' | 'tiktok', string>>;
+  supportEmail?: string;
+  supportPhone?: string;
 };
+
+export const SITE_DEFAULTS: SiteSettings = { name: 'Souqly', tagline: 'Every shop, one souq.', seo: {}, maintenance: false, social: {} };
 
 export async function getSiteSettings(): Promise<SiteSettings> {
   const s = (await getSetting<Partial<SiteSettings>>('site')) ?? {};
-  return { maintenance: s.maintenance === true, ...(s.announcement?.text ? { announcement: s.announcement } : {}) };
+  const { announcement, ...rest } = s;
+  return {
+    ...SITE_DEFAULTS,
+    ...rest,
+    seo: { ...(s.seo ?? {}) },
+    social: { ...(s.social ?? {}) },
+    maintenance: s.maintenance === true,
+    ...(announcement?.text ? { announcement } : {}),
+  };
+}
+
+export type PaymentToggles = { cod: boolean; jazzcash: boolean; easypaisa: boolean; stripe: boolean; wallet: boolean };
+export const PAYMENT_TOGGLE_DEFAULTS: PaymentToggles = { cod: true, jazzcash: true, easypaisa: true, stripe: true, wallet: true };
+
+/** Admin on/off switches per payment method (a method is offered only when enabled AND its keys exist). */
+export async function getPaymentToggles(): Promise<PaymentToggles> {
+  const s = (await getSetting<Partial<PaymentToggles>>('paymentMethods')) ?? {};
+  const out = { ...PAYMENT_TOGGLE_DEFAULTS };
+  for (const k of Object.keys(out) as (keyof PaymentToggles)[]) if (typeof s[k] === 'boolean') out[k] = s[k] as boolean;
+  return out;
+}
+
+export type ShippingZone = { name: string; cities: string[]; fee: number; freeAbove?: number; etaDays: number };
+export async function getShippingZones(): Promise<ShippingZone[]> {
+  return (await getSetting<ShippingZone[]>('shippingZones')) ?? [];
+}
+
+export type TaxSettings = { display: 'inclusive' | 'exclusive'; rates: { country: string; bps: number }[] };
+export async function getTaxSettings(): Promise<TaxSettings> {
+  const s = await getSetting<Partial<TaxSettings>>('tax');
+  return { display: s?.display ?? 'inclusive', rates: s?.rates ?? [] };
 }

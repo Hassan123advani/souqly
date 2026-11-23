@@ -1,4 +1,4 @@
-import { PERMISSIONS, objectIdSchema, productCreateSchema, productUpdateSchema, sellerProductListQuerySchema, type SellerProductListQuery } from '@souqly/shared';
+import { PERMISSIONS, objectIdSchema, productCreateSchema, productUpdateSchema, sellerProductBulkSchema, sellerProductListQuerySchema, type SellerProductListQuery } from '@souqly/shared';
 import { Router } from 'express';
 import multer from 'multer';
 import { z } from 'zod';
@@ -29,8 +29,17 @@ sellerRouter.get(
   VIEW,
   validate({ query: sellerProductListQuerySchema }),
   asyncHandler(async (req, res) => {
-    const { items, nextCursor } = await svc.listOwn(req.store!, req.query as unknown as SellerProductListQuery);
-    res.json({ data: items, meta: { nextCursor } });
+    const [{ items, nextCursor }, counts] = await Promise.all([svc.listOwn(req.store!, req.query as unknown as SellerProductListQuery), svc.statusCounts(req.store!)]);
+    res.json({ data: items, meta: { nextCursor, counts } });
+  }),
+);
+
+sellerRouter.post(
+  '/products/bulk',
+  MANAGE,
+  validate({ body: sellerProductBulkSchema }),
+  asyncHandler(async (req, res) => {
+    res.json({ data: await svc.bulkProducts(req, req.body) });
   }),
 );
 

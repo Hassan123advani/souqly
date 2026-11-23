@@ -93,6 +93,13 @@ export async function selectAll(userId: string, selected: boolean): Promise<Cart
   return cartView(userId, cart);
 }
 
+/** (De)selects every non-saved item of one store's group (unknown store → no-op). */
+export async function selectStore(userId: string, storeId: string, selected: boolean): Promise<CartDTO> {
+  const cart = await getOrCreateCart(userId);
+  for (const i of cart.items) if (!i.savedForLater && String(i.storeId) === storeId) i.selected = selected;
+  return cartView(userId, cart);
+}
+
 /** Merges a guest (localStorage) cart: unknown / unavailable lines are skipped, qty = max(existing, guest). */
 export async function merge(userId: string, input: CartMergeInput): Promise<CartDTO> {
   const cart = await getOrCreateCart(userId);

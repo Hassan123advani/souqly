@@ -114,6 +114,7 @@ userSchema.index(
 );
 userSchema.index({ googleId: 1 }, { unique: true, partialFilterExpression: { googleId: { $type: 'string' } } });
 userSchema.index({ referralCode: 1 }, { unique: true });
+userSchema.index({ createdAt: -1 }); // admin users list / signups
 userSchema.index({ platformRole: 1 }, { partialFilterExpression: { platformRole: { $type: 'string' } } });
 
 export const User = model<IUser>('User', userSchema);

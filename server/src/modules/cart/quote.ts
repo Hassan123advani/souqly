@@ -229,6 +229,8 @@ export async function buildQuote(cart: CartDoc, userId: string, buyerCity?: stri
           ? { platformVoucher: { code: vouchers.platform.code, scope: 'platform' as const, type: vouchers.platform.type, discount: 0, valid: false, reason: 'NOT_ELIGIBLE' } }
           : {}),
       coins: pricing.coins,
+      coinsDiscount: pricing.coins,
+      coinsUsed: pricing.coinsUsed,
       total: pricing.total,
       savings: pricing.savings,
       selectedCount: lines.reduce((a, l) => a + l.item.qty, 0),

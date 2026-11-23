@@ -59,6 +59,12 @@ async function toConversationDTOs(rows: ConversationLean[], side: ChatSide): Pro
   });
 }
 
+/** One conversation as seen from `side` (same shape as the list rows). */
+export async function getConversation(conv: ConversationLean, side: ChatSide): Promise<ConversationDTO> {
+  const [dto] = await toConversationDTOs([conv], side);
+  return dto!;
+}
+
 export async function listConversations(side: ChatSide, ownerId: Types.ObjectId, q: { cursor?: string; limit: number }) {
   const filter = side === 'buyer' ? { buyerId: ownerId } : { storeId: ownerId, lastMessage: { $exists: true } };
   const rows = await Conversation.find({ ...filter, ...cursorFilter('updatedAt', -1, q.cursor) })

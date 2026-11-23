@@ -8,6 +8,7 @@ import { audit } from '../audit/audit.service';
 import { Product } from '../catalog/product.model';
 import { openUploadRef } from '../delivery/imageUpload';
 import { adjustStock } from '../inventory/inventory.service';
+import { refundOrderCoins } from '../loyalty/coinsRefund';
 import { notify, notifyMany } from '../notifications/notification.service';
 import { storeOrderRecipients } from '../notifications/orderNotifications';
 import { Order, type OrderLean } from '../orders/order.model';
@@ -151,7 +152,18 @@ export async function listStoreReturns(store: StoreDoc, q: ReturnListQuery) {
     .limit(q.limit + 1)
     .lean<ReturnRequestLean[]>();
   const { items, nextCursor } = paginate(rows, q.limit, 'createdAt');
-  return { items: await Promise.all(items.map((r) => toDTO(r, { withBuyer: true }))), nextCursor };
+  return { items: await Promise.all(items.map((r) => toDTO(r, { withBuyer: true }))), nextCursor, counts: await storeReturnCounts(store) };
+}
+
+/** Per-status counts (+ `all`) for the seller returns tabs. */
+export async function storeReturnCounts(store: StoreDoc): Promise<Record<string, number>> {
+  const rows = await ReturnRequest.aggregate<{ _id: string; n: number }>([{ $match: { storeId: store._id } }, { $group: { _id: '$status', n: { $sum: 1 } } }]);
+  const counts: Record<string, number> = { all: 0, requested: 0, approved: 0, rejected: 0, received: 0, refunded: 0, escalated: 0 };
+  for (const r of rows) {
+    counts[r._id] = r.n;
+    counts.all! += r.n;
+  }
+  return counts;
 }
 
 export async function getStoreReturn(store: StoreDoc, id: string): Promise<ReturnRequestDTO> {
@@ -206,6 +218,13 @@ export async function receiveReturn(req: Request, id: string, note?: string) {
   return toDTO(r, { withBuyer: true });
 }
 
+/** Coins spent on the order go back proportionally to the returned item value (idempotent per order). */
+export async function refundReturnCoins(r: Pick<ReturnRequestLean, 'orderId' | 'items'>): Promise<void> {
+  const order = await Order.findById(r.orderId).select('buyerId coinsUsed discounts subtotal').lean();
+  if (!order) return;
+  await refundOrderCoins(order, r.items.reduce((s, i) => s + i.price * i.qty, 0));
+}
+
 /** Credits the buyer's wallet once (wallet ref `refund:<returnId>` is idempotent), then marks refunded. */
 export async function refundReturn(req: Request, id: string, note?: string) {
   const store = req.store!;
@@ -219,6 +238,7 @@ export async function refundReturn(req: Request, id: string, note?: string) {
   }
   const updated = await move(req, id, ['received'], 'refunded', note, { 'refund.at': new Date(), ...(transactionId ? { 'refund.transactionId': transactionId } : {}) });
   await Order.updateOne({ _id: r.orderId, storeId: store._id }, { $set: { 'payment.status': 'refunded' } });
+  await refundReturnCoins(r);
   await transitionOrder(r.orderId, 'refunded', sellerActor(req), { storeId: store._id, req });
   return toDTO(updated, { withBuyer: true });
 }

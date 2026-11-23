@@ -1,3 +1,4 @@
+import type { BuyerOrderDetailDTO, OrderTrackingStepDTO } from '@souqly/shared';
 import { BUYER_ORDER_TABS, PERMISSIONS, TRACKING_STEPS, type BuyerOrderListQuery, type OrderStatus } from '@souqly/shared';
 import type { Request } from 'express';
 import { Types } from 'mongoose';
@@ -15,12 +16,18 @@ const oid = (s: string) => new Types.ObjectId(s);
 const BUYER_CANCELLABLE: OrderStatus[] = ['pending_payment', 'placed', 'confirmed'];
 
 export async function listBuyerOrders(userId: string, q: BuyerOrderListQuery) {
-  const filter: Record<string, unknown> = { buyerId: oid(userId), ...cursorFilter('createdAt', -1, q.cursor) };
+  const base: Record<string, unknown> = { buyerId: oid(userId) };
+  if (q.store) {
+    const store = Types.ObjectId.isValid(q.store) && /^[a-f0-9]{24}$/.test(q.store) ? { _id: oid(q.store) } : await Store.findOne({ slug: q.store }).select('_id').lean();
+    // Unknown store → no orders (never an error, so slugs cannot be probed).
+    base.storeId = store?._id ?? new Types.ObjectId('000000000000000000000000');
+  }
+  const filter: Record<string, unknown> = { ...base, ...cursorFilter('createdAt', -1, q.cursor) };
   if (q.tab) filter.status = { $in: [...BUYER_ORDER_TABS[q.tab]] };
   const rows = await Order.find(filter).sort(cursorSort('createdAt', -1)).limit(q.limit + 1).select('+deliveryOtpEnc').lean<OrderLean[]>();
   const { items, nextCursor } = paginate(rows, q.limit, 'createdAt');
   const stores = await storeInfoMap(items.map((o) => o.storeId));
-  const counts = await Order.aggregate<{ _id: OrderStatus; n: number }>([{ $match: { buyerId: oid(userId) } }, { $group: { _id: '$status', n: { $sum: 1 } } }]);
+  const counts = await Order.aggregate<{ _id: OrderStatus; n: number }>([{ $match: base }, { $group: { _id: '$status', n: { $sum: 1 } } }]);
   const tabCounts = Object.fromEntries(
     Object.entries(BUYER_ORDER_TABS).map(([tab, statuses]) => [tab, counts.filter((c) => (statuses as readonly string[]).includes(c._id)).reduce((a, c) => a + c.n, 0)]),
   );
@@ -34,14 +41,14 @@ async function ownOrder(userId: string, number: string): Promise<OrderLean> {
   return o;
 }
 
-export function trackingSteps(o: OrderLean) {
+export function trackingSteps(o: OrderLean): OrderTrackingStepDTO[] {
   const at = new Map<string, Date>();
   for (const t of o.timeline) if (!at.has(t.status)) at.set(t.status, t.at);
   const reachedIdx = Math.max(-1, ...TRACKING_STEPS.map((s, i) => (at.has(s) ? i : -1)));
   return TRACKING_STEPS.map((s, i) => ({ status: s, done: i <= reachedIdx, at: at.get(s)?.toISOString() ?? null, current: TRACKING_STEPS[reachedIdx] === s && o.status === s }));
 }
 
-export async function getBuyerOrder(userId: string, number: string) {
+export async function getBuyerOrder(userId: string, number: string): Promise<BuyerOrderDetailDTO> {
   const o = await ownOrder(userId, number);
   const [stores, checkout] = await Promise.all([storeInfoMap([o.storeId]), o.checkoutId ? Checkout.findById(o.checkoutId).select('number').lean() : null]);
   return {

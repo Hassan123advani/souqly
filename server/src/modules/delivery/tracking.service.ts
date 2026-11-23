@@ -67,7 +67,8 @@ export async function getTracking(user: AuthUser, number: string): Promise<Order
   return {
     ...base,
     active: true,
-    rider: rider ? { name: rider.name, phone: maskPhone(rider.phone) } : null,
+    // The order's buyer gets the real number while out for delivery (so they can call); everyone else sees it masked.
+    rider: rider ? { name: rider.name, phone: String(order.buyerId) === user.id ? (rider.phone ?? maskPhone(rider.phone)) : maskPhone(rider.phone) } : null,
     lastLocation: last ? { lat: last.lat, lng: last.lng, at: new Date(last.at).toISOString() } : null,
     eta: etaMinutes(last, destination.location),
   };

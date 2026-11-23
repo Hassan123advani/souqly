@@ -17,6 +17,7 @@ import { storeContext } from '../../middleware/storeContext';
 import { validate } from '../../middleware/validate';
 import { sendPdf } from './orders.routes';
 import * as svc from './sellerOrders.service';
+import { listStoreRiders } from '../delivery/sellerRiders.service';
 
 /** Seller Center orders (mounted at /seller/orders). storeId comes ONLY from req.store. */
 export const sellerOrdersRouter = Router();
@@ -25,6 +26,16 @@ sellerOrdersRouter.use(requireAuth, storeContext);
 const VIEW = requirePermission(PERMISSIONS.STORE_ORDERS_VIEW);
 const MANAGE = requirePermission(PERMISSIONS.STORE_ORDERS_MANAGE);
 const idParams = z.object({ id: objectIdSchema });
+
+/** Lightweight rider picker for order assignment (STORE_ORDERS_VIEW, not staff.manage). */
+sellerOrdersRouter.get(
+  '/riders',
+  VIEW,
+  asyncHandler(async (req, res) => {
+    const riders = await listStoreRiders(req.store!);
+    res.json({ data: riders.map((r) => ({ memberId: r.memberId, user: r.user, activeDeliveries: r.activeDeliveries })) });
+  }),
+);
 
 sellerOrdersRouter.get(
   '/',

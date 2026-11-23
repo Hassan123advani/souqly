@@ -8,6 +8,8 @@ export interface IHomeContent {
   key: 'home';
   heroSlides: { image: string; title: string; subtitle?: string; ctaText?: string; ctaLink?: string; theme?: string }[];
   sections: { type: (typeof HOME_SECTION_TYPES)[number]; title: string; enabled: boolean; order: number; config: Record<string, unknown> }[];
+  /** Admin-picked featured items (Phase 9). */
+  featured?: { productIds: Types.ObjectId[]; storeIds: Types.ObjectId[]; categoryIds: Types.ObjectId[] };
   demo: boolean;
 }
 
@@ -25,6 +27,7 @@ const homeContentSchema = new Schema<IHomeContent>(
         _id: false,
       },
     ],
+    featured: { type: { productIds: [Schema.Types.ObjectId], storeIds: [Schema.Types.ObjectId], categoryIds: [Schema.Types.ObjectId], _id: false }, default: undefined },
     demo: { type: Boolean, default: false, index: true },
   },
   { timestamps: true, minimize: false },
@@ -80,6 +83,8 @@ export interface ICampaign {
   productIds?: Types.ObjectId[];
   categoryIds?: Types.ObjectId[];
   storeIds?: Types.ObjectId[];
+  /** Landing page content (Phase 9 admin). */
+  landing?: { headline?: string; subheadline?: string; body?: string; heroImage?: string };
   demo: boolean;
 }
 
@@ -95,6 +100,7 @@ const campaignSchema = new Schema<ICampaign>(
     productIds: { type: [Schema.Types.ObjectId], default: undefined },
     categoryIds: { type: [Schema.Types.ObjectId], default: undefined },
     storeIds: { type: [Schema.Types.ObjectId], default: undefined },
+    landing: { type: { headline: String, subheadline: String, body: String, heroImage: String, _id: false }, default: undefined },
     demo: { type: Boolean, default: false, index: true },
   },
   { timestamps: true },

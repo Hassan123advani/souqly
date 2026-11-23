@@ -382,15 +382,27 @@ const GOOGLE_2FA_TTL_MS = 5 * 60_000;
 export const GOOGLE_2FA_MAX_ATTEMPTS = 5;
 
 /** Short-lived single-use ticket the Google callback hands to the client when the account has 2FA. */
-export async function issueGoogle2faTicket(userId: Types.ObjectId): Promise<string> {
+export async function issueGoogle2faTicket(userId: Types.ObjectId, next?: string): Promise<string> {
   await Token.updateMany({ userId, type: 'google_2fa', usedAt: null }, { $set: { usedAt: new Date() } });
   const ticket = randomToken(32);
-  await Token.create({ type: 'google_2fa', userId, tokenHash: sha256(ticket), expiresAt: new Date(Date.now() + GOOGLE_2FA_TTL_MS) });
+  const safeNext = safeNextPath(next);
+  await Token.create({ type: 'google_2fa', userId, tokenHash: sha256(ticket), expiresAt: new Date(Date.now() + GOOGLE_2FA_TTL_MS), ...(safeNext ? { next: safeNext } : {}) });
   return ticket;
 }
 
+/**
+ * Only same-origin relative paths are accepted as a post-login `next` (no `//host`, `/\host`,
+ * schemes or control characters), so it can never become an open redirect.
+ */
+export function safeNextPath(next: unknown): string | undefined {
+  if (typeof next !== 'string' || next.length === 0 || next.length > 300) return undefined;
+  if (!next.startsWith('/') || next.startsWith('//') || next.startsWith('/\\')) return undefined;
+  if (/[\x00-\x1f\x7f\\]/.test(next)) return undefined;
+  return next;
+}
+
 /** POST /auth/google/2fa: exchanges a ticket + TOTP (or recovery code) for a session. */
-export async function completeGoogle2fa(ticket: string, code: string, req: Request): Promise<UserDoc> {
+export async function completeGoogle2fa(ticket: string, code: string, req: Request): Promise<UserDoc & { loginNext?: string }> {
   const invalidTicket = () => new AppError(401, 'INVALID_TICKET', 'This sign-in step has expired. Please continue with Google again.');
   const t = await Token.findOne({ tokenHash: sha256(ticket), type: 'google_2fa', usedAt: null, expiresAt: { $gt: new Date() } });
   if (!t) throw invalidTicket();
@@ -424,7 +436,7 @@ export async function completeGoogle2fa(ticket: string, code: string, req: Reque
   if (!claimed) throw invalidTicket();
   if (!(await completeLogin(user))) throw invalidCredentials();
   await audit({ action: 'auth.login', actorId: user._id, meta: { method: 'google', twoFactor: true }, req });
-  return user;
+  return Object.assign(user, t.next ? { loginNext: t.next } : {});
 }
 
 // ---------------------------------------------------------------------------------------------

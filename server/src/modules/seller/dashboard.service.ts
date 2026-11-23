@@ -1,6 +1,8 @@
 import type { KpiValue, SellerDashboard } from '@souqly/shared';
 import mongoose, { Types, type Model } from 'mongoose';
 import { Product } from '../catalog/product.model';
+import { unreadCount } from '../chat/chat.service';
+import { Question } from '../qa/question.model';
 import { countLowStock } from '../inventory/inventory.service';
 import type { StoreDoc } from '../stores/store.model';
 import { StoreVisit } from '../stores/storeVisit.model';
@@ -83,8 +85,8 @@ async function todo(Order: Model<Record<string, unknown>> | null, storeId: Types
     toShip: counts.get('packed') ?? 0,
     returnRequests: counts.get('return_requested') ?? 0,
     lowStock: await countLowStock(storeId),
-    unansweredQuestions: 0, // Phase 8 (Q&A)
-    unreadChats: 0, // Phase 8 (chat)
+    unansweredQuestions: await Question.countDocuments({ storeId, answered: false, status: { $ne: 'hidden' } }),
+    unreadChats: await unreadCount('store', storeId),
   };
 }
 

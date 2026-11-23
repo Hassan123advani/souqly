@@ -46,7 +46,13 @@ export interface CartSummaryDTO {
   shippingTotal: number;
   discountTotal: number;
   platformVoucher?: AppliedVoucherDTO;
+  /** @deprecated same value as `coinsDiscount` (minor units, not a coin count). */
   coins: number;
+  /** Coin redemption discount in minor units. NOT included in `discountTotal`. */
+  coinsDiscount: number;
+  /** Whole coins that will be spent. */
+  coinsUsed: number;
+  /** = itemsSubtotal + shippingTotal − discountTotal − coinsDiscount */
   total: number;
   savings: number;
   selectedCount: number;
@@ -89,7 +95,8 @@ export interface OrderDTO {
   items: OrderItemDTO[];
   subtotal: number;
   shippingFee: number;
-  discounts: { store: number; platform: number };
+  /** `coins`: coin redemption share (minor units). */
+  discounts: { store: number; platform: number; coins?: number };
   total: number;
   payment: { method: PaymentMethod; status: string };
   shippingAddress: Record<string, unknown>;
@@ -116,4 +123,52 @@ export interface CheckoutDTO {
   totals: { itemsSubtotal: number; shippingTotal: number; discountTotal: number; total: number };
   orders: OrderDTO[];
   createdAt: string;
+}
+
+/** Address snapshot frozen on an order / checkout preview. */
+export interface AddressSnapshotDTO {
+  fullName: string;
+  phone: string;
+  country: string;
+  city: string;
+  area?: string;
+  line1: string;
+  line2?: string;
+  postalCode?: string;
+  location?: { lat: number; lng: number };
+}
+
+export interface OrderTrackingStepDTO {
+  status: OrderStatus;
+  done: boolean;
+  at: string | null;
+  current: boolean;
+}
+
+/** GET /orders/:number (buyer). */
+export interface BuyerOrderDetailDTO extends OrderDTO {
+  trackingSteps: OrderTrackingStepDTO[];
+  canCancel: boolean;
+}
+
+export interface CheckoutPreviewStoreDTO {
+  storeId: string;
+  itemsSubtotal: number;
+  storeDiscount: number;
+  platformDiscount: number;
+  shippingBase: number;
+  shippingFee: number;
+  coinsDiscount: number;
+  total: number;
+  note: string | null;
+}
+
+/** POST /checkout/preview. */
+export interface CheckoutPreviewDTO extends CartDTO {
+  coinsRedemption: { requested: number; used: number; discount: number; max: number };
+  address: AddressSnapshotDTO;
+  paymentMethod: PaymentMethod;
+  paymentAvailable: boolean;
+  stores: CheckoutPreviewStoreDTO[];
+  canPlace: boolean;
 }

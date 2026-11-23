@@ -207,6 +207,10 @@ export const sellerProductListQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(24),
 });
 export type SellerProductListQuery = z.infer<typeof sellerProductListQuerySchema>;
+/** POST /seller/products/bulk */
+export const sellerProductBulkSchema = z.object({ ids: z.array(z.string().regex(/^[a-f0-9]{24}$/i)).min(1).max(100), action: z.enum(['publish', 'archive']) }).strict();
+export type SellerProductBulkInput = z.infer<typeof sellerProductBulkSchema>;
+export type SellerProductBulkResult = { ok: string[]; failed: { id: string; code: string; message: string }[] };
 
 // ---------------------------------------------------------------------------------------------
 // Public listing queries

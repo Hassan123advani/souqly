@@ -36,6 +36,9 @@ Schemas: `shared/src/schemas/social.ts`; DTOs: `shared/src/types/social.ts`.
 ## Chat
 - Buyer: `GET /chat/conversations`, `POST /chat/conversations {storeSlug, productId?}`, `GET /chat/conversations/:id/messages?cursor=`, `POST /chat/conversations/:id/messages`, `POST /chat/conversations/:id/read`.
 - Seller (STORE_CHAT_MANAGE): `GET /seller/chat/conversations`, `GET /seller/chat/quick-replies`, same `/seller/chat/conversations/:id/...` endpoints.
+- Single conversation: `GET /chat/conversations/:id` (buyer) / `GET /seller/chat/conversations/:id` (seller) → same `ConversationDTO` as the list rows (404 if not yours).
+- Unread badge: `GET /chat/unread` (buyer) / `GET /seller/chat/unread` (seller) → `{ unread }` = sum of unread messages over all conversations on that side.
+- Order cards: `GET /seller/chat/conversations/:id/orders` → this buyer's orders with the current store, newest first (max 50): `[{ id, number, status, total, itemCount, image?, createdAt }]`; send one with `{type:'order', orderId}`.
 - Message body: `{type:'text',text}` | `{type:'image',imageKey}` | `{type:'product',productId}` | `{type:'order',orderId}` (order must belong to this buyer + store).
 - Socket: emit `chat:join {conversationId}` (ack `{ok}`), `chat:leave`, `chat:typing {conversationId, typing}`. Server emits `chat:message`, `chat:typing`, `chat:read` to room `conv:{id}`; `chat:conversation {id, unread}` to `user:{buyerId}` / `store:{storeId}` (no message text).
 

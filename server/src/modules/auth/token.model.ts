@@ -15,6 +15,8 @@ export interface IToken {
   usedAt?: Date;
   /** Failed attempts against this token (google_2fa tickets die after 5). */
   attempts: number;
+  /** google_2fa: validated relative path to return to after sign-in. */
+  next?: string;
   createdAt: Date;
 }
 
@@ -26,6 +28,7 @@ const tokenSchema = new Schema<IToken>({
   expiresAt: { type: Date, required: true },
   usedAt: { type: Date },
   attempts: { type: Number, default: 0 },
+  next: { type: String, maxlength: 300 },
   createdAt: { type: Date, default: () => new Date() },
 });
 tokenSchema.index({ userId: 1, type: 1 });

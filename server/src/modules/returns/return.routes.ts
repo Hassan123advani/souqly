@@ -84,8 +84,8 @@ sellerReturnsRouter.get(
   VIEW,
   validate({ query: returnListQuerySchema }),
   asyncHandler(async (req, res) => {
-    const { items, nextCursor } = await svc.listStoreReturns(req.store!, req.query as unknown as ReturnListQuery);
-    res.json({ data: items, meta: { nextCursor } });
+    const { items, nextCursor, counts } = await svc.listStoreReturns(req.store!, req.query as unknown as ReturnListQuery);
+    res.json({ data: items, meta: { nextCursor, counts } });
   }),
 );
 

@@ -170,7 +170,7 @@ authRouter.post(
   asyncHandler(async (req, res) => {
     const user = await auth.completeGoogle2fa(req.body.ticket, req.body.totp, req);
     await auth.startSession(req, res, user._id);
-    res.json({ data: { user: await toMeUser(user) } });
+    res.json({ data: { user: await toMeUser(user), ...(user.loginNext ? { next: user.loginNext } : {}) } });
   }),
 );
 

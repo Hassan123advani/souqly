@@ -1,4 +1,4 @@
-import type { ProductCreateInput, ProductUpdateInput, ProductVariantInput, SellerProduct, SellerProductListQuery, UploadResult } from '@souqly/shared';
+import type { ProductCreateInput, ProductUpdateInput, SellerProductBulkInput, SellerProductBulkResult, ProductVariantInput, SellerProduct, SellerProductListQuery, UploadResult } from '@souqly/shared';
 import { slugify } from '@souqly/shared';
 import type { Request } from 'express';
 import { Types } from 'mongoose';
@@ -207,6 +207,54 @@ export async function listOwn(store: StoreDoc, q: SellerProductListQuery) {
   const rows = await Product.find(filter).sort(cursorSort('_id', -1)).limit(q.limit + 1);
   const page = paginate(rows, q.limit, '_id');
   return { items: page.items.map(toSellerProduct), nextCursor: page.nextCursor };
+}
+
+/** Product counts per status tab (+ `all`) for the seller product list. */
+export async function statusCounts(store: StoreDoc): Promise<Record<string, number>> {
+  const rows = await Product.aggregate<{ _id: string; n: number }>([
+    { $match: { storeId: store._id, deletedAt: { $exists: false } } },
+    { $group: { _id: '$status', n: { $sum: 1 } } },
+  ]);
+  const counts: Record<string, number> = { all: 0, draft: 0, pending_review: 0, published: 0, rejected: 0, archived: 0 };
+  for (const r of rows) {
+    counts[r._id] = r.n;
+    counts.all! += r.n;
+  }
+  return counts;
+}
+
+/** Takes a product off sale (seller side). Published → archived; the public count drops. */
+export async function archiveProduct(req: Request, id: string): Promise<SellerProduct> {
+  const store = req.store!;
+  const product = await loadOwn(store, id);
+  if (product.status === 'archived') return toSellerProduct(product);
+  const wasLive = product.status === 'published';
+  product.status = 'archived';
+  if (wasLive) product.publishedAt = undefined;
+  await product.save();
+  if (wasLive) {
+    await Store.updateOne({ _id: store._id, productCount: { $gt: 0 } }, { $inc: { productCount: -1 } });
+    invalidateVocabulary();
+    invalidateStoreIndex();
+  }
+  await audit({ action: 'product.archived', targetType: 'Product', targetId: product._id, meta: { storeId: String(store._id) }, req });
+  return toSellerProduct(product);
+}
+
+/** Bulk publish / archive. Each id is processed independently; failures are reported per id. */
+export async function bulkProducts(req: Request, input: SellerProductBulkInput): Promise<SellerProductBulkResult> {
+  const out: SellerProductBulkResult = { ok: [], failed: [] };
+  for (const id of [...new Set(input.ids)]) {
+    try {
+      if (input.action === 'publish') await publishProduct(req, id);
+      else await archiveProduct(req, id);
+      out.ok.push(id);
+    } catch (err) {
+      if (!(err instanceof AppError)) throw err;
+      out.failed.push({ id, code: err.code, message: err.message });
+    }
+  }
+  return out;
 }
 
 export async function getOwn(store: StoreDoc, id: string): Promise<SellerProduct> {

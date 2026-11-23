@@ -11,5 +11,7 @@ export const FEATURE_FLAGS = {
   preOrders: true,
   wholesaleTiers: true,
   affiliateLinks: true,
+  chat: true,
+  returns: true,
 } as const;
 export type FeatureFlag = keyof typeof FEATURE_FLAGS;
