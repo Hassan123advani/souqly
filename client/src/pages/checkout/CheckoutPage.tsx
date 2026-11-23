@@ -32,7 +32,8 @@ export default function CheckoutPage() {
   const [coins, setCoins] = useState(0);
   const preview = useCheckoutPreview(addressId, method, coins);
   const place = usePlaceOrder();
-  // One key per attempt; kept across network failures (no response) so a retry can't double-order.
+  // One key per attempt. Kept whenever the outcome is unknown (network error, 5xx, timeout/rate
+  // limit, or CHECKOUT_IN_PROGRESS) so a retry replays the same checkout instead of double-ordering.
   const keyRef = useRef<string | null>(null);
 
   const onAddress = useCallback((id: string) => setAddressId(id), []);
@@ -54,8 +55,10 @@ export default function CheckoutPage() {
           navigate(`/checkout/success/${c.number}`, { replace: true });
         },
         onError: (e) => {
-          if (getErrorStatus(e)) keyRef.current = null;
+          const status = getErrorStatus(e);
           const code = getErrorCode(e);
+          const unknownOutcome = !status || status >= 500 || status === 408 || status === 429 || code === 'CHECKOUT_IN_PROGRESS';
+          if (!unknownOutcome) keyRef.current = null;
           if (code === 'STOCK_CHANGED' || code === 'CART_CHANGED') {
             setConflict(code);
             void qc.invalidateQueries({ queryKey: cartKey });

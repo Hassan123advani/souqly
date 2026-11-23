@@ -22,3 +22,12 @@ export function pushRecentlyViewed(card: ProductCard): void {
     // Storage full or disabled: recently viewed is best-effort.
   }
 }
+
+/** Logout: the device's next user must not see this list. */
+export function clearRecentlyViewed(): void {
+  try {
+    localStorage.removeItem(KEY);
+  } catch {
+    /* ignore */
+  }
+}

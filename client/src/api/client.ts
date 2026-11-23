@@ -36,7 +36,8 @@ export async function del<T = void>(url: string, config?: AxiosRequestConfig): P
 type RetriableConfig = InternalAxiosRequestConfig & { _retried?: boolean; _skipRefresh?: boolean };
 let refreshing: Promise<void> | null = null;
 
-function refreshOnce(): Promise<void> {
+/** Single-flight `POST /auth/refresh`; also used by the socket to recover from TOKEN_EXPIRED. */
+export function refreshOnce(): Promise<void> {
   if (!refreshing) {
     refreshing = api
       .post('/auth/refresh', undefined, { _skipRefresh: true } as AxiosRequestConfig)

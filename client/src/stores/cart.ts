@@ -19,8 +19,9 @@ export type CartSnapshot = {
 export type CartItem = { productId: string; variantId: string; qty: number; snapshot: CartSnapshot; addedAt: number };
 
 type AddInput = Omit<CartItem, 'addedAt'>;
+export type ServerLine = { productId: string; variantId: string; qty: number };
 /** Adds a line to the signed-in user's server cart; registered by <CartSync />. */
-type ServerAdder = (item: { productId: string; variantId: string; qty: number }) => Promise<void>;
+export type ServerAdder = (item: ServerLine) => Promise<void>;
 
 type CartState = {
   /** Guest lines (localStorage). Empty while signed in: they are merged into the server cart on login. */
@@ -49,6 +50,18 @@ export function registerServerAdder(fn: ServerAdder | null) {
   serverAdder = fn;
 }
 
+/** Adds made while the guest cart is being merged on login; flushed to the server afterwards. */
+let mergeQueue: ServerLine[] | null = null;
+export function beginMerge() {
+  mergeQueue = [];
+}
+/** Ends the merge window and returns the adds queued during it. */
+export function endMerge(): ServerLine[] {
+  const queued = mergeQueue ?? [];
+  mergeQueue = null;
+  return queued;
+}
+
 /** Guest lines + badge count for the given mode. */
 const withItems = (s: CartState, items: CartItem[]) => ({ items, count: s.mode === 'server' ? s.serverCount : sum(items) });
 
@@ -65,6 +78,12 @@ export const useCart = create<CartState>()(
       serverCount: 0,
       count: 0,
       add: ({ productId, variantId, qty, snapshot }) => {
+        if (mergeQueue) {
+          // A guest line added now would be left behind by the merge: queue it for the server cart.
+          mergeQueue.push({ productId, variantId, qty });
+          set((s) => ({ count: s.count + qty }));
+          return;
+        }
         if (get().mode === 'server' && serverAdder) {
           void serverAdder({ productId, variantId, qty });
           return;

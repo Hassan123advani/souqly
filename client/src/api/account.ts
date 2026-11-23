@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { AddressInput, ChangePasswordInput, UserMode } from '@souqly/shared';
 import { api, del, get, patch, post } from './client';
-import { meKey } from './auth';
+import { meKey, useSignedOut } from './auth';
 import type { Address, MeUser, PreferencesPatch, SessionInfo } from './types';
 
 const keys = {
@@ -112,10 +112,11 @@ export function useRevokeSession() {
 
 export function useRevokeAllSessions() {
   const qc = useQueryClient();
+  const signedOut = useSignedOut();
   return useMutation({
     mutationFn: (includeCurrent: boolean) => post<unknown>('/account/sessions/revoke-all', { includeCurrent }),
     onSuccess: (_d, includeCurrent) => {
-      if (includeCurrent) qc.setQueryData(meKey, null);
+      if (includeCurrent) signedOut();
       else qc.invalidateQueries({ queryKey: keys.sessions });
     },
   });
@@ -195,12 +196,9 @@ export function useExportData() {
 }
 
 export function useDeleteAccount() {
-  const qc = useQueryClient();
+  const signedOut = useSignedOut();
   return useMutation({
     mutationFn: (body: ReauthPayload) => del('/account', { data: { ...body, confirm: 'DELETE' } }),
-    onSuccess: () => {
-      qc.setQueryData(meKey, null);
-      qc.removeQueries({ predicate: (q) => q.queryKey[0] === 'account' });
-    },
+    onSuccess: signedOut,
   });
 }

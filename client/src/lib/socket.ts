@@ -1,9 +1,49 @@
 import { io, type Socket } from 'socket.io-client';
+import { refreshOnce } from '@/api/client';
 
 const base = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, '') || undefined;
 
 let socket: Socket | null = null;
 let users = 0;
+/** False after logout: the socket stays down until the next sign-in. */
+let signedIn = true;
+let authRetries = 0;
+let retryTimer: ReturnType<typeof setTimeout> | null = null;
+const MAX_AUTH_RETRIES = 5;
+const AUTH_ERRORS = new Set(['TOKEN_EXPIRED', 'UNAUTHENTICATED']);
+
+function clearRetry() {
+  if (retryTimer) clearTimeout(retryTimer);
+  retryTimer = null;
+}
+
+/** Handshake rejected for auth: refresh the session (single flight) and reconnect, with backoff. */
+function onConnectError(err: Error & { data?: { code?: string } }) {
+  const s = socket;
+  const code = err.data?.code ?? err.message;
+  if (!AUTH_ERRORS.has(code) || !s || !signedIn || retryTimer || authRetries >= MAX_AUTH_RETRIES) return;
+  const delay = Math.min(30_000, 1000 * 2 ** authRetries);
+  authRetries++;
+  retryTimer = setTimeout(() => {
+    retryTimer = null;
+    refreshOnce()
+      .then(() => {
+        if (socket === s && signedIn && !s.connected) s.connect();
+      })
+      .catch(() => {
+        /* refresh failed: the session is gone; useMe() will report the user as signed out */
+      });
+  }, delay);
+}
+
+function onConnect() {
+  authRetries = 0;
+}
+
+/** The server kicked us (e.g. memberships changed): reconnect with a fresh handshake while signed in. */
+function onDisconnect(reason: Socket.DisconnectReason) {
+  if (reason === 'io server disconnect' && signedIn) socket?.connect();
+}
 
 /**
  * Shared socket.io connection (cookie auth, so `withCredentials`). The server joins the user's
@@ -11,7 +51,12 @@ let users = 0;
  * closes when the last consumer releases it.
  */
 export function acquireSocket(): Socket {
-  if (!socket) socket = io(base ?? '/', { path: '/socket.io', withCredentials: true, transports: ['websocket', 'polling'] });
+  if (!socket) {
+    socket = io(base ?? '/', { path: '/socket.io', withCredentials: true, transports: ['websocket', 'polling'] });
+    socket.on('connect', onConnect);
+    socket.on('connect_error', onConnectError);
+    socket.on('disconnect', onDisconnect);
+  }
   users++;
   return socket;
 }
@@ -19,8 +64,28 @@ export function acquireSocket(): Socket {
 export function releaseSocket(): void {
   users = Math.max(0, users - 1);
   if (users === 0 && socket) {
+    clearRetry();
     socket.disconnect();
     socket = null;
+  }
+}
+
+/** Logout: drop the connection (listeners stay attached for the next session). */
+export function socketSignedOut(): void {
+  signedIn = false;
+  clearRetry();
+  authRetries = 0;
+  socket?.disconnect();
+}
+
+/** Login (possibly as a different user): reconnect so the handshake picks up the new identity and rooms. */
+export function socketSignedIn(): void {
+  signedIn = true;
+  clearRetry();
+  authRetries = 0;
+  if (socket) {
+    socket.disconnect();
+    socket.connect();
   }
 }
 
