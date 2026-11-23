@@ -16,6 +16,10 @@ export type DashNavItem = {
   end?: boolean;
   /** Items whose page is not built yet stay hidden so nothing looks broken. */
   ready: boolean;
+  /** Small count shown next to the label (e.g. low-stock alerts). */
+  badge?: number;
+  /** Anchor for guided tours (rendered as `data-tour`). */
+  tourId?: string;
 };
 
 type ShellProps = {
@@ -37,13 +41,14 @@ function readCollapsed(area: string) {
 function NavList({ items, collapsed, onNavigate }: { items: DashNavItem[]; collapsed?: boolean; onNavigate?: () => void }) {
   return (
     <ul className="flex flex-col gap-1">
-      {items.map(({ to, label, icon: Icon, end }) => (
+      {items.map(({ to, label, icon: Icon, end, badge, tourId }) => (
         <li key={to}>
           <Tooltip content={label} side="right" disabled={!collapsed}>
             <NavLink
               to={to}
               end={end}
               onClick={onNavigate}
+              data-tour={tourId}
               aria-label={collapsed ? label : undefined}
               className={({ isActive }) =>
                 cn(
@@ -58,6 +63,16 @@ function NavList({ items, collapsed, onNavigate }: { items: DashNavItem[]; colla
                   {isActive && <span className="absolute inset-y-2 start-0 w-1 rounded-e-full bg-accent" aria-hidden />}
                   <Icon className="size-5 shrink-0" />
                   {!collapsed && <span className="truncate">{label}</span>}
+                  {!!badge && (
+                    <span
+                      className={cn(
+                        'grid min-w-5 place-items-center rounded-pill bg-sale px-1.5 text-[11px] font-bold leading-5 text-sale-fg',
+                        collapsed ? 'absolute end-1.5 top-1' : 'ms-auto',
+                      )}
+                    >
+                      {badge > 49 ? '50+' : badge}
+                    </span>
+                  )}
                 </>
               )}
             </NavLink>

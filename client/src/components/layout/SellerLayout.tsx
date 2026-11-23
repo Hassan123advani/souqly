@@ -8,25 +8,48 @@ import {
   Package,
   Settings,
   ShoppingBag,
+  Store,
   Users,
   Wallet,
 } from 'lucide-react';
+import { PERMISSIONS } from '@souqly/shared';
+import { useLowStockCount, useSellerStore } from '@/api/seller';
+import { SellerSidebarFooter } from '@/components/seller/StoreSwitcher';
 import { DashboardShell, type DashNavItem } from './DashboardShell';
 
 export default function SellerLayout() {
   const { t } = useTranslation();
-  // `ready: false` items are built in later phases and stay hidden until then.
+  const { data: store } = useSellerStore();
+  const perms = store?.myPermissions ?? [];
+  const can = (p: string) => perms.includes(p);
+  const active = store?.status === 'approved' || store?.status === 'pending';
+  const { data: lowStock } = useLowStockCount(active && can(PERMISSIONS.STORE_PRODUCTS_VIEW));
+  // `ready: false` items are built in later phases (or not permitted) and stay hidden.
   const nav: DashNavItem[] = [
-    { to: '/seller', label: t('seller.nav.dashboard'), icon: LayoutDashboard, end: true, ready: true },
-    { to: '/seller/products', label: t('seller.nav.products'), icon: Package, ready: false },
-    { to: '/seller/inventory', label: t('seller.nav.inventory'), icon: Boxes, ready: false },
-    { to: '/seller/orders', label: t('seller.nav.orders'), icon: ShoppingBag, ready: false },
+    { to: '/seller', label: t('seller.nav.dashboard'), icon: LayoutDashboard, end: true, ready: true, tourId: 'dashboard' },
+    { to: '/seller/orders', label: t('seller.nav.orders'), icon: ShoppingBag, ready: active && can(PERMISSIONS.STORE_ORDERS_VIEW), tourId: 'orders' },
+    { to: '/seller/products', label: t('seller.nav.products'), icon: Package, ready: active && can(PERMISSIONS.STORE_PRODUCTS_VIEW), tourId: 'products' },
+    {
+      to: '/seller/inventory',
+      label: t('seller.nav.inventory'),
+      icon: Boxes,
+      ready: active && can(PERMISSIONS.STORE_PRODUCTS_VIEW),
+      badge: lowStock,
+      tourId: 'inventory',
+    },
+    { to: '/seller/store', label: t('seller.nav.store'), icon: Store, ready: active && can(PERMISSIONS.STORE_SETTINGS_MANAGE), tourId: 'store' },
     { to: '/seller/marketing', label: t('seller.nav.marketing'), icon: BadgePercent, ready: false },
     { to: '/seller/chat', label: t('seller.nav.chat'), icon: MessageSquare, ready: false },
     { to: '/seller/finance', label: t('seller.nav.finance'), icon: Wallet, ready: false },
     { to: '/seller/analytics', label: t('seller.nav.analytics'), icon: BarChart3, ready: false },
-    { to: '/seller/staff', label: t('seller.nav.staff'), icon: Users, ready: false },
-    { to: '/seller/settings', label: t('seller.nav.settings'), icon: Settings, ready: false },
+    { to: '/seller/staff', label: t('seller.nav.staff'), icon: Users, ready: active && can(PERMISSIONS.STORE_STAFF_MANAGE), tourId: 'staff' },
+    {
+      to: '/seller/settings',
+      label: t('seller.nav.settings'),
+      icon: Settings,
+      ready: active && (can(PERMISSIONS.STORE_SETTINGS_MANAGE) || can(PERMISSIONS.STORE_CHAT_MANAGE)),
+      tourId: 'settings',
+    },
   ];
-  return <DashboardShell area="seller" areaLabel={t('nav.sellerCenter')} nav={nav} />;
+  return <DashboardShell area="seller" areaLabel={t('nav.sellerCenter')} nav={nav} sidebarFooter={<SellerSidebarFooter />} />;
 }

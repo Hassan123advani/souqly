@@ -8,6 +8,7 @@ import { Seo } from '@/components/layout/Seo';
 import { Card, IconButton, Price } from '@/components/ui';
 import { formatNumber } from '@/lib/format';
 import { useUi } from '@/stores/ui';
+import { StoreInvitations } from '@/components/seller/StoreInvitations';
 
 export default function ProfilePage() {
   const { t } = useTranslation();
@@ -29,6 +30,7 @@ export default function ProfilePage() {
   return (
     <>
       <Seo title={t('account.nav.profile')} noindex />
+      <StoreInvitations />
       <div className="grid gap-3 sm:grid-cols-3">
         <Card className="flex items-center gap-3 p-4">
           <span className="grid size-10 place-items-center rounded-full bg-primary-50 text-primary-700">

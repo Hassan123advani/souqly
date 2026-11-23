@@ -1,7 +1,7 @@
 import { NavLink, Outlet } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-import { BadgeCheck, Database, MapPin, Settings2, ShieldCheck, User } from 'lucide-react';
+import { BadgeCheck, Database, MapPin, Package, Settings2, ShieldCheck, User } from 'lucide-react';
 import { useMe, useResendVerification } from '@/api/auth';
 import { getErrorMessage } from '@/api/client';
 import { Alert, Avatar, Badge, Button, Container } from '@/components/ui';
@@ -47,6 +47,7 @@ export default function AccountLayout() {
   if (!me) return null;
   const nav = [
     { to: 'profile', label: t('account.nav.profile'), icon: User },
+    { to: 'orders', label: t('orders.title'), icon: Package },
     { to: 'addresses', label: t('account.nav.addresses'), icon: MapPin },
     { to: 'security', label: t('account.nav.security'), icon: ShieldCheck },
     { to: 'preferences', label: t('account.nav.preferences'), icon: Settings2 },

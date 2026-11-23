@@ -18,14 +18,25 @@ export type CartSnapshot = {
 
 export type CartItem = { productId: string; variantId: string; qty: number; snapshot: CartSnapshot; addedAt: number };
 
+type AddInput = Omit<CartItem, 'addedAt'>;
+/** Adds a line to the signed-in user's server cart; registered by <CartSync />. */
+type ServerAdder = (item: { productId: string; variantId: string; qty: number }) => Promise<void>;
+
 type CartState = {
+  /** Guest lines (localStorage). Empty while signed in: they are merged into the server cart on login. */
   items: CartItem[];
-  /** Total units, used by the header and bottom-nav badges. */
+  /** 'server' once the user is signed in and the guest cart has been merged. */
+  mode: 'guest' | 'server';
+  /** Units in the server cart (kept in sync by <CartSync />). */
+  serverCount: number;
+  /** Units in the active cart, used by the header and bottom-nav badges. */
   count: number;
-  add: (item: Omit<CartItem, 'addedAt'>) => void;
+  /** Adds to the server cart when signed in, else to the local guest cart. */
+  add: (item: AddInput) => void;
   setQty: (productId: string, variantId: string, qty: number) => void;
   remove: (productId: string, variantId: string) => void;
   clear: () => void;
+  setServer: (mode: 'guest' | 'server', serverCount?: number) => void;
 };
 
 const sum = (items: CartItem[]) => items.reduce((n, i) => n + i.qty, 0);
@@ -33,16 +44,31 @@ const same = (a: { productId: string; variantId: string }, productId: string, va
   a.productId === productId && a.variantId === variantId;
 const clampQty = (qty: number, max: number) => Math.max(1, Math.min(Math.floor(qty), Math.max(1, max), 99));
 
+let serverAdder: ServerAdder | null = null;
+export function registerServerAdder(fn: ServerAdder | null) {
+  serverAdder = fn;
+}
+
+/** Guest lines + badge count for the given mode. */
+const withItems = (s: CartState, items: CartItem[]) => ({ items, count: s.mode === 'server' ? s.serverCount : sum(items) });
+
 /**
- * Guest cart kept in localStorage ("souqly-cart"). Phase 6 syncs it with the server cart on login;
- * the shape { productId, variantId, qty, snapshot } is what that sync will send.
+ * Cart entry point for the whole app. Guests keep lines in localStorage ("souqly-cart");
+ * signed-in users use the server cart (TanStack Query, see api/cart.ts) and <CartSync /> merges
+ * the guest lines once on login.
  */
 export const useCart = create<CartState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       items: [],
+      mode: 'guest',
+      serverCount: 0,
       count: 0,
-      add: ({ productId, variantId, qty, snapshot }) =>
+      add: ({ productId, variantId, qty, snapshot }) => {
+        if (get().mode === 'server' && serverAdder) {
+          void serverAdder({ productId, variantId, qty });
+          return;
+        }
         set((s) => {
           const existing = s.items.find((i) => same(i, productId, variantId));
           const items = existing
@@ -50,19 +76,18 @@ export const useCart = create<CartState>()(
                 same(i, productId, variantId) ? { ...i, snapshot, qty: clampQty(i.qty + qty, snapshot.maxQty) } : i,
               )
             : [...s.items, { productId, variantId, qty: clampQty(qty, snapshot.maxQty), snapshot, addedAt: Date.now() }];
-          return { items, count: sum(items) };
-        }),
+          return withItems(s, items);
+        });
+      },
       setQty: (productId, variantId, qty) =>
+        set((s) => withItems(s, s.items.map((i) => (same(i, productId, variantId) ? { ...i, qty: clampQty(qty, i.snapshot.maxQty) } : i)))),
+      remove: (productId, variantId) => set((s) => withItems(s, s.items.filter((i) => !same(i, productId, variantId)))),
+      clear: () => set((s) => withItems(s, [])),
+      setServer: (mode, serverCount) =>
         set((s) => {
-          const items = s.items.map((i) => (same(i, productId, variantId) ? { ...i, qty: clampQty(qty, i.snapshot.maxQty) } : i));
-          return { items, count: sum(items) };
+          const sc = serverCount ?? s.serverCount;
+          return { mode, serverCount: sc, count: mode === 'server' ? sc : sum(s.items) };
         }),
-      remove: (productId, variantId) =>
-        set((s) => {
-          const items = s.items.filter((i) => !same(i, productId, variantId));
-          return { items, count: sum(items) };
-        }),
-      clear: () => set({ items: [], count: 0 }),
     }),
     {
       name: 'souqly-cart',

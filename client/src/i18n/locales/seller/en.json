@@ -1,0 +1,808 @@
+{
+  "seller": {
+    "nav": {
+      "store": "Store",
+      "staff": "Staff & roles",
+      "settings": "Settings"
+    },
+    "common": {
+      "optional": "Optional",
+      "save": "Save",
+      "saved": "Saved",
+      "cancel": "Cancel",
+      "edit": "Edit",
+      "delete": "Delete",
+      "deleted": "Deleted",
+      "remove": "Remove",
+      "back": "Back",
+      "next": "Next",
+      "all": "All",
+      "choose": "Choose…",
+      "clear": "Clear",
+      "dismiss": "Dismiss",
+      "viewAll": "View all",
+      "selectAll": "Select all",
+      "selected": "{{count}} selected"
+    },
+    "switcher": {
+      "label": "Switch store",
+      "sound": "New-order sound",
+      "soundOn": "Order sound on",
+      "soundOff": "Order sound muted"
+    },
+    "alerts": {
+      "newOrder": "New order {{number}}",
+      "newOrderBody": "Items: {{count}} · {{total}}",
+      "view": "View"
+    },
+    "status": {
+      "pendingTitle": "Your store is under review",
+      "pendingBody": "You can add products meanwhile — they go live as soon as your store is approved (usually within 1–2 working days).",
+      "rejectedTitle": "Your store needs a few changes",
+      "rejectedBody": "Our team couldn't approve your application yet. Update your business or payout details below and resubmit.",
+      "reason": "Reason from our review team",
+      "suspendedTitle": "Your store is suspended",
+      "suspendedBody": "Selling is paused for this store. Please contact Souqly support to resolve this."
+    },
+    "resubmit": {
+      "submit": "Update & resubmit",
+      "sent": "Resubmitted — we'll review your store again shortly."
+    },
+    "upload": {
+      "choose": "Choose a file",
+      "drop": "or drag and drop it here",
+      "uploading": "Uploading…",
+      "replace": "Replace",
+      "remove": "Remove",
+      "tooBig": "That file is too large (max {{mb}} MB).",
+      "pdfReady": "PDF uploaded"
+    },
+    "wizard": {
+      "title": "Become a seller",
+      "progress": "Setup progress",
+      "stepOf": "Step {{n}} of {{total}}",
+      "saved": "Progress saved on this device",
+      "submit": "Submit for review",
+      "nextOrSkip": "Next",
+      "introTime": "Takes about 10 minutes. Your progress is saved as you go.",
+      "steps": {
+        "basics": "Store basics",
+        "branding": "Branding",
+        "contact": "Contact & pickup",
+        "business": "Business info",
+        "payout": "Payout",
+        "policies": "Policies",
+        "review": "Review"
+      },
+      "titles": {
+        "intro": "Become a seller",
+        "basics": "Name your store",
+        "branding": "Make it recognisable",
+        "contact": "Contact & pickup address",
+        "business": "Tell us about your business",
+        "payout": "Where should we send your earnings?",
+        "policies": "Set your store policies",
+        "review": "Review and submit"
+      },
+      "subtitles": {
+        "intro": "",
+        "basics": "Pick a name, a web address and the categories you sell in.",
+        "branding": "A logo and banner help buyers trust your store. You can skip this and add them later.",
+        "contact": "Buyers can reach you here, and couriers collect parcels from your pickup address.",
+        "business": "Needed to verify sellers and keep Souqly safe for everyone.",
+        "payout": "Payouts are sent to this account after each settlement cycle.",
+        "policies": "Clear policies reduce returns and questions. Start from a template and edit it.",
+        "review": "Check your details, accept the seller terms and submit your store for review."
+      }
+    },
+    "slug": {
+      "label": "Store web address",
+      "hint": "Lowercase letters, numbers and dashes (3–40 characters).",
+      "checking": "Checking…",
+      "available": "Available",
+      "error": "Couldn't check right now",
+      "use": "Use “{{slug}}”",
+      "wait": "Still checking this address — try again in a moment.",
+      "pick": "Choose an available web address.",
+      "takenTry": "That address was just taken. Try “{{slug}}”.",
+      "reasons": {
+        "invalid": "Not a valid address",
+        "reserved": "This address is reserved",
+        "taken": "Already taken"
+      }
+    },
+    "basics": {
+      "name": "Store name",
+      "nameHint": "This is how buyers will see your store.",
+      "tagline": "Tagline",
+      "taglineHint": "One short line about what makes your store special.",
+      "categories": "What do you sell?",
+      "categoriesRequired": "Choose at least one category.",
+      "theme": "Brand colour"
+    },
+    "categories": {
+      "count": "{{n}} of {{max}} selected",
+      "showSub": "Show subcategories of {{name}}"
+    },
+    "theme": {
+      "presets": "Colour presets",
+      "custom": "Custom colour",
+      "hex": "Hex colour code",
+      "preview": "Colour preview",
+      "sampleName": "Your store",
+      "sampleButton": "Shop now",
+      "aa": "Readable",
+      "lowContrast": "Low contrast",
+      "ratio": "Text contrast {{ratio}}:1 (4.5:1 or more is recommended)"
+    },
+    "branding": {
+      "logo": "Logo",
+      "logoHint": "Square, at least 400×400 px.",
+      "banner": "Banner",
+      "bannerHint": "Wide image, about 1500×500 px.",
+      "preview": "Storefront preview",
+      "follow": "Follow"
+    },
+    "contact": {
+      "title": "Store contact",
+      "email": "Email",
+      "phone": "Phone",
+      "phoneHint": "With country code, e.g. +923001234567",
+      "whatsapp": "WhatsApp",
+      "pickupTitle": "Pickup address",
+      "pickupHint": "Where couriers collect your parcels. Buyers don't see this address.",
+      "fullName": "Contact person",
+      "pickupPhone": "Pickup phone",
+      "line1": "Street address",
+      "area": "Area",
+      "city": "City",
+      "postalCode": "Postal code",
+      "pin": "Pin your location (optional)"
+    },
+    "business": {
+      "title": "Business details",
+      "cardHint": "Sensitive numbers are encrypted and only shown masked.",
+      "type": "Business type",
+      "types": {
+        "individual": "Individual",
+        "company": "Company"
+      },
+      "typeHints": {
+        "individual": "Sole seller using your CNIC",
+        "company": "Registered business or partnership"
+      },
+      "legalName": "Full legal name",
+      "companyName": "Registered company name",
+      "cnic": "CNIC number",
+      "cnicHint": "13 digits, e.g. 42101-1234567-1",
+      "regNo": "Registration number",
+      "cnicOrReg": "CNIC / registration no.",
+      "ntn": "NTN",
+      "idDocument": "ID document",
+      "idDocumentHint": "Photo or PDF of your CNIC (front) or registration certificate, max 5 MB.",
+      "secureTitle": "Encrypted and reviewed privately",
+      "secureBody": "Your ID numbers are encrypted at rest and only our verification team can review your documents. They are never shown to buyers."
+    },
+    "payout": {
+      "title": "Payout account",
+      "cardHint": "Account numbers are encrypted and shown masked.",
+      "method": "Payout method",
+      "methods": {
+        "bank": "Bank account",
+        "jazzcash": "JazzCash",
+        "easypaisa": "EasyPaisa"
+      },
+      "accountTitle": "Account title",
+      "bankName": "Bank name",
+      "accountNumber": "Account number",
+      "walletNumber": "Wallet mobile number",
+      "walletHint": "The mobile number registered with your wallet.",
+      "iban": "IBAN",
+      "ibanHint": "Optional, e.g. PK36SCBL0000001123456702",
+      "savedTitle": "Payout account saved"
+    },
+    "policies": {
+      "shipping": "Shipping policy",
+      "returns": "Returns policy",
+      "warranty": "Warranty policy",
+      "useTemplate": "Use template",
+      "templates": {
+        "shipping": "Orders are packed within 1–2 working days. Delivery takes 2–5 working days in major cities and up to 7 days elsewhere. You will receive a tracking number as soon as your parcel ships.",
+        "returns": "You can return an unused item in its original packaging within 7 days of delivery. Contact us through Souqly chat with your order number. Refunds are issued once we receive and inspect the item.",
+        "warranty": "Products carry the warranty stated on the product page. Warranty covers manufacturing defects and does not cover physical damage, misuse or normal wear."
+      }
+    },
+    "review": {
+      "added": "Added",
+      "skipped": "Skipped",
+      "accept": "I have read and accept the",
+      "terms": "Souqly seller terms",
+      "acceptHint": "Including our commission, payout and prohibited items policies.",
+      "acceptRequired": "Please accept the seller terms to continue."
+    },
+    "done": {
+      "title": "Your store is under review",
+      "body": "Thanks! We're reviewing {{store}}. You can set up your Seller Center and add products while you wait.",
+      "goToCenter": "Go to Seller Center",
+      "addProduct": "Add a product",
+      "steps": {
+        "submitted": {
+          "title": "Application submitted",
+          "body": "We've received your store details."
+        },
+        "review": {
+          "title": "Verification",
+          "body": "Our team checks your business and payout details, usually within 1–2 working days."
+        },
+        "products": {
+          "title": "Go live",
+          "body": "Once approved, your published products appear in the marketplace."
+        }
+      }
+    },
+    "checklist": {
+      "title": "Get your store ready",
+      "progress": "{{done}} of {{total}} done",
+      "items": {
+        "logo": "Upload a logo",
+        "banner": "Add a store banner",
+        "firstProduct": "Add your first product",
+        "policies": "Write your store policies",
+        "payout": "Set up payouts",
+        "shipping": "Configure shipping zones"
+      }
+    },
+    "tour": {
+      "label": "Seller Center tour",
+      "step": "Tip {{n}} of {{total}}",
+      "skip": "Skip tour",
+      "finish": "Got it",
+      "dashboard": {
+        "title": "Your dashboard",
+        "body": "Sales, orders, to-dos and your store health — all at a glance."
+      },
+      "orders": {
+        "title": "Orders",
+        "body": "Confirm, pack and ship orders here. New orders play a chime and show an alert."
+      },
+      "products": {
+        "title": "Products",
+        "body": "Create listings with photos, variants and prices, then publish them."
+      },
+      "inventory": {
+        "title": "Inventory",
+        "body": "Adjust stock, see movement history and watch low-stock alerts."
+      },
+      "store": {
+        "title": "Your storefront",
+        "body": "Change branding, layout, policies and holiday mode."
+      },
+      "checklist": {
+        "title": "Setup checklist",
+        "body": "Finish these steps to get your store ready for buyers."
+      }
+    },
+    "dash": {
+      "subtitle": "Here's how your store is doing.",
+      "performance": "Performance",
+      "range": "Date range",
+      "ranges": {
+        "7d": "7 days",
+        "30d": "30 days",
+        "90d": "90 days"
+      },
+      "kpi": {
+        "sales": "Sales",
+        "orders": "Orders",
+        "visitors": "Visitors",
+        "conversion": "Conversion",
+        "avgOrderValue": "Avg. order"
+      },
+      "vsPrevious": "vs previous",
+      "noPrevious": "No earlier data",
+      "todoTitle": "To-do",
+      "todo": {
+        "toConfirm": "Orders to confirm",
+        "toPack": "Orders to pack",
+        "toShip": "Orders to ship",
+        "returnRequests": "Return requests",
+        "lowStock": "Low-stock variants",
+        "unansweredQuestions": "Unanswered questions",
+        "unreadChats": "Unread chats"
+      },
+      "recentOrders": "Recent orders",
+      "noOrders": "No orders yet",
+      "noOrdersBody": "New orders will appear here — and you'll hear a chime when one arrives.",
+      "health": "Store health",
+      "healthHint": "Based on ratings, response rate, cancellations and listing quality.",
+      "healthAria": "Health score {{score}} out of 100",
+      "healthGood": "Excellent",
+      "healthOk": "Good",
+      "healthLow": "Needs attention",
+      "factors": {
+        "rating": "Ratings",
+        "responseRate": "Chat response rate",
+        "cancellationRate": "Low cancellations",
+        "listingQuality": "Listing quality"
+      }
+    },
+    "orderStatus": {
+      "pending_payment": "Awaiting payment",
+      "placed": "New",
+      "confirmed": "Confirmed",
+      "packed": "Packed",
+      "shipped": "Shipped",
+      "out_for_delivery": "Out for delivery",
+      "delivered": "Delivered",
+      "cancelled": "Cancelled",
+      "failed_delivery": "Delivery failed",
+      "return_requested": "Return requested",
+      "returned": "Returned",
+      "refunded": "Refunded"
+    },
+    "productStatus": {
+      "draft": "Draft",
+      "pending_review": "In review",
+      "published": "Live",
+      "rejected": "Rejected",
+      "archived": "Archived"
+    },
+    "products": {
+      "subtitle": "Create, publish and manage your listings.",
+      "add": "Add product",
+      "search": "Search products",
+      "publish": "Publish",
+      "archive": "Archive",
+      "duplicate": "Duplicate",
+      "duplicated": "Copy created as a draft",
+      "publishedN": "Sent for publishing: {{count}}",
+      "archivedN": "Archived: {{count}}",
+      "archiveTitle": "Archive selected products ({{count}})?",
+      "archiveBody": "Archived products are hidden from buyers. You can publish them again later.",
+      "emptyTitle": "No products yet",
+      "emptyBody": "Add your first product — it only takes a few minutes.",
+      "noMatch": "Nothing matches your filters",
+      "stockN": "Stock: {{count}}",
+      "variantsN": "Variants: {{count}}",
+      "soldN": "Sold: {{count}}"
+    },
+    "editor": {
+      "newTitle": "New product",
+      "viewLive": "View live",
+      "moderation": "Note from our moderation team",
+      "pendingReview": "This product is in review. It goes live once approved.",
+      "unsaved": "You have unsaved changes",
+      "saveDraft": "Save draft",
+      "savedToast": "Product saved",
+      "publishedToast": "Product submitted for publishing",
+      "basics": "Basic information",
+      "title": "Product title",
+      "titleHint": "Brand, product type and key feature, e.g. “Lawn 3-piece suit, embroidered”.",
+      "category": "Category",
+      "categoryPick": "Choose a category",
+      "subcategoryPick": "Subcategory (optional)",
+      "brand": "Brand",
+      "highlights": "Highlights",
+      "highlightsHint": "Up to 10 short bullet points shown near the price.",
+      "highlight": "Highlight",
+      "addHighlight": "Add highlight",
+      "description": "Description",
+      "aiHelper": "Draft from details",
+      "rte": {
+        "toolbar": "Formatting",
+        "bold": "Bold",
+        "italic": "Italic",
+        "h2": "Heading",
+        "h3": "Subheading",
+        "paragraph": "Paragraph",
+        "bullets": "Bulleted list",
+        "numbers": "Numbered list",
+        "link": "Insert link",
+        "linkPrompt": "Link address (https://…)",
+        "unlink": "Remove link"
+      },
+      "media": "Photos & video",
+      "addImages": "Add photos",
+      "imagesHint": "Up to {{max}} photos. Drag to reorder — the first photo is the cover. Add alt text for accessibility.",
+      "cover": "Cover",
+      "alt": "Alt text",
+      "moveBack": "Move earlier",
+      "moveForward": "Move later",
+      "video": "Product video",
+      "videoHint": "Optional MP4 or WebM, up to 30 MB.",
+      "attributes": "Attributes",
+      "attributesHint": "Details buyers filter by in this category.",
+      "attributesPickCategory": "Choose a category to see its attributes.",
+      "attributesNone": "This category has no extra attributes.",
+      "variants": "Options, prices & stock",
+      "variantsDesc": "Add options like colour or size to create variants automatically.",
+      "addOption": "Add option",
+      "optionName": "Option name",
+      "optionColor": "Color",
+      "optionSize": "Size",
+      "addValue": "Add value, press Enter",
+      "removeOption": "Remove option",
+      "removeValue": "Remove {{value}}",
+      "variant": "Variant",
+      "defaultVariant": "Default",
+      "applyAll": "Apply to all",
+      "apply": "Apply",
+      "cols": {
+        "price": "Price (Rs)",
+        "compareAtPrice": "Compare-at (Rs)",
+        "stock": "Stock",
+        "sku": "SKU",
+        "barcode": "Barcode"
+      },
+      "variantsHint": "Variants: {{count}} (max 200). Compare-at price must be higher than the price.",
+      "shipping": "Shipping",
+      "weight": "Weight (grams)",
+      "processingDays": "Processing time (days)",
+      "cod": "Allow cash on delivery",
+      "freeShipping": "Free shipping",
+      "freeShippingHint": "You cover the delivery fee for this product.",
+      "preOrder": "Pre-order",
+      "shipsOn": "Ships on",
+      "afterSales": "Warranty & returns",
+      "warranty": "Warranty",
+      "warrantyTypes": {
+        "none": "No warranty",
+        "seller": "Seller warranty",
+        "brand": "Brand warranty"
+      },
+      "warrantyPeriod": "Warranty period",
+      "warrantyPlaceholder": "e.g. 1 year",
+      "returnDays": "Return window (days)",
+      "returnDaysHint": "Leave empty to use your store policy.",
+      "returnNote": "Return note",
+      "specs": "Specifications",
+      "specLabel": "Label (e.g. Material)",
+      "specValue": "Value (e.g. Cotton)",
+      "addSpec": "Add specification",
+      "sizeGuide": "Size guide",
+      "sizeGuideHint": "Optional measurements or fitting notes.",
+      "wholesale": "Wholesale prices",
+      "wholesaleHint": "Lower unit prices for bigger quantities (up to 5 tiers).",
+      "minQty": "Min. quantity",
+      "unitPrice": "Unit price (Rs)",
+      "addTier": "Add tier",
+      "paths": {
+        "title": "Title",
+        "categoryId": "Category",
+        "images": "Photos",
+        "variants": "Variants",
+        "options": "Options",
+        "wholesaleTiers": "Wholesale",
+        "shipping": "Shipping",
+        "highlights": "Highlights",
+        "specs": "Specifications",
+        "warranty": "Warranty",
+        "returnPolicy": "Returns",
+        "description": "Description"
+      }
+    },
+    "inventory": {
+      "subtitle": "Stock levels for every variant, with full movement history.",
+      "search": "Search by product or SKU",
+      "lowOnly": "Low stock only",
+      "noLow": "No low-stock variants — nice!",
+      "empty": "No products in stock yet",
+      "product": "Product",
+      "stock": "Stock",
+      "reserved": "Reserved",
+      "available": "Available",
+      "adjust": "Adjust",
+      "adjustTitle": "Adjust stock",
+      "history": "Stock history",
+      "noHistory": "No stock movements yet",
+      "balance": "Balance {{n}}",
+      "direction": "Change",
+      "add": "Add stock",
+      "remove": "Remove stock",
+      "qty": "Quantity",
+      "reason": "Reason",
+      "reasons": {
+        "restock": "Restock",
+        "damage": "Damaged",
+        "correction": "Correction",
+        "return": "Customer return",
+        "other": "Other",
+        "sale": "Sale",
+        "cancel": "Order cancelled",
+        "transfer": "Transfer"
+      },
+      "warehouse": "Warehouse",
+      "defaultWarehouse": "Default warehouse",
+      "note": "Note",
+      "apply": "Apply",
+      "preview": "Stock will change from {{from}} to {{to}}.",
+      "belowZero": "Stock can't go below 0.",
+      "adjusted": "Stock updated — new balance {{n}}",
+      "availableN": "Available: {{n}}",
+      "reservedN": "Reserved: {{n}}"
+    },
+    "warehouses": {
+      "title": "Warehouses",
+      "hint": "Where you keep stock. The default warehouse is used for orders.",
+      "add": "Add warehouse",
+      "edit": "Edit warehouse",
+      "name": "Warehouse name",
+      "default": "Default",
+      "makeDefault": "Make this the default warehouse",
+      "empty": "No warehouses yet",
+      "confirmDelete": "Delete warehouse “{{name}}”?"
+    },
+    "orders": {
+      "subtitle": "Confirm, pack and ship your orders.",
+      "search": "Order no., buyer, product or SKU",
+      "from": "From",
+      "to": "To",
+      "cod": "COD",
+      "items": "Items: {{count}}",
+      "empty": "No orders yet",
+      "emptyBody": "When buyers order from your store, the orders show up here.",
+      "noMatch": "No orders match these filters",
+      "bulk": {
+        "confirmed": "Confirm selected",
+        "packed": "Mark selected as packed"
+      },
+      "bulkDone": "Updated orders: {{count}}",
+      "bulkFailed": "Couldn't update: {{count}}",
+      "actions": {
+        "confirm": "Confirm order",
+        "pack": "Mark as packed",
+        "ship": "Ship",
+        "cancel": "Cancel order"
+      },
+      "done": {
+        "confirmed": "Order confirmed",
+        "packed": "Marked as packed",
+        "shipped": "Marked as shipped",
+        "cancelled": "Order cancelled"
+      },
+      "shipTitle": "Ship this order",
+      "shipBody": "Enter the courier and tracking number so the buyer can follow the parcel.",
+      "courier": "Courier",
+      "trackingNumber": "Tracking number",
+      "cancelTitle": "Cancel this order?",
+      "cancelBody": "The buyer is notified and the stock is returned to your inventory.",
+      "cancelReason": "Cancellation reason",
+      "invoice": "Invoice PDF",
+      "label": "Shipping label",
+      "itemsTitle": "Items",
+      "subtotal": "Subtotal",
+      "shipping": "Shipping",
+      "discounts": "Discounts",
+      "total": "Order total",
+      "commission": "Souqly commission ({{pct}}%)",
+      "net": "Your earnings",
+      "timeline": "Timeline",
+      "shipTo": "Ship to",
+      "payment": "Payment",
+      "notes": "Internal notes",
+      "notesHint": "Only your team can see these.",
+      "noNotes": "No notes yet.",
+      "addNote": "Add a note for your team",
+      "saveNote": "Add note",
+      "rider": "Delivery rider",
+      "pickRider": "Assign a rider",
+      "noRiders": "No active riders yet. Invite one from Staff & roles.",
+      "riderAssigned": "Rider assigned",
+      "riderHint": "Riders deliver with the buyer's one-time code."
+    },
+    "storeSettings": {
+      "subtitle": "Branding, storefront layout, policies and more.",
+      "tabs": {
+        "branding": "Branding",
+        "layout": "Layout",
+        "policies": "Policies",
+        "seo": "SEO",
+        "holiday": "Holiday mode",
+        "account": "Business & payout",
+        "advanced": "Advanced"
+      },
+      "description": "About the store",
+      "slugTitle": "Store web address",
+      "slugRule": "You can change your web address once every 30 days. Old links stop working.",
+      "slugTooSoon": "You can change the address again on {{date}}.",
+      "changeSlug": "Change address"
+    },
+    "builder": {
+      "template": "Layout template",
+      "layouts": {
+        "classic": {
+          "name": "Classic",
+          "hint": "Banner and a tidy product grid"
+        },
+        "bold": {
+          "name": "Bold",
+          "hint": "Big hero, large tiles"
+        },
+        "boutique": {
+          "name": "Boutique",
+          "hint": "Airy, editorial feel"
+        },
+        "minimal": {
+          "name": "Minimal",
+          "hint": "Compact, product first"
+        }
+      },
+      "sections": "Homepage sections",
+      "noSections": "No sections yet — the default layout is shown.",
+      "addSection": "Add section",
+      "sectionTitle": "Section title",
+      "titlePlaceholder": "Title (optional)",
+      "up": "Move up",
+      "down": "Move down",
+      "types": {
+        "hero": "Hero banner",
+        "featured": "Featured",
+        "category_row": "Category row",
+        "deals": "Deals",
+        "new_arrivals": "New arrivals",
+        "best_sellers": "Best sellers",
+        "banner": "Promo banner",
+        "text": "Text block"
+      },
+      "body": "Text",
+      "image": "Image",
+      "subtitle": "Subtitle",
+      "link": "Link",
+      "linkHint": "A page on Souqly, e.g. /store/your-store?tab=products",
+      "limit": "Products to show",
+      "preview": "Preview store"
+    },
+    "seo": {
+      "title": "Search title",
+      "description": "Search description",
+      "count": "{{n}} / {{max}}",
+      "preview": "Search result preview"
+    },
+    "holiday": {
+      "enable": "Holiday mode",
+      "hint": "Buyers can still browse, but can't order until you're back.",
+      "message": "Message to buyers",
+      "placeholder": "We're away for Eid and back on Monday!",
+      "until": "Back on"
+    },
+    "mall": {
+      "title": "Souqly Mall",
+      "body": "Mall stores get a verified badge and placement in the Mall. Brands and authorised resellers can apply.",
+      "request": "Request Mall verification",
+      "requested": "Mall request sent — we'll be in touch.",
+      "isMall": "Your store is a verified Mall store.",
+      "needsApproval": "Available once your store is approved."
+    },
+    "roles": {
+      "OWNER": "Owner",
+      "MANAGER": "Manager",
+      "INVENTORY": "Inventory",
+      "ORDERS": "Orders",
+      "MARKETING": "Marketing",
+      "CASHIER": "Cashier",
+      "RIDER": "Rider",
+      "CUSTOM": "Custom",
+      "hints": {
+        "MANAGER": "Everything except staff and finance settings.",
+        "INVENTORY": "Products and stock.",
+        "ORDERS": "Orders and buyer chat.",
+        "MARKETING": "Promotions and analytics.",
+        "CASHIER": "Point of sale only.",
+        "RIDER": "Delivers orders with the buyer's code.",
+        "CUSTOM": "Only the permissions in this custom role."
+      }
+    },
+    "staff": {
+      "subtitle": "Invite your team and control what each person can do.",
+      "tabs": {
+        "members": "Members",
+        "roles": "Custom roles",
+        "activity": "Activity log"
+      },
+      "invite": "Invite member",
+      "inviteTitle": "Invite a team member",
+      "inviteBody": "They'll get an invitation to join your store with the role you choose.",
+      "sendInvite": "Send invitation",
+      "invited": "Invitation sent",
+      "emailSent": "No account yet for that email — we sent them a sign-up link.",
+      "role": "Role",
+      "custom": "custom",
+      "active": "Active",
+      "pending": "Pending invitations",
+      "remove": "Remove member",
+      "revoke": "Revoke invitation",
+      "confirmRemove": "Remove {{name}} from your store?",
+      "emptyTitle": "It's just you for now",
+      "emptyBody": "Invite managers, packers or riders to help run your store."
+    },
+    "rolesEditor": {
+      "hint": "Build roles with exactly the permissions your team needs.",
+      "create": "New role",
+      "edit": "Edit role",
+      "name": "Role name",
+      "empty": "No custom roles yet",
+      "summary": "Permissions: {{perms}} · Members: {{members}}",
+      "inUse": "In use",
+      "confirmDelete": "Delete role “{{name}}”?",
+      "grantHint": "You can only grant permissions you have yourself."
+    },
+    "permGroups": {
+      "dashboard": "Dashboard",
+      "settings": "Settings",
+      "products": "Products",
+      "inventory": "Inventory",
+      "orders": "Orders",
+      "marketing": "Marketing",
+      "finance": "Finance",
+      "analytics": "Analytics",
+      "staff": "Staff",
+      "chat": "Chat",
+      "pos": "Point of sale",
+      "delivery": "Delivery"
+    },
+    "perms": {
+      "store_dashboard_view": "View dashboard",
+      "store_settings_manage": "Manage store settings",
+      "store_products_view": "View products",
+      "store_products_manage": "Create and edit products",
+      "store_inventory_manage": "Adjust stock",
+      "store_orders_view": "View orders",
+      "store_orders_manage": "Process orders",
+      "store_marketing_manage": "Manage promotions",
+      "store_finance_view": "View finances",
+      "store_finance_manage": "Manage payouts",
+      "store_analytics_view": "View analytics",
+      "store_staff_manage": "Manage staff",
+      "store_chat_manage": "Reply to chats",
+      "store_pos_use": "Use point of sale",
+      "store_delivery_perform": "Deliver orders"
+    },
+    "activity": {
+      "empty": "No activity yet",
+      "system": "System"
+    },
+    "invitations": {
+      "title": "Store invitations",
+      "body": "{{store}} invited you to join as {{role}}.",
+      "accept": "Accept",
+      "decline": "Decline",
+      "accepted": "You've joined {{store}}. Switch to seller mode to start."
+    },
+    "settings": {
+      "subtitle": "Shipping, notifications and chat.",
+      "tabs": {
+        "shipping": "Shipping",
+        "notifications": "Notifications",
+        "chat": "Chat"
+      }
+    },
+    "shipping": {
+      "processingDays": "Processing time (days)",
+      "processingHint": "Days you need to pack an order before it ships.",
+      "zoneName": "Zone name",
+      "allCities": "All other cities",
+      "cities": "Cities",
+      "rate": "Delivery fee (Rs)",
+      "freeAbove": "Free above (Rs)",
+      "etaMin": "Min. days",
+      "etaMax": "Max. days",
+      "addZone": "Add zone"
+    },
+    "notify": {
+      "newOrderEmail": "Email me for every new order",
+      "lowStockEmail": "Email me when stock runs low",
+      "threshold": "Low-stock threshold",
+      "thresholdHint": "Units left that count as low stock.",
+      "sound": "Play a sound for new orders",
+      "soundHint": "Plays a short chime in the Seller Center on this device.",
+      "testSound": "Test sound"
+    },
+    "chat": {
+      "quickReplies": "Quick replies",
+      "quickRepliesHint": "Saved answers you can send in one tap.",
+      "addReply": "Add quick reply",
+      "autoReply": "Auto-reply",
+      "autoReplyHint": "Sent automatically when a buyer messages you outside business hours."
+    }
+  }
+}
