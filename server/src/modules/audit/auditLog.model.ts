@@ -7,6 +7,8 @@ export interface IAuditLog {
   targetType?: string;
   targetId?: string;
   ip?: string;
+  /** Set for actions performed inside a store (Seller Center activity log). */
+  storeId?: Types.ObjectId;
   meta?: Record<string, unknown>;
   createdAt: Date;
 }
@@ -18,11 +20,13 @@ const auditLogSchema = new Schema<IAuditLog>({
   targetType: { type: String },
   targetId: { type: String },
   ip: { type: String },
+  storeId: { type: Schema.Types.ObjectId, ref: 'Store' },
   meta: { type: Schema.Types.Mixed },
   createdAt: { type: Date, default: () => new Date() },
 });
 auditLogSchema.index({ createdAt: -1 });
 auditLogSchema.index({ actorId: 1, createdAt: -1 });
 auditLogSchema.index({ action: 1, createdAt: -1 });
+auditLogSchema.index({ storeId: 1, _id: -1 }, { partialFilterExpression: { storeId: { $exists: true } } });
 
 export const AuditLog = model<IAuditLog>('AuditLog', auditLogSchema);

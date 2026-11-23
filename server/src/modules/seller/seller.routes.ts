@@ -9,6 +9,9 @@ import { requirePermission } from '../../middleware/permissions';
 import { storeContext } from '../../middleware/storeContext';
 import { validate } from '../../middleware/validate';
 import * as svc from './sellerProducts.service';
+import { inventoryRouter } from '../inventory/inventory.routes';
+import { staffRouter } from '../staff/staff.routes';
+import { sellerCoreRouter } from './sellerCore.routes';
 
 /** Seller Center API. storeId comes ONLY from req.store (storeContext). */
 export const sellerRouter = Router();
@@ -94,3 +97,8 @@ sellerRouter.post(
     res.status(201).json({ data: await svc.uploadMedia(req, req.file) });
   }),
 );
+
+// Phase 5: store settings, dashboard, inventory, staff & roles (all behind requireAuth + storeContext above).
+sellerRouter.use(sellerCoreRouter);
+sellerRouter.use(inventoryRouter);
+sellerRouter.use(staffRouter);

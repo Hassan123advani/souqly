@@ -10,6 +10,7 @@ export interface IStoreMember {
   /** Explicit permissions when a custom role is used; otherwise derived from `role`. */
   permissions: string[];
   status: 'active' | 'invited' | 'disabled';
+  invitedBy?: Types.ObjectId;
   demo: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -20,7 +21,8 @@ const storeMemberSchema = new Schema<IStoreMember>(
     storeId: { type: Schema.Types.ObjectId, ref: 'Store', required: true },
     userId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     role: { type: String, enum: STORE_ROLES, required: true },
-    customRoleId: { type: Schema.Types.ObjectId },
+    customRoleId: { type: Schema.Types.ObjectId, ref: 'CustomRole' },
+    invitedBy: { type: Schema.Types.ObjectId, ref: 'User' },
     permissions: { type: [String], default: [] },
     status: { type: String, enum: ['active', 'invited', 'disabled'], default: 'active' },
     demo: { type: Boolean, default: false },
@@ -29,6 +31,7 @@ const storeMemberSchema = new Schema<IStoreMember>(
 );
 storeMemberSchema.index({ storeId: 1, userId: 1 }, { unique: true });
 storeMemberSchema.index({ userId: 1, status: 1, createdAt: 1 });
+storeMemberSchema.index({ storeId: 1, customRoleId: 1 });
 
 export const StoreMember = model<IStoreMember>('StoreMember', storeMemberSchema);
 export type StoreMemberDoc = HydratedDocument<IStoreMember>;

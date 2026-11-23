@@ -5,12 +5,14 @@ import { AppError } from '../lib/AppError';
 import { logger } from '../lib/logger';
 import { resolveAccessToken } from '../middleware/auth';
 import { ACCESS_COOKIE, parseCookieHeader } from '../modules/auth/tokens';
+import { StoreMember } from '../modules/stores/storeMember.model';
 import type { AuthUser } from '../types/express';
 
 let io: Server | undefined;
 
 export const userRoom = (userId: string) => `user:${userId}`;
 export const sessionRoom = (sessionId: string) => `session:${sessionId}`;
+export const storeRoom = (storeId: string) => `store:${storeId}`;
 
 const clientOrigin = (() => {
   try {
@@ -55,6 +57,14 @@ export function initSocket(server: HttpServer): Server {
   io.on('connection', (socket) => {
     const user = socket.data.user as AuthUser;
     void socket.join([userRoom(user.id), sessionRoom(user.sessionId)]);
+    // Seller Center live alerts: join `store:{id}` for every store the user is an active member of.
+    StoreMember.find({ userId: user.id, status: 'active' })
+      .select('storeId')
+      .lean()
+      .then((members) => {
+        if (members.length) void socket.join(members.map((m) => storeRoom(String(m.storeId))));
+      })
+      .catch((err) => logger.warn({ err }, 'Failed to join store rooms'));
     logger.debug({ userId: user.id }, 'socket connected');
   });
 
@@ -67,6 +77,10 @@ export function getIO(): Server | undefined {
 
 export function emitToUser(userId: string, event: string, payload: unknown): void {
   io?.to(userRoom(userId)).emit(event, payload);
+}
+
+export function emitToStore(storeId: string, event: string, payload: unknown): void {
+  io?.to(storeRoom(storeId)).emit(event, payload);
 }
 
 /** Disconnects the sockets of one (revoked) session. */

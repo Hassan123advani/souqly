@@ -7,6 +7,7 @@ import { hashPassword } from '../modules/auth/auth.service';
 import { User } from '../modules/users/user.model';
 import { generateReferralCode } from '../modules/users/user.service';
 import { seedCatalog } from './catalog';
+import { seedOrders } from './orders';
 import { clearDemoData } from './clear';
 import { SEED_STORES } from './data/stores';
 
@@ -90,7 +91,8 @@ export async function runSeed(opts: { reset?: boolean; demo?: boolean; productio
   const demoHash = await hashPassword(DEMO_PASSWORD);
   const buyers = await seedDemoBuyers(demoHash);
   const catalog = await seedCatalog(demoHash);
-  logger.info({ admin, demoBuyersCreated: buyers, catalog }, 'Seed complete');
+  const orders = await seedOrders();
+  logger.info({ admin, demoBuyersCreated: buyers, catalog, orders }, 'Seed complete');
   logger.info(
     `Login: ${env.ADMIN_EMAIL} (Super Admin) | demo buyers: ${DEMO_BUYERS.map((b) => b.email).join(', ')} | ` +
       `demo sellers: ${SEED_STORES.map((s) => s.owner.email).join(', ')} — password ${DEMO_PASSWORD}`,

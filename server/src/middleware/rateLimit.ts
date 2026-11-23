@@ -67,5 +67,7 @@ export const rateLimits = {
   /** 5 password reset emails / hour per IP. */
   passwordReset: make(60 * 60_000, 5, 'Too many reset requests. Please try again later.'),
   search: make(60_000, 60, 'You are searching too fast. Please slow down.'),
+  /** Placing orders (per user; mount after requireAuth). */
+  checkout: make(10 * 60_000, 30, 'Too many checkout attempts. Please wait a few minutes.', { keyGenerator: (req) => `u:${req.user?.id ?? ip(req)}` }),
   general: make(60_000, 300, 'Too many requests. Please slow down.'),
 };

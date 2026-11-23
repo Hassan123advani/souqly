@@ -38,6 +38,8 @@ export type ProductCard = {
   id: string;
   slug: string;
   title: string;
+  /** Cheapest active in-stock variant (fallback: cheapest active) for quick add-to-cart. */
+  defaultVariantId?: string;
   image: string;
   price: number;
   compareAtPrice?: number;
@@ -80,6 +82,7 @@ export type StoreSummaryCard = {
   isMall: boolean;
   joinedAt: string;
   productCount: number;
+  city?: string;
 };
 
 export type ProductDetail = {

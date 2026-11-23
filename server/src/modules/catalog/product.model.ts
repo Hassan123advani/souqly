@@ -13,6 +13,8 @@ export interface IVariant {
   barcode?: string;
   weightGrams?: number;
   isActive: boolean;
+  /** Per-warehouse split of `stock` (Phase 5 inventory). Optional: empty = all stock unassigned. */
+  warehouseStock?: { warehouseId: Types.ObjectId; qty: number }[];
 }
 
 export interface IProduct {
@@ -78,6 +80,7 @@ const variantSchema = new Schema<IVariant>({
   stock: { type: Number, required: true, min: 0, default: 0 },
   reserved: { type: Number, min: 0, default: 0 },
   images: { type: [String], default: undefined },
+  warehouseStock: { type: [{ warehouseId: { type: Schema.Types.ObjectId, required: true }, qty: { type: Number, min: 0, default: 0 }, _id: false }], default: undefined },
   barcode: String,
   weightGrams: Number,
   isActive: { type: Boolean, default: true },

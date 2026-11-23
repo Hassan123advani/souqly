@@ -34,8 +34,12 @@ export interface IStore {
   responseTimeHours: number;
   healthScore: number;
   plan: StorePlan;
+  /** Encrypted fields (`*Enc`) + `*Last4` for masking; see modules/onboarding/sensitive.ts. */
   business?: Record<string, unknown>;
   payout?: Record<string, unknown>;
+  pickupAddress?: Record<string, unknown>;
+  slugChangedAt?: Date;
+  approvedAt?: Date;
   demo: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -80,6 +84,9 @@ const storeSchema = new Schema<IStore>(
     plan: { type: String, enum: STORE_PLANS, default: 'free' },
     business: { type: Schema.Types.Mixed, select: false },
     payout: { type: Schema.Types.Mixed, select: false },
+    pickupAddress: { type: Schema.Types.Mixed, select: false },
+    slugChangedAt: Date,
+    approvedAt: Date,
     demo: { type: Boolean, default: false, index: true },
   },
   { timestamps: true, minimize: false },

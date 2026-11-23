@@ -68,6 +68,8 @@ export const STORE_ROLE_PERMISSIONS: Record<StoreRole, Permission[]> = {
   MARKETING: [P.STORE_DASHBOARD, P.STORE_PRODUCTS_VIEW, P.STORE_MARKETING_MANAGE, P.STORE_ANALYTICS_VIEW],
   CASHIER: [P.STORE_POS_USE, P.STORE_PRODUCTS_VIEW],
   RIDER: [P.STORE_DELIVERY_PERFORM],
+  /** Resolved from the CustomRole document by storeContext. */
+  CUSTOM: [],
 };
 
 export function hasPermission(granted: readonly string[] | undefined, required: Permission): boolean {

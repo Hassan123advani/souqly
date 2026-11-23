@@ -134,3 +134,33 @@ export function securityNotice(name: string, event: SecurityEvent, opts: { newEm
     text: `Hi ${name},\n\n${c.body}${extra ? `\n${extra}` : ''}\n\n${warn}\n${url}`,
   };
 }
+
+/** Seller alert for a new sub-order (Phase 6). */
+export function newOrderForSeller(storeName: string, orderNumber: string, totalFormatted: string, itemCount: number): Rendered {
+  const url = `${env.CLIENT_URL}/seller/orders`;
+  return {
+    subject: `New order ${orderNumber}`,
+    html: layout({
+      title: 'You have a new order',
+      bodyHtml:
+        p(`<strong>${esc(storeName)}</strong> received order <strong>${esc(orderNumber)}</strong> (${itemCount} item${itemCount === 1 ? '' : 's'}, ${esc(totalFormatted)}).`) +
+        p('Please confirm it in the Seller Center.'),
+      cta: { label: 'Open orders', url },
+    }),
+    text: `${storeName} received order ${orderNumber} (${itemCount} items, ${totalFormatted}).\nOpen orders: ${url}`,
+  };
+}
+
+/** Buyer update when a sub-order changes status (Phase 6). */
+export function orderStatusChanged(name: string, orderNumber: string, statusLabel: string, extra?: string): Rendered {
+  const url = `${env.CLIENT_URL}/account/orders/${encodeURIComponent(orderNumber)}`;
+  return {
+    subject: `Order ${orderNumber}: ${statusLabel}`,
+    html: layout({
+      title: `Your order is ${statusLabel.toLowerCase()}`,
+      bodyHtml: p(`Hi ${esc(name)},`) + p(`Order <strong>${esc(orderNumber)}</strong> is now <strong>${esc(statusLabel)}</strong>.`) + (extra ? p(esc(extra)) : ''),
+      cta: { label: 'View order', url },
+    }),
+    text: `Hi ${name},\n\nOrder ${orderNumber} is now ${statusLabel}.${extra ? `\n${extra}` : ''}\nView it: ${url}`,
+  };
+}

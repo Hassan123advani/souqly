@@ -6,6 +6,7 @@ import { logger } from '../../lib/logger';
 import { cursorFilter, cursorSort, paginate } from '../../lib/pagination';
 import { fuzzyTokenPattern, normalizeText, tokenize } from '../../lib/text';
 import { Store } from '../stores/store.model';
+import { recordStoreVisit } from '../stores/storeVisit.service';
 import { Brand } from './brand.model';
 import {
   CARD_FIELDS,
@@ -179,8 +180,25 @@ export async function listProducts(query: ProductListQuery, opts: ListOptions = 
   };
 }
 
+/** Filters that have their own facet. Each facet is computed with every filter EXCEPT its own (multi-select UX). */
+const FACET_FILTER_KEYS = { brands: 'brandId', price: 'priceMin', ratings: 'ratingAvg', colors: 'variants.options.color', sizes: 'variants.options.size' } as const;
+
 async function computeFacets(match: Record<string, unknown>): Promise<NonNullable<ProductListMeta['facets']>> {
+  const common: Record<string, unknown> = { ...match };
+  const own: Record<string, unknown> = {};
+  for (const key of Object.values(FACET_FILTER_KEYS)) {
+    if (key in common) {
+      own[key] = common[key];
+      delete common[key];
+    }
+  }
+  /** $match with all facetable filters except `exclude`. */
+  const others = (exclude: string): PipelineStage.FacetPipelineStage[] => {
+    const m = Object.fromEntries(Object.entries(own).filter(([k]) => k !== exclude));
+    return Object.keys(m).length ? [{ $match: m }] : [];
+  };
   const optionFacet = (key: string): PipelineStage.FacetPipelineStage[] => [
+    ...others(`variants.options.${key}`),
     { $unwind: '$variants' },
     { $match: { [`variants.options.${key}`]: { $exists: true } } },
     { $group: { _id: { p: '$_id', v: `$variants.options.${key}` } } },
@@ -188,6 +206,7 @@ async function computeFacets(match: Record<string, unknown>): Promise<NonNullabl
     { $sort: { count: -1, _id: 1 } },
     { $limit: 30 },
   ];
+  const ratingFacet = (min: number): PipelineStage.FacetPipelineStage[] => [...others(FACET_FILTER_KEYS.ratings), { $match: { ratingAvg: { $gte: min } } }, { $count: 'n' }];
   const [row] = await Product.aggregate<{
     brands: { _id: Types.ObjectId; count: number }[];
     price: { min: number; max: number }[];
@@ -197,14 +216,14 @@ async function computeFacets(match: Record<string, unknown>): Promise<NonNullabl
     colors: { _id: string; count: number }[];
     sizes: { _id: string; count: number }[];
   }>([
-    { $match: match },
+    { $match: common },
     {
       $facet: {
-        brands: [{ $match: { brandId: { $exists: true } } }, { $group: { _id: '$brandId', count: { $sum: 1 } } }, { $sort: { count: -1 } }, { $limit: 30 }],
-        price: [{ $group: { _id: null, min: { $min: '$priceMin' }, max: { $max: '$priceMax' } } }],
-        r4: [{ $match: { ratingAvg: { $gte: 4 } } }, { $count: 'n' }],
-        r3: [{ $match: { ratingAvg: { $gte: 3 } } }, { $count: 'n' }],
-        r2: [{ $match: { ratingAvg: { $gte: 2 } } }, { $count: 'n' }],
+        brands: [...others(FACET_FILTER_KEYS.brands), { $match: { brandId: { $exists: true } } }, { $group: { _id: '$brandId', count: { $sum: 1 } } }, { $sort: { count: -1 } }, { $limit: 30 }],
+        price: [...others(FACET_FILTER_KEYS.price), { $group: { _id: null, min: { $min: '$priceMin' }, max: { $max: '$priceMax' } } }],
+        r4: ratingFacet(4),
+        r3: ratingFacet(3),
+        r2: ratingFacet(2),
         colors: optionFacet('color'),
         sizes: optionFacet('size'),
       },
@@ -259,7 +278,7 @@ async function loadPublicProduct(slug: string): Promise<ProductLean> {
 export async function getProductDetail(slug: string, viewer: { userId?: string; viewerKey: string }): Promise<ProductDetail> {
   const p = await loadPublicProduct(slug);
   const [store, cats, flash, stores, brand] = await Promise.all([
-    Store.findById(p.storeId).select('slug name logo ratingAvg followerCount responseRate isMall createdAt productCount').lean(),
+    Store.findById(p.storeId).select('slug name logo ratingAvg followerCount responseRate isMall createdAt productCount address.city').lean(),
     getCategoryMap(),
     getCurrentFlash(),
     getPublicStoreIndex(),
@@ -272,6 +291,7 @@ export async function getProductDetail(slug: string, viewer: { userId?: string; 
 
   if (shouldCountView(viewer.viewerKey, String(p._id))) {
     Product.updateOne({ _id: p._id }, { $inc: { viewCount: 1 } }).catch((err) => logger.warn({ err }, 'viewCount update failed'));
+    recordStoreVisit(p.storeId, viewer.viewerKey);
   }
   if (viewer.userId) recordRecentlyViewed(viewer.userId, p._id).catch((err) => logger.warn({ err }, 'recently viewed failed'));
 
@@ -336,6 +356,7 @@ export async function getProductDetail(slug: string, viewer: { userId?: string; 
       isMall: !!store.isMall,
       joinedAt: store.createdAt.toISOString(),
       productCount: store.productCount ?? 0,
+      ...(store.address?.city ? { city: store.address.city } : {}),
     },
     breadcrumbs: cat ? breadcrumbsOf(cat) : [],
   };

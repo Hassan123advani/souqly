@@ -11,9 +11,17 @@ import { errorHandler, notFoundHandler } from './middleware/error';
 import { rateLimits } from './middleware/rateLimit';
 import { accountRouter } from './modules/account/account.routes';
 import { authRouter } from './modules/auth/auth.routes';
+import { cartRouter } from './modules/cart/cart.routes';
 import { marketplaceRouter } from './modules/catalog/catalog.routes';
+import { checkoutRouter } from './modules/checkout/checkout.routes';
 import { configRouter } from './modules/config/config.routes';
+import { ordersRouter } from './modules/orders/orders.routes';
+import { sellerOrdersRouter } from './modules/orders/sellerOrders.routes';
 import { sellerRouter } from './modules/seller/seller.routes';
+import { sellerPreStoreRouter } from './modules/onboarding/onboarding.routes';
+import { tempUploadsRouter } from './modules/onboarding/tempUpload.routes';
+import { adminStoresRouter } from './modules/stores/adminStores.routes';
+import { storesPublicRouter } from './modules/stores/stores.routes';
 import { UPLOADS_DIR } from './services/storage';
 
 /** Paths whose query strings carry secrets (OAuth code/state) and are never logged. */
@@ -97,7 +105,15 @@ export function createApp() {
   api.use('/', configRouter); // /health, /config/public
   api.use('/auth', authRouter);
   api.use('/account', accountRouter);
+  api.use('/cart', cartRouter);
+  api.use('/checkout', checkoutRouter);
+  api.use('/orders', ordersRouter);
+  api.use('/seller/orders', sellerOrdersRouter);
+  api.use('/uploads', tempUploadsRouter); // POST /uploads/temp
+  api.use('/admin', adminStoresRouter);
+  api.use('/seller', sellerPreStoreRouter); // onboarding, invitations, rejected-store routes (before storeContext)
   api.use('/seller', sellerRouter);
+  api.use('/stores', storesPublicRouter); // /stores/slug-available (before marketplace /stores/:slug)
   api.use('/', marketplaceRouter);
 
   app.use('/api/v1', api);

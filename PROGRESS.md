@@ -36,16 +36,22 @@ Admin: souqly@gmail.com / souqly123 (from server/.env)
 - Phase 3 BACKEND done & committed (5325716): catalog, search, stores, seller products, seed (12 stores, 216 products, flash sale, campaigns). 88 tests green.
 - docs/api-seller-orders.md written (Phase 5 + 6 contract).
 
+- Phase 4 marketplace front done & committed (329d453): home, mega-menu, categories, category/search/product/store/stores/mall/campaign/brand pages, local cart.
+- All Phase 1–2 security findings fixed & committed (676ff20). 115 tests green.
+
 ## In progress
-- Security fixes for docs/reviews/security-phase-1-2.md (backend-dev).
-- Phase 4 marketplace front (frontend-dev) against docs/api-catalog.md.
+- Phase 5+6 BACKEND (backend-dev) per docs/api-seller-orders.md + Phase-4 API gaps (store city, defaultVariantId, facet exclusion, single history delete).
+- Client adopting security API changes (google 2FA step, recovery codes, reauth, pending phone).
 
 ## Next
-1. Commit security fixes + Phase 4 once green; run code-reviewer + qa-tester on Phases 1–4.
-2. Phase 5+6 backend (docs/api-seller-orders.md), then Phase 5+6 frontend.
+1. Commit both; Phase 5+6 FRONTEND (seller onboarding wizard, Seller Center core, cart, checkout, orders).
+2. Then code-reviewer + qa-tester pass on Phases 1–6.
+3. Phase 7 onward.
 
 ## Dev notes
 - Port 5173 is used by an unrelated project on this machine (digital-khata) — never kill it; Vite picks another port.
 
 ## Known issues
+- Google 2FA redirect (`/login?google2fa=`) does not carry the original `next` path (server google.ts) — fix in Phase 12.
+- Seed banners have English text baked into images (untranslated in ur/ar) — replace with text-free art + CMS text (Phase 9/12).
 - Security findings H1–H3, M1–M6, L1–L11 open (see docs/reviews/security-phase-1-2.md).

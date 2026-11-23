@@ -113,6 +113,13 @@ export async function searchHistory(userId: string): Promise<string[]> {
   return rows.map((r) => r.q);
 }
 
+/** Removes one query (matched on its normalized form) from the user's history; anonymous counts stay for trending. */
+export async function deleteSearchHistoryEntry(userId: string, q: string): Promise<void> {
+  const normalized = normalizeText(q).slice(0, 100);
+  if (!normalized) return;
+  await SearchLog.updateMany({ userId: new Types.ObjectId(userId), normalized }, { $unset: { userId: 1 } });
+}
+
 /** Detaches the user's searches (keeps anonymous counts for trending). */
 export async function clearSearchHistory(userId: string): Promise<void> {
   await SearchLog.updateMany({ userId: new Types.ObjectId(userId) }, { $unset: { userId: 1 } });

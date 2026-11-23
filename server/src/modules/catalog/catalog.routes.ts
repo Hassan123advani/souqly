@@ -25,7 +25,8 @@ import {
   moreFromStore,
   relatedProducts,
 } from './product.service';
-import { clearSearchHistory, searchHistory, trendingSearches } from './search.service';
+import { recordStoreVisit } from '../stores/storeVisit.service';
+import { clearSearchHistory, deleteSearchHistoryEntry, searchHistory, trendingSearches } from './search.service';
 
 /** Public marketplace API (docs/api-catalog.md). Mounted at /api/v1. */
 export const marketplaceRouter = Router();
@@ -194,6 +195,16 @@ marketplaceRouter.delete(
   }),
 );
 
+marketplaceRouter.delete(
+  '/search/history/:q',
+  requireAuth,
+  validate({ params: z.object({ q: z.string().trim().min(1).max(100) }) }),
+  asyncHandler(async (req, res) => {
+    await deleteSearchHistoryEntry(req.user!.id, req.params.q!);
+    res.status(204).end();
+  }),
+);
+
 // ---- stores (public) ----
 marketplaceRouter.get(
   '/stores',
@@ -206,9 +217,12 @@ marketplaceRouter.get(
 
 marketplaceRouter.get(
   '/stores/:slug',
+  optionalAuth,
   validate({ params: slugParams }),
   asyncHandler(async (req, res) => {
-    res.json({ data: await getStorePublic(req.params.slug!) });
+    const store = await getStorePublic(req.params.slug!);
+    recordStoreVisit(store.id, req.user?.sessionId ?? `ip:${req.ip ?? 'unknown'}`);
+    res.json({ data: store });
   }),
 );
 

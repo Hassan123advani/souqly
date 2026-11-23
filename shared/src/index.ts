@@ -11,3 +11,7 @@ export * from './schemas/account';
 export * from './types/api';
 export * from './schemas/catalog';
 export * from './types/catalog';
+export * from './schemas/orders';
+export * from './types/orders';
+export * from './schemas/seller';
+export * from './types/seller';

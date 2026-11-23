@@ -213,21 +213,32 @@ export function invalidateFlashCache(): void {
 
 /** Fields a card needs (use as a projection). */
 export const CARD_FIELDS =
-  'storeId title slug images priceMin compareAtMin discountPct ratingAvg ratingCount soldCount freeShipping cod totalStock preOrder';
+  'storeId title slug images priceMin compareAtMin discountPct ratingAvg ratingCount soldCount freeShipping cod totalStock preOrder variants._id variants.price variants.stock variants.reserved variants.isActive';
 
 export type CardSource = Pick<
   ProductLean,
   'storeId' | 'title' | 'slug' | 'images' | 'priceMin' | 'compareAtMin' | 'discountPct' | 'ratingAvg' | 'ratingCount' | 'soldCount' | 'freeShipping' | 'cod' | 'totalStock' | 'preOrder'
-> & { _id: Types.ObjectId };
+> & { _id: Types.ObjectId; variants?: { _id: Types.ObjectId; price: number; stock: number; reserved?: number; isActive?: boolean }[] };
+
+/** Cheapest active variant that is in stock (else the cheapest active one): what "add to cart" from a card uses. */
+export function defaultVariantId(variants: CardSource['variants']): string | undefined {
+  const active = (variants ?? []).filter((v) => v.isActive !== false);
+  if (!active.length) return undefined;
+  const inStock = active.filter((v) => v.stock - (v.reserved ?? 0) > 0);
+  const pool = inStock.length ? inStock : active;
+  return String(pool.reduce((a, b) => (b.price < a.price ? b : a))._id);
+}
 
 export function toProductCard(p: CardSource, stores: Map<string, PublicStoreInfo>, flash: FlashInfo | null): ProductCard | null {
   const store = stores.get(String(p.storeId));
   if (!store) return null;
   const f = flash?.byProduct.get(String(p._id));
+  const variantId = defaultVariantId(p.variants);
   return {
     id: String(p._id),
     slug: p.slug,
     title: p.title,
+    ...(variantId ? { defaultVariantId: variantId } : {}),
     image: p.images?.[0]?.url ?? '',
     price: p.priceMin,
     ...(p.compareAtMin ? { compareAtPrice: p.compareAtMin } : {}),
