@@ -1,20 +1,32 @@
 import { keepPreviousData, useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
-  BillingAdjustmentType,
-  BillingPaymentMethod,
+  AdminBillingOverviewDTO,
+  AdminBillingStoreDetailDTO,
+  AdminBillingStoreRowDTO,
+  BillingAdjustmentDTO,
   BillingPaymentStatus,
+  BillingReportDTO,
+  BillingReportRowDTO,
+  BillingScheduledChangeDTO,
+  BillingSummaryDTO,
   ChangePlanInput,
+  ChangePlanResultDTO,
   CommissionChannel,
+  CommissionEntryDTO,
   CommissionStatus,
+  InvoiceDetailDTO,
+  InvoiceDTO,
   InvoiceKind,
-  InvoiceLineType,
+  InvoiceLineDTO,
+  InvoicePaymentDTO,
   InvoiceStatus,
   ManualAccount,
-  ManualPaymentChannel,
   PayInvoiceInput,
-  PlanDefinition,
-  StoreLayout,
-  StorePlan,
+  PaymentOptionsDTO,
+  PlansCatalogDTO,
+  PlanUsageDTO,
+  PublicPlansDTO,
+  SubscriptionDTO,
 } from '@souqly/shared';
 import { useActiveStoreId } from '@/components/seller/useActiveStore';
 import { get } from './client';
@@ -23,133 +35,27 @@ import { useSc, useSellerKey, type CursorMeta } from './seller';
 
 /**
  * Seller subscriptions, 15% commission and monthly billing (docs/api-billing.md).
- * Request bodies / enums come from @souqly/shared; the response DTOs below mirror the server
- * (they are not exported from shared yet).
+ * Request bodies, enums and response DTOs come from @souqly/shared (shared/src/types/billing.ts);
+ * the short aliases below keep page imports stable.
  */
 
 // ---------------------------------------------------------------------------------------------
 // DTOs
 // ---------------------------------------------------------------------------------------------
 
-export type ScheduledChange = { plan: StorePlan; effectiveAt: string; kind: 'downgrade' | 'cancel' };
-export type Subscription = {
-  plan: StorePlan;
-  billingStatus: 'active' | 'suspended';
-  suspension: { reason: 'overdue' | 'admin'; invoiceId: string | null; note: string | null; at: string } | null;
-  currentPeriodStart: string;
-  currentPeriodEnd: string;
-  scheduledChange: ScheduledChange | null;
-  pendingUpgrade: { plan: StorePlan; invoiceId: string; invoiceNumber: string; amountDue: number; dueDate: string } | null;
-};
-
-export type InvoiceLine = {
-  type: InvoiceLineType;
-  description: string;
-  amount: number;
-  plan?: StorePlan;
-  periodStart?: string;
-  periodEnd?: string;
-  entries?: number;
-};
-export type Invoice = {
-  id: string;
-  number: string;
-  kind: InvoiceKind;
-  status: InvoiceStatus;
-  plan: StorePlan;
-  periodStart: string;
-  periodEnd: string;
-  lines: InvoiceLine[];
-  total: number;
-  amountPaid: number;
-  amountWaived: number;
-  amountDue: number;
-  issuedAt: string;
-  dueDate: string;
-  paidAt: string | null;
-  voidedAt: string | null;
-  voidReason: string | null;
-  pendingPayment: { id: string; method: 'manual' | 'gateway'; createdAt: string } | null;
-  /** Admin responses only. */
-  store?: { id: string; name: string; slug: string };
-};
-
-export type CommissionEntry = {
-  id: string;
-  kind: 'charge' | 'reversal';
-  channel: CommissionChannel;
-  orderId: string;
-  orderNumber: string;
-  base: number;
-  bps: number;
-  amount: number;
-  orderTotal: number;
-  status: CommissionStatus;
-  invoiceId: string | null;
-  invoiceNumber: string | null;
-  reason: 'delivered' | 'return_refund' | 'cancelled_after_delivery';
-  at: string;
-  settledAt: string | null;
-  /** Admin responses only. */
-  storeId?: string;
-};
-
-export type InvoicePayment = {
-  id: string;
-  invoiceId: string;
-  invoiceNumber: string;
-  method: BillingPaymentMethod;
-  amount: number;
-  status: BillingPaymentStatus;
-  channel: ManualPaymentChannel | null;
-  reference: string | null;
-  proofUrl: string | null;
-  note: string | null;
-  reviewNote: string | null;
-  createdAt: string;
-  reviewedAt: string | null;
-  checkoutUrl?: string;
-  /** Admin responses only. */
-  storeId?: string;
-  store?: { id: string; name: string; slug: string };
-  gateway?: { provider: string; transactionId: string | null; failure: string | null } | null;
-};
-
-export type InvoiceDetail = Invoice & { commissions: CommissionEntry[]; payments: InvoicePayment[] };
-
-export type BillingSummary = {
-  subscription: Subscription;
-  plan: PlanDefinition;
-  nextInvoiceEstimate: { date: string; plan: StorePlan; fee: number; commission: number; balanceRecovery: number; total: number };
-  outstanding: { invoices: number; amountDue: number; overdue: number; nextDueDate: string | null };
-  totals: {
-    grossSales: number;
-    codSales: number;
-    onlineSales: number;
-    commissionBase: number;
-    totalCommission: number;
-    paidCommission: number;
-    unpaidCodCommission: number;
-    availableBalance: number;
-    onHold: number;
-    pendingPayouts: number;
-  };
-  commissionBps: number;
-  graceDays: number;
-  currency: 'PKR';
-};
-
-export type PlanUsage = { products: number; liveProducts: number; staff: number; sections: number; layoutTemplate?: StoreLayout };
-export type PlansCatalog = { current: StorePlan; plans: PlanDefinition[]; usage: PlanUsage; commissionBps: number };
-export type PublicPlans = { commissionBps: number; plans: PlanDefinition[] };
-
-export type PaymentOptions = {
-  balance: { available: number };
-  manualAccounts: ManualAccount[];
-  gateways: { stripe: boolean; jazzcash?: boolean; easypaisa?: boolean };
-};
-
-export type ChangePlanResult = { subscription: Subscription; invoice: Invoice | null; effective: 'on_payment' | 'period_end' | 'now' };
+export type ScheduledChange = BillingScheduledChangeDTO;
+export type Subscription = SubscriptionDTO;
+export type InvoiceLine = InvoiceLineDTO;
+export type Invoice = InvoiceDTO;
+export type CommissionEntry = CommissionEntryDTO;
+export type InvoicePayment = InvoicePaymentDTO;
+export type InvoiceDetail = InvoiceDetailDTO;
+export type BillingSummary = BillingSummaryDTO;
+export type PlanUsage = PlanUsageDTO;
+export type PlansCatalog = PlansCatalogDTO;
+export type PublicPlans = PublicPlansDTO;
+export type PaymentOptions = PaymentOptionsDTO;
+export type ChangePlanResult = ChangePlanResultDTO;
 
 /** `GET /seller/finance/summary` (docs/api-growth.md). */
 export type FinanceSummary = {
@@ -176,81 +82,12 @@ export type SellerPayout = {
 };
 
 // ---- admin ----
-export type AdminBillingOverview = {
-  sellers: { registered: number; approved: number; billingSuspended: number };
-  subscribers: Record<StorePlan, number>;
-  mrr: number;
-  subscriptionRevenue: { thisMonth: number; allTime: number };
-  commission: { total: number; online: number; cod: number; codOutstanding: number; codPaid: number; reversed?: number };
-  invoices: { open: number; overdue: number; amountDue: number };
-  pendingManualPayments: number;
-  payoutsPending: { count: number; amount: number };
-  commissionBps?: number;
-};
-export type AdminBillingStoreRow = {
-  id: string;
-  name: string;
-  slug: string;
-  status: string;
-  plan: StorePlan;
-  billingStatus: 'active' | 'suspended';
-  suspensionReason: 'overdue' | 'admin' | null;
-  currentPeriodEnd: string | null;
-  scheduledChange: { plan: StorePlan; effectiveAt: string | null } | null;
-  outstanding: number;
-  overdue: number;
-  unbilledCommission: number;
-};
-export type BillingAdjustment = {
-  id: string;
-  storeId: string;
-  type: BillingAdjustmentType;
-  invoiceId: string | null;
-  paymentId: string | null;
-  amount: number;
-  reason: string;
-  meta: Record<string, unknown>;
-  by: string | null;
-  createdAt: string;
-};
-export type AdminBillingStoreDetail = {
-  store: { id: string; name: string; slug: string; status: string; ownerId: string; createdAt: string | null };
-  subscription: Subscription;
-  totals: {
-    grossSales: number;
-    codSales: number;
-    onlineSales: number;
-    commissionBase: number;
-    totalCommission: number;
-    paidCommission: number;
-    unpaidCodCommission: number;
-    onlineCommission: number;
-    codCommission: number;
-    reversed: number;
-    availableBalance: number;
-    onHold: number;
-    pendingPayouts: number;
-    paidOut: number;
-  };
-  outstanding: { invoices: number; amountDue: number };
-  invoices: Invoice[];
-  payments: InvoicePayment[];
-  commissions: CommissionEntry[];
-  adjustments: BillingAdjustment[];
-};
-export type BillingReportRow = {
-  storeId: string;
-  store: string;
-  plan: string;
-  feesBilled: number;
-  feesPaid: number;
-  codCommission: number;
-  onlineCommission: number;
-  reversals: number;
-  waived: number;
-  outstanding: number;
-};
-export type BillingReport = { from: string; to: string; rows: BillingReportRow[] };
+export type AdminBillingOverview = AdminBillingOverviewDTO;
+export type AdminBillingStoreRow = AdminBillingStoreRowDTO;
+export type BillingAdjustment = BillingAdjustmentDTO;
+export type AdminBillingStoreDetail = AdminBillingStoreDetailDTO;
+export type BillingReportRow = BillingReportRowDTO;
+export type BillingReport = BillingReportDTO;
 export type AdminBillingSettings = { graceDays: number; manualAccounts: ManualAccount[] };
 
 // ---------------------------------------------------------------------------------------------
@@ -313,14 +150,34 @@ export const useBillingPayments = (params: { status?: BillingPaymentStatus }) =>
 export const useCommissions = (params: { status?: CommissionStatus; channel?: CommissionChannel; kind?: 'charge' | 'reversal' }) =>
   useSellerList<CommissionEntry>('/seller/billing/commissions', 'commissions', params);
 
-export function useInvoice(id: string | undefined) {
+/** Poll every 5 s for at most ~2 min while a gateway payment awaits its webhook. */
+const GATEWAY_POLL_MS = 5_000;
+const GATEWAY_POLL_MAX = 24;
+
+/**
+ * One invoice. `awaitingGateway` (e.g. the Stripe return `?paid=1`) keeps polling while the invoice
+ * is still unpaid, so the page flips to paid once the webhook lands; a pending gateway payment
+ * on the invoice also triggers polling. Both stop after GATEWAY_POLL_MAX refetches.
+ */
+export function useInvoice(id: string | undefined, { awaitingGateway = false }: { awaitingGateway?: boolean } = {}) {
   const s = useSc();
   const key = useBillingKey();
-  return useQuery({ queryKey: [...key, 'invoice', id], queryFn: () => s.get<InvoiceDetail>(`/seller/billing/invoices/${id}`), enabled: !!id && key[1] !== 'none' });
+  return useQuery({
+    queryKey: [...key, 'invoice', id],
+    queryFn: () => s.get<InvoiceDetail>(`/seller/billing/invoices/${id}`),
+    enabled: !!id && key[1] !== 'none',
+    refetchInterval: (query) => {
+      const inv = query.state.data;
+      if (!inv || query.state.dataUpdateCount > GATEWAY_POLL_MAX) return false;
+      const unpaid = inv.status === 'open' || inv.status === 'overdue';
+      const pending = inv.pendingPayment?.method === 'gateway' || (awaitingGateway && !inv.pendingPayment);
+      return unpaid && pending ? GATEWAY_POLL_MS : false;
+    },
+  });
 }
 
 /** Refreshes everything a billing change can move: billing, plan gates, store, finance balance. */
-function useBillingInvalidate() {
+export function useBillingInvalidate() {
   const qc = useQueryClient();
   const root = useSellerKey();
   return () => {

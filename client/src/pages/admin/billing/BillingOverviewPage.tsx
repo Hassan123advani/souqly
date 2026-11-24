@@ -16,6 +16,7 @@ import { usePlanName } from '@/components/billing/BillingBadge';
 import { Button, Card, CardHeader, ErrorState, Skeleton } from '@/components/ui';
 import { compactNumber, useLang } from '@/lib/catalog';
 import { formatNumber, money } from '@/lib/format';
+import { COMMISSION_PCT, pctFromBps } from '@/lib/rates';
 
 const PLAN_COLORS: Record<string, string> = { free: 'rgb(var(--ink-400))', pro: 'rgb(var(--primary-600))', premium: 'rgb(var(--accent-500))' };
 
@@ -44,7 +45,7 @@ export default function BillingOverviewPage() {
     <>
       <PageHeader
         title={t('billing.admin.nav.overview')}
-        description={t('billing.admin.overview.subtitle', { pct: (o?.commissionBps ?? 1500) / 100 })}
+        description={t('billing.admin.overview.subtitle', { pct: o ? pctFromBps(o.commissionBps) : COMMISSION_PCT })}
         crumbs={[{ label: t('admin.nav.finance') }]}
         actions={
           manage && (

@@ -362,11 +362,12 @@ export function posClient(sid: string) {
   const s = sc(sid);
   return {
     catalog: async (updatedSince?: string) => {
-      const res = await api.get<{ data: PosCatalogRow[]; meta: { serverTime: string } }>(
+      const res = await api.get<{ data: PosCatalogRow[]; meta: { serverTime: string; hasMore?: boolean } }>(
         '/seller/pos/catalog',
         cfg(sid, { params: updatedSince ? { updatedSince } : {}, timeout: 60_000 }),
       );
-      return { items: res.data.data, serverTime: res.data.meta.serverTime };
+      // `hasMore`: the page was truncated and `serverTime` is the last row's updatedAt, so fetch again from there.
+      return { items: res.data.data, serverTime: res.data.meta.serverTime, hasMore: res.data.meta.hasMore === true };
     },
     lookup: (code: string) => s.get<PosCatalogRow>('/seller/pos/lookup', { code }),
     sync: (sales: PosSaleBody[]) => s.send<{ results: PosSaleResult[] }>('post', '/seller/pos/sales', { sales }),

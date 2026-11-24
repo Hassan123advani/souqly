@@ -169,7 +169,8 @@ export async function transitionOrder(
     await ledgerOnDelivered(updated); // Phase 10: seller ledger credit (idempotent, never throws)
     await creditAffiliateOnDelivery(updated); // Phase 10: affiliate commission (idempotent, never throws)
   }
-  if (to === 'cancelled') await voidAffiliateCommission(updated._id);
+  // Affiliate commission is only paid after the return window; a cancel / return / refund voids it (M3).
+  if (to === 'cancelled' || to === 'returned' || to === 'refunded') await voidAffiliateCommission(updated._id);
   // Billing: commission reversal for return refunds / a forced cancel after delivery (idempotent, never throws).
   if (to === 'refunded' || to === 'cancelled') {
     await syncOrderReversals(updated._id);

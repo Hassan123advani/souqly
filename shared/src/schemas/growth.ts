@@ -101,7 +101,7 @@ export const payoutRequestSchema = z.object({ amount: z.number().int().min(MIN_P
 export const financeTransactionsQuerySchema = z.object({
   cursor: z.string().max(200).optional(),
   limit: z.coerce.number().int().min(1).max(100).default(30),
-  type: z.enum(['sale', 'refund', 'payout', 'payout_reversal', 'invoice_payment', 'commission_credit', 'balance_transfer']).optional(),
+  type: z.enum(['sale', 'refund', 'payout', 'payout_reversal', 'invoice_payment', 'commission_credit', 'balance_transfer', 'plan_credit']).optional(),
 });
 export const statementQuerySchema = z.object({
   month: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/, 'Use YYYY-MM'),

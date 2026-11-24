@@ -14,3 +14,7 @@ e2e/screenshots/
 .DS_Store
 *.log
 e2e/.explore/
+
+.vercel
+.env*
+!.env.example

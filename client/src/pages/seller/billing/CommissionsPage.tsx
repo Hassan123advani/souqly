@@ -7,6 +7,7 @@ import { DataTable, FilterSelect, type Column } from '@/components/admin/DataTab
 import { BillingBadge } from '@/components/billing/BillingBadge';
 import { useLang } from '@/lib/catalog';
 import { formatDate, money } from '@/lib/format';
+import { COMMISSION_PCT } from '@/lib/rates';
 
 const KINDS = ['charge', 'reversal'] as const;
 const pick = <T extends string>(v: string | null, list: readonly T[]) => (v && (list as readonly string[]).includes(v) ? (v as T) : undefined);
@@ -69,7 +70,7 @@ export default function BillingCommissionsPage() {
 
   return (
     <>
-      <p className="mb-3 text-sm text-fg-muted">{t('billing.commissions.basis')}</p>
+      <p className="mb-3 text-sm text-fg-muted">{t('billing.commissions.basis', { pct: COMMISSION_PCT })}</p>
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <FilterSelect label={t('billing.commissions.channel')} value={channel ?? ''} onChange={(v) => set('channel', v)} allLabel={t('billing.commissions.allChannels')} options={COMMISSION_CHANNELS.map((c) => ({ value: c, label: t(`billing.channel.${c}`) }))} />
         <FilterSelect label={t('billing.commissions.status')} value={status ?? ''} onChange={(v) => set('status', v)} allLabel={t('billing.commissions.allStatuses')} options={COMMISSION_STATUSES.map((s) => ({ value: s, label: t(`billing.status.${s}`) }))} />

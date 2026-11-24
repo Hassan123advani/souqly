@@ -1,4 +1,5 @@
 import {
+  emptyBodySchema,
   PERMISSIONS,
   adminAdjustmentListQuerySchema,
   adminApprovePaymentSchema,
@@ -220,6 +221,7 @@ adminBillingRouter.put(
 adminBillingRouter.post(
   `${P}/sweep`,
   ...MANAGE,
+  validate({ body: emptyBodySchema }),
   asyncHandler(async (req, res) => {
     const result = await runBillingSweep();
     await audit({ action: 'admin.billing_sweep_run', targetType: 'Billing', meta: result, req });

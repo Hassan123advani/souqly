@@ -201,7 +201,8 @@ adminStoresAdminRouter.patch(
 
 adminStoresAdminRouter.patch(
   '/stores/:id/plan',
-  ...can(PERMISSIONS.ADMIN_STORES_MANAGE),
+  // Comping a paid plan is a billing action: billing.manage, not stores.manage (security review H2).
+  ...can(PERMISSIONS.ADMIN_BILLING_MANAGE),
   validate({ params: idParams, body: adminStorePlanSchema }),
   asyncHandler(async (req, res) => {
     // Routed through billing so the subscription and an adjustment record stay consistent (docs/api-billing.md §8).

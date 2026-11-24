@@ -21,3 +21,6 @@ export const addressSchema = z.object({
   isDefault: z.boolean().default(false),
 });
 export type AddressInput = z.infer<typeof addressSchema>;
+
+/** Bodyless mutations (cancel, delete, run sweep): any body field is rejected (security review L11). */
+export const emptyBodySchema = z.object({}).strict();

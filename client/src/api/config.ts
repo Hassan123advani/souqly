@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { setRealtimeAvailable } from '@/lib/socket';
 import { get } from './client';
@@ -27,8 +28,11 @@ export function useFlag(flag: string): boolean {
  */
 export function useRealtime(): { live: boolean; poll: boolean } {
   const { data, isPending } = usePublicConfig();
-  if (isPending) return { live: false, poll: false };
   const enabled = data?.integrations.realtime !== false;
-  setRealtimeAvailable(enabled);
+  // Sync the socket module outside render; this effect runs before the caller's own effects that connect.
+  useEffect(() => {
+    if (!isPending) setRealtimeAvailable(enabled);
+  }, [isPending, enabled]);
+  if (isPending) return { live: false, poll: false };
   return { live: enabled, poll: !enabled };
 }

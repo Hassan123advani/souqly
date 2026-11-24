@@ -12,3 +12,13 @@ export const forbidWhileImpersonating: RequestHandler = (req, _res, next) => {
   }
   next();
 };
+
+/**
+ * Router-level guard: every mutating request (anything but GET/HEAD/OPTIONS) is refused while an admin is
+ * impersonating. Used on money routes (seller finance, billing, payout account, business/KYC details) so an
+ * impersonator can look but never move or redirect a seller's money.
+ */
+export const forbidImpersonatedWrites: RequestHandler = (req, res, next) => {
+  if (req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS') return next();
+  forbidWhileImpersonating(req, res, next);
+};

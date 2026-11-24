@@ -3,6 +3,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { asyncHandler } from '../../lib/asyncHandler';
 import { requireAuth } from '../../middleware/auth';
+import { forbidWhileImpersonating } from '../../middleware/impersonation';
 import { requirePermission } from '../../middleware/permissions';
 import { rateLimits } from '../../middleware/rateLimit';
 import { requireStoreOwner, storeContextAllowRejected } from '../../middleware/storeContext';
@@ -63,6 +64,7 @@ sellerPreStoreRouter.get(
 sellerPreStoreRouter.patch(
   '/store/payout',
   requireAuth,
+  forbidWhileImpersonating, // an impersonator must never redirect payouts (security review H1)
   storeContextAllowRejected,
   requirePermission(PERMISSIONS.STORE_FINANCE_MANAGE),
   validate({ body: payoutSchema }),
@@ -74,6 +76,7 @@ sellerPreStoreRouter.patch(
 sellerPreStoreRouter.patch(
   '/store/business',
   requireAuth,
+  forbidWhileImpersonating,
   storeContextAllowRejected,
   requireStoreOwner,
   validate({ body: businessSchema }),

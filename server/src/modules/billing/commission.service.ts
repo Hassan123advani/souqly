@@ -7,6 +7,8 @@ import { SellerLedger } from '../finance/ledger.model';
 import { Order, type OrderLean } from '../orders/order.model';
 import { ReturnRequest } from '../returns/return.model';
 import { CommissionEntry, type CommissionEntryLean } from './commissionEntry.model';
+import { Subscription } from './subscription.model';
+import { ensureSubscription, lockStoreFinance } from './subscription.service';
 
 /**
  * Flat 15% commission ledger (docs/api-billing.md §2, D-079/D-080).
@@ -111,14 +113,27 @@ export function returnReversalAmount(charge: number, order: { subtotal: number; 
   return Math.floor((charge * value) / order.subtotal);
 }
 
-async function writeReversal(charge: CommissionEntryLean, plan: ReversalPlan, amount: number, at: Date): Promise<boolean> {
+/**
+ * Writes one reversal. The amount is re-derived INSIDE the transaction under the store finance lock (security
+ * review L2): concurrent syncs of the same order serialize, and the reversal is capped at what is still left
+ * of the charge, so the charge can never be over-reversed. Returns true when a reversal was written.
+ */
+async function writeReversal(charge: CommissionEntryLean, plan: ReversalPlan, at: Date): Promise<boolean> {
   try {
-    await withTx(async (session: ClientSession) => {
+    await ensureSubscription(charge.storeId);
+    return await withTx(async (session: ClientSession) => {
+      await lockStoreFinance(charge.storeId, session);
       const fresh = await CommissionEntry.findById(charge._id).session(session).lean<CommissionEntryLean>();
-      if (!fresh) return;
-      // COD receivable not billed yet → the reversal offsets it on the same next invoice.
-      // Already invoiced/paid → give it back to the seller's balance now. Online → informational (ledger refund handles money).
-      const status = fresh.channel === 'online' ? 'deducted' : fresh.status === 'unpaid' ? 'unpaid' : 'credited';
+      if (!fresh) return false;
+      const prior = await CommissionEntry.find({ chargeId: fresh._id }).select('ref amount').session(session).lean();
+      if (prior.some((r) => r.ref === plan.ref)) return false;
+      const remaining = fresh.amount + prior.reduce((s, r) => s + r.amount, 0);
+      const amount = plan.amount === 'rest' ? remaining : Math.min(plan.amount, remaining);
+      if (amount <= 0) return false;
+      // COD receivable not billed yet -> the reversal offsets it on the same next invoice. Already billed -> settled
+      // by what happened to the charge (paid: credit; waived: nothing; invoiced: lowers that invoice). Online ->
+      // informational (the ledger refund handles money).
+      const status = fresh.channel === 'online' ? 'deducted' : 'unpaid';
       const [rev] = await CommissionEntry.create(
         [
           {
@@ -142,9 +157,12 @@ async function writeReversal(charge: CommissionEntryLean, plan: ReversalPlan, am
         ],
         { session },
       );
-      if (status === 'credited') await creditCommissionBack(fresh.storeId, rev!._id, plan.ref, amount, at, fresh.orderId, fresh.orderNumber, session, !!fresh.demo);
+      if (fresh.channel === 'cod' && fresh.status !== 'unpaid') {
+        const { settleBilledReversal } = await import('./billing.service');
+        await settleBilledReversal(rev!.toObject() as CommissionEntryLean, at, session);
+      }
+      return true;
     });
-    return true;
   } catch (err) {
     if (isDuplicateKey(err)) return false;
     throw err;
@@ -172,7 +190,7 @@ export async function syncOrderReversals(orderId: Types.ObjectId | string): Prom
     ]);
     if (!order) return 0;
     const done = new Set(reversals.map((r) => r.ref));
-    let remaining = charge.amount + reversals.reduce((s, r) => s + r.amount, 0);
+    const remaining = charge.amount + reversals.reduce((s, r) => s + r.amount, 0);
     const plans: (ReversalPlan & { at: Date })[] = [];
     for (const r of returns) {
       plans.push({ ref: `return:${String(r._id)}`, reason: 'return_refund', amount: returnReversalAmount(charge.amount, order, r.items), at: r.refund.at ?? new Date() });
@@ -184,12 +202,8 @@ export async function syncOrderReversals(orderId: Types.ObjectId | string): Prom
     let written = 0;
     for (const p of plans) {
       if (done.has(p.ref) || remaining <= 0) continue;
-      const amount = p.amount === 'rest' ? remaining : Math.min(p.amount, remaining);
-      if (amount <= 0) continue;
-      if (await writeReversal(charge, p, amount, p.at)) {
-        remaining -= amount;
-        written++;
-      }
+      if (p.amount !== 'rest' && p.amount <= 0) continue;
+      if (await writeReversal(charge, p, p.at)) written++;
     }
     return written;
   } catch (err) {
@@ -200,21 +214,43 @@ export async function syncOrderReversals(orderId: Types.ObjectId | string): Prom
 
 /**
  * Re-derives missing charges and reversals for a store (or every store when omitted). The hooks on
- * delivery / refund / cancel do the real work; this is the safety net. The global (sweep) pass only looks
- * at orders and returns touched in the last `windowDays` so it stays fast on large databases.
+ * delivery / refund / cancel do the real work; this is the safety net.
+ * - Global (sweep) pass: only orders and returns touched in the last `windowDays` (indexed on updatedAt).
+ * - Per-store pass: incremental from the store's high-water mark `Subscription.commissionSyncedAt` (minus a
+ *   1 h overlap), full only the first time (code review M6).
+ * Stops early (and leaves the high-water mark alone) once `deadline` (epoch ms) passes.
  */
-export async function syncCommissions(storeId?: Types.ObjectId, windowDays = 45): Promise<{ charges: number; reversals: number }> {
-  const scope = storeId ? { storeId } : { updatedAt: { $gte: new Date(Date.now() - windowDays * 86_400_000) } };
+export async function syncCommissions(storeId?: Types.ObjectId, windowDays = 45, deadline = Infinity): Promise<{ charges: number; reversals: number }> {
+  const started = new Date();
+  let scope: Record<string, unknown>;
+  if (storeId) {
+    const sub = await Subscription.findOne({ storeId }).select('commissionSyncedAt').lean();
+    scope = sub?.commissionSyncedAt ? { storeId, updatedAt: { $gte: new Date(sub.commissionSyncedAt.getTime() - 3600_000) } } : { storeId };
+  } else scope = { updatedAt: { $gte: new Date(Date.now() - windowDays * 86_400_000) } };
   let charges = 0;
   let reversals = 0;
-  const delivered = await Order.find({ ...scope, channel: { $ne: 'pos' }, status: { $in: RECOGNIZABLE }, 'timeline.status': 'delivered' }).select('_id').lean();
+  let complete = true;
+  const delivered = await Order.find({ ...scope, channel: { $ne: 'pos' }, status: { $in: RECOGNIZABLE }, 'timeline.status': 'delivered' }).select('_id status').lean();
   const deliveredIds = delivered.map((o) => o._id);
   const known = new Set((await CommissionEntry.find({ orderId: { $in: deliveredIds }, kind: 'charge' }).select('orderId').lean()).map((c) => String(c.orderId)));
-  for (const o of delivered) if (!known.has(String(o._id)) && (await recognizeCommission(o._id))) charges++;
+  for (const o of delivered) {
+    if (Date.now() > deadline) {
+      complete = false;
+      break;
+    }
+    if (!known.has(String(o._id)) && (await recognizeCommission(o._id))) charges++;
+  }
 
-  const chargedIds = deliveredIds;
-  const refundedOrders = await ReturnRequest.distinct('orderId', { ...scope, status: 'refunded', orderId: { $in: chargedIds } });
-  const cancelled = await Order.distinct('_id', { _id: { $in: chargedIds }, status: 'cancelled' });
-  for (const id of new Set([...refundedOrders, ...cancelled].map(String))) reversals += await syncOrderReversals(id);
+  // Refunded returns in scope (their order may be older than the window) and cancels after delivery.
+  const refundedOrders = await ReturnRequest.distinct('orderId', { ...scope, status: 'refunded' });
+  const cancelled = delivered.filter((o) => o.status === 'cancelled').map((o) => o._id);
+  for (const id of new Set([...refundedOrders, ...cancelled].map(String))) {
+    if (Date.now() > deadline) {
+      complete = false;
+      break;
+    }
+    reversals += await syncOrderReversals(id);
+  }
+  if (storeId && complete) await Subscription.updateOne({ storeId }, { $set: { commissionSyncedAt: started } });
   return { charges, reversals };
 }

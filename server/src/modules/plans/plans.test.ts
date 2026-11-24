@@ -77,6 +77,12 @@ describe('plan upgrade requests', () => {
     await User.updateOne({ email: admin.email }, { $set: { platformRole: 'ADMIN' } });
     res = await admin.agent.get(api('/admin/plan-requests?status=pending'));
     expect(res.body.data.some((r: { id: string }) => r.id === id)).toBe(true);
+    // Security review H2: ADMIN (stores.manage, billing view only) cannot comp a paid plan.
+    res = await admin.agent.patch(api(`/admin/plan-requests/${id}`)).send({ status: 'approved' });
+    expect(res.status).toBe(403);
+    expect((await admin.agent.patch(api(`/admin/stores/${String(s.store._id)}/plan`)).send({ plan: 'premium' })).status).toBe(403);
+    expect((await Store.findById(s.store._id).lean())!.plan).toBe('free');
+    await User.updateOne({ email: admin.email }, { $set: { platformRole: 'FINANCE' } });
     res = await admin.agent.patch(api(`/admin/plan-requests/${id}`)).send({ status: 'approved' });
     expect(res.status).toBe(200);
     expect((await Store.findById(s.store._id).lean())!.plan).toBe('premium');

@@ -3,9 +3,10 @@ import { Schema, Types, model } from 'mongoose';
 /**
  * Billing (docs/api-billing.md): `invoice_payment` (debit, pay an invoice from balance), `commission_credit`
  * (credit, reversal of COD commission already billed), `balance_transfer` (credit, a negative balance moved onto
- * a monthly invoice as `balance_recovery`).
+ * a monthly invoice as `balance_recovery`), `plan_credit` (credit, unused paid time of the old plan on an upgrade
+ * when it could not be credited on the upgrade invoice itself).
  */
-export const LEDGER_TYPES = ['sale', 'refund', 'payout', 'payout_reversal', 'invoice_payment', 'commission_credit', 'balance_transfer'] as const;
+export const LEDGER_TYPES = ['sale', 'refund', 'payout', 'payout_reversal', 'invoice_payment', 'commission_credit', 'balance_transfer', 'plan_credit'] as const;
 export type LedgerType = (typeof LEDGER_TYPES)[number];
 
 /**

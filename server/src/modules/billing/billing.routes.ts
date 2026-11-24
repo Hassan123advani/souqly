@@ -5,6 +5,7 @@ import {
   billingPaymentListQuerySchema,
   changePlanSchema,
   commissionListQuerySchema,
+  emptyBodySchema,
   invoiceListQuerySchema,
   objectIdSchema,
   payInvoiceSchema,
@@ -17,6 +18,7 @@ import { AppError } from '../../lib/AppError';
 import { asyncHandler } from '../../lib/asyncHandler';
 import { logger } from '../../lib/logger';
 import { requireAuth } from '../../middleware/auth';
+import { forbidImpersonatedWrites } from '../../middleware/impersonation';
 import { requirePermission } from '../../middleware/permissions';
 import { storeContext } from '../../middleware/storeContext';
 import { validate } from '../../middleware/validate';
@@ -34,7 +36,8 @@ import { renderBillingInvoice } from './pdf';
  * so a suspended seller can always see and pay dues.
  */
 export const sellerBillingRouter = Router();
-sellerBillingRouter.use(requireAuth, storeContext);
+// Impersonating admins can view billing but never change plans or pay (security review H1).
+sellerBillingRouter.use(requireAuth, forbidImpersonatedWrites, storeContext);
 const VIEW = requirePermission(PERMISSIONS.STORE_FINANCE_VIEW);
 const MANAGE = requirePermission(PERMISSIONS.STORE_FINANCE_MANAGE);
 const idParams = z.object({ id: objectIdSchema });
@@ -56,9 +59,10 @@ sellerBillingRouter.post(
 sellerBillingRouter.post(
   '/cancel',
   MANAGE,
+  validate({ body: emptyBodySchema }),
   asyncHandler(async (req, res) => res.json({ data: await changePlan(req, 'free') })),
 );
-sellerBillingRouter.delete('/scheduled-change', MANAGE, asyncHandler(async (req, res) => res.json({ data: await cancelScheduledChange(req) })));
+sellerBillingRouter.delete('/scheduled-change', MANAGE, validate({ body: emptyBodySchema }), asyncHandler(async (req, res) => res.json({ data: await cancelScheduledChange(req) })));
 
 sellerBillingRouter.get(
   '/invoices',

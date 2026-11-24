@@ -149,8 +149,45 @@ async function liftOverdueSuspension(storeId: Types.ObjectId, session: ClientSes
   return true;
 }
 
-/** Applies a paid upgrade: new plan with a fresh monthly period starting now. */
+/**
+ * Applies a paid upgrade: new plan with a fresh monthly period starting now (code review H1). The old plan's
+ * current period is superseded, so its unused part is settled exactly once:
+ * - its renewal invoice is still open/overdue → the unused share of its subscription line is waived on it;
+ * - it was paid (or grandfathered) but the upgrade invoice carried no credit for it (e.g. the renewal was paid
+ *   after the upgrade invoice was issued, or the period rolled over) → the difference is credited to the
+ *   seller balance (`plan_credit`).
+ */
 async function applyUpgrade(inv: InvoiceLean, now: Date, session: ClientSession) {
+  const sub = await Subscription.findOne({ storeId: inv.storeId }).session(session).lean<SubscriptionLean>();
+  if (sub && sub.currentPeriodEnd > now) {
+    const oldPlan = normalizePlan(sub.plan);
+    const fee = PLANS[oldPlan].priceMinor;
+    const unused = unusedCredit(fee, sub.currentPeriodStart, sub.currentPeriodEnd, now);
+    // Credit already given on this upgrade invoice for this very period.
+    const given = -inv.lines.filter((l) => l.type === 'proration_credit' && l.periodStart && new Date(l.periodStart).getTime() === sub.currentPeriodStart.getTime()).reduce((s, l) => s + l.amount, 0);
+    let owed = Math.max(0, unused - given);
+    if (owed > 0) {
+      const renewal = await Invoice.findOne({ storeId: inv.storeId, kind: 'renewal', periodStart: sub.currentPeriodStart, status: { $in: ['open', 'overdue'] } }).session(session).lean<InvoiceLean>();
+      if (renewal) {
+        const subLine = renewal.lines.filter((l) => l.type === 'subscription').reduce((s, l) => s + l.amount, 0);
+        const waive = Math.min(owed, subLine, amountDue(renewal));
+        if (waive > 0) {
+          const r = await Invoice.updateOne(
+            { _id: renewal._id, status: renewal.status, amountPaid: renewal.amountPaid, amountWaived: renewal.amountWaived },
+            { $inc: { amountWaived: waive } },
+            { session },
+          );
+          if (!r.modifiedCount) throw new AppError(409, 'INVOICE_CHANGED', 'An invoice changed while applying the upgrade. Please try again.');
+          await BillingAdjustment.create([{ storeId: inv.storeId, type: 'waiver', invoiceId: renewal._id, amount: waive, reason: `Unused ${PLANS[oldPlan].name} time superseded by upgrade ${inv.number}`, meta: { upgradeInvoice: inv.number, system: true } }], { session });
+          owed -= waive;
+          if (amountDue({ ...renewal, amountWaived: renewal.amountWaived + waive }) === 0) await finalizeInvoice(renewal._id, now, session);
+        }
+      } else if (await periodWasPaid(inv.storeId, sub, session)) {
+        await SellerLedger.create([{ storeId: inv.storeId, type: 'plan_credit', amount: owed, ref: `plan_credit:${String(inv._id)}`, invoiceId: inv._id, availableAt: now, at: now, demo: !!sub.demo }], { session });
+        owed = 0;
+      }
+    }
+  }
   await Subscription.updateOne(
     { storeId: inv.storeId },
     { $set: { plan: inv.plan, currentPeriodStart: now, currentPeriodEnd: addMonths(now, 1), anchorDay: now.getUTCDate(), scheduledChange: null } },
@@ -181,9 +218,7 @@ export async function addToInvoice(invoiceId: Types.ObjectId, add: { paid?: numb
   if (!updated) throw new AppError(409, 'INVOICE_CHANGED', 'This invoice was just updated. Please refresh and try again.');
   if (amountDue(updated) > 0) return { settled: false, lifted: false, upgraded: false, invoice: updated };
 
-  const status = updated.amountPaid > 0 ? 'paid' : 'waived';
-  const final = (await Invoice.findOneAndUpdate({ _id: updated._id }, { $set: { status, paidAt: now } }, { new: true, session }).lean<InvoiceLean>())!;
-  await CommissionEntry.updateMany({ invoiceId: updated._id, status: 'invoiced' }, { $set: { status: status === 'paid' ? 'paid' : 'waived', settledAt: now } }, { session });
+  const final = await finalizeInvoice(updated._id, now, session);
   let upgraded = false;
   if (updated.kind === 'upgrade') {
     await applyUpgrade(updated, now, session);
@@ -191,6 +226,29 @@ export async function addToInvoice(invoiceId: Types.ObjectId, add: { paid?: numb
   }
   const lifted = await liftOverdueSuspension(updated.storeId, session);
   return { settled: true, lifted, upgraded, invoice: final };
+}
+
+/**
+ * Marks a fully settled invoice paid/waived, settles its commission entries and cancels any other payment
+ * attempt still pending on it (code review M11: a manual claim must not linger in the admin queue holding
+ * its reference lock). Must run inside withTx.
+ */
+async function finalizeInvoice(invoiceId: Types.ObjectId, now: Date, session: ClientSession): Promise<InvoiceLean> {
+  const cur = (await Invoice.findById(invoiceId).session(session).lean<InvoiceLean>())!;
+  const status = cur.amountPaid > 0 ? 'paid' : 'waived';
+  const final = (await Invoice.findOneAndUpdate({ _id: invoiceId }, { $set: { status, paidAt: now } }, { new: true, session }).lean<InvoiceLean>())!;
+  await CommissionEntry.updateMany({ invoiceId, status: 'invoiced' }, { $set: { status: status === 'paid' ? 'paid' : 'waived', settledAt: now } }, { session });
+  await BillingPayment.updateMany({ invoiceId, status: 'pending' }, { $set: { status: 'cancelled', reviewNote: `Invoice ${status} another way` }, $unset: { refLock: 1 } }, { session });
+  return final;
+}
+
+/** True when the store's current period was paid for (renewal paid) or grandfathered (no renewal and no admin comp). */
+async function periodWasPaid(storeId: Types.ObjectId, sub: SubscriptionLean, session: ClientSession): Promise<boolean> {
+  const periodInvoice = await Invoice.findOne({ storeId, kind: 'renewal', periodStart: sub.currentPeriodStart }).session(session).lean<InvoiceLean>();
+  if (periodInvoice) return periodInvoice.status === 'paid';
+  // No renewal for this period: grandfathered (first period) unless Souqly comped the plan (code review L3).
+  const comped = await BillingAdjustment.exists({ storeId, type: 'plan_change', createdAt: { $gte: sub.currentPeriodStart } }).session(session);
+  return !comped;
 }
 
 /** Post-commit side effects of a settlement (never inside the transaction: it may retry). */
@@ -214,6 +272,53 @@ export async function afterSettlement(r: SettleResult, req?: Request) {
 // ---------------- monthly cycle ----------------
 type RenewOutcome = { invoice?: InvoiceLean; advanced: boolean; credited: number };
 
+/** Minimum days a seller gets to pay a renewal, even one issued late (catch-up after downtime; code review M3). */
+export const MIN_NOTICE_DAYS = 3;
+export const renewalDueDate = (cutoff: Date, graceDays: number, now: Date) => new Date(Math.max(addDays(cutoff, graceDays).getTime(), addDays(now, MIN_NOTICE_DAYS).getTime()));
+
+/**
+ * A reversal whose charge was billed on an earlier invoice (code review H2): money only goes back for
+ * commission the seller actually paid.
+ * - charge `paid` → credit the seller balance (`commission_credit`);
+ * - charge `waived` → nothing was paid: the reversal is `waived`;
+ * - charge still `invoiced` (invoice open/overdue) → the open invoice is lowered by the reversal (a negative
+ *   commission line); any part the invoice can no longer absorb (already partly paid) is credited.
+ * Must run inside withTx (under the store finance lock).
+ */
+export async function settleBilledReversal(rev: CommissionEntryLean, now: Date, session: ClientSession): Promise<void> {
+  const charge = rev.chargeId ? await CommissionEntry.findById(rev.chargeId).session(session).lean<CommissionEntryLean>() : null;
+  const amount = -rev.amount;
+  if (!charge || amount <= 0) return;
+  if (charge.status === 'waived') {
+    await CommissionEntry.updateOne({ _id: rev._id }, { $set: { status: 'waived', settledAt: now } }, { session });
+    return;
+  }
+  if (charge.status === 'invoiced' && charge.invoiceId) {
+    const inv = await Invoice.findById(charge.invoiceId).session(session).lean<InvoiceLean>();
+    if (inv && (inv.status === 'open' || inv.status === 'overdue')) {
+      const lower = Math.min(amount, amountDue(inv));
+      if (lower > 0) {
+        const r = await Invoice.updateOne(
+          { _id: inv._id, status: inv.status, total: inv.total, amountPaid: inv.amountPaid, amountWaived: inv.amountWaived },
+          { $inc: { total: -lower }, $push: { lines: { type: 'commission', description: `Commission reversal ${rev.orderNumber}`, amount: -lower, entries: 1 } } },
+          { session },
+        );
+        if (!r.modifiedCount) throw new AppError(409, 'INVOICE_CHANGED', 'Invoice changed while applying a commission reversal');
+        await CommissionEntry.updateOne({ _id: rev._id }, { $set: { status: 'paid', invoiceId: inv._id, settledAt: now } }, { session });
+        if (amountDue({ ...inv, total: inv.total - lower }) === 0) await finalizeInvoice(inv._id, now, session);
+      }
+      if (amount - lower > 0) await creditCommissionBack(rev.storeId, rev._id, rev.ref, amount - lower, now, rev.orderId, rev.orderNumber, session, !!rev.demo);
+      return;
+    }
+    // The invoice was settled meanwhile: fall through by its outcome.
+    if (inv?.status === 'waived') {
+      await CommissionEntry.updateOne({ _id: rev._id }, { $set: { status: 'waived', settledAt: now } }, { session });
+      return;
+    }
+  }
+  await creditCommissionBack(rev.storeId, rev._id, rev.ref, amount, now, rev.orderId, rev.orderNumber, session, !!rev.demo);
+}
+
 /** Issues the renewal invoice for one ended period and advances the subscription (one transaction). */
 async function renewOnce(storeId: Types.ObjectId, now: Date, graceDays: number): Promise<RenewOutcome> {
   return withTx(async (session) => {
@@ -233,8 +338,8 @@ async function renewOnce(storeId: Types.ObjectId, now: Date, graceDays: number):
     let credited = 0;
     for (const e of unpaid) {
       if (e.kind === 'reversal' && !chargeIds.has(String(e.chargeId))) {
-        // Its charge was already billed on an earlier invoice → give it back to the balance instead.
-        await creditCommissionBack(storeId, e._id, e.ref, -e.amount, now, e.orderId, e.orderNumber, session, !!e.demo);
+        // Its charge was billed on an earlier invoice: settle by what happened to that charge (code review H2).
+        await settleBilledReversal(e, now, session);
         credited++;
       } else batch.push(e);
     }
@@ -242,9 +347,11 @@ async function renewOnce(storeId: Types.ObjectId, now: Date, graceDays: number):
     const fee = PLANS[nextPlan].priceMinor;
 
     // A negative seller balance (COD refunds Souqly paid to buyers) is recovered on the invoice.
+    // On-hold sale credits will cover part of it, so only the truly negative balance is billed (code review L4).
     const rows = await SellerLedger.find({ storeId }).select('type amount availableAt').session(session).lean();
-    const available = computeBalance(rows, now).available;
-    const recovery = available < 0 ? -available : 0;
+    const bal = computeBalance(rows, now);
+    const net = bal.available + bal.onHold;
+    const recovery = net < 0 ? -net : 0;
 
     const lines: IInvoiceLine[] = [];
     if (fee > 0) lines.push({ type: 'subscription', description: `${PLANS[nextPlan].name} plan (monthly)`, amount: fee, plan: nextPlan, periodStart: nextStart, periodEnd: nextEnd });
@@ -255,7 +362,7 @@ async function renewOnce(storeId: Types.ObjectId, now: Date, graceDays: number):
     let invoice: InvoiceLean | undefined;
     if (total > 0) {
       const [created] = await Invoice.create(
-        [{ _id: invoiceId, storeId, number: newInvoiceNumber(now), kind: 'renewal', status: 'open', plan: nextPlan, periodStart: nextStart, periodEnd: nextEnd, lines, total, issuedAt: now, dueDate: addDays(cutoff, graceDays), demo: sub.demo }],
+        [{ _id: invoiceId, storeId, number: newInvoiceNumber(now), kind: 'renewal', status: 'open', plan: nextPlan, periodStart: nextStart, periodEnd: nextEnd, lines, total, issuedAt: now, dueDate: renewalDueDate(cutoff, graceDays, now), demo: sub.demo }],
         { session },
       );
       invoice = created!.toObject() as InvoiceLean;
@@ -270,6 +377,9 @@ async function renewOnce(storeId: Types.ObjectId, now: Date, graceDays: number):
       // Reversals fully offset their charges: nothing to bill, the pair is settled.
       await CommissionEntry.updateMany({ _id: { $in: batch.map((e) => e._id) }, status: 'unpaid' }, { $set: { status: 'paid', settledAt: now } }, { session });
     }
+    // An upgrade invoice priced against the period that just ended is stale (its proration no longer applies):
+    // void it; the seller re-requests the upgrade at the new period's price (code review H1).
+    await Invoice.updateMany({ storeId, kind: 'upgrade', status: 'open', issuedAt: { $lt: cutoff } }, { $set: { status: 'void', voidedAt: now, voidReason: 'period_ended' } }, { session });
     await Subscription.updateOne({ storeId }, { $set: { plan: nextPlan, currentPeriodStart: nextStart, currentPeriodEnd: nextEnd, scheduledChange: null } }, { session });
     await Store.updateOne({ _id: storeId }, { $set: { plan: nextPlan } }, { session });
     return { invoice, advanced: true, credited };
@@ -295,40 +405,68 @@ export async function processStoreCycle(storeId: Types.ObjectId, now = new Date(
   return { issued, advanced };
 }
 
-/** Suspends a store for billing (idempotent; never touches moderation `status`). */
+/**
+ * Suspends a store for billing (idempotent; never touches moderation `status`). An admin hold takes
+ * precedence over an overdue suspension (code review H3): it replaces the `overdue` reason, so paying the
+ * overdue invoice no longer lifts it — only an admin reactivation does.
+ */
 export async function suspendForBilling(storeId: Types.ObjectId, s: { reason: 'overdue' | 'admin'; invoiceId?: Types.ObjectId; note?: string; by?: Types.ObjectId }, session?: ClientSession): Promise<boolean> {
   const r = await Store.updateOne(
-    { _id: storeId, billingStatus: { $ne: 'suspended' } },
+    s.reason === 'admin' ? { _id: storeId, $or: [{ billingStatus: { $ne: 'suspended' } }, { 'billingSuspension.reason': 'overdue' }] } : { _id: storeId, billingStatus: { $ne: 'suspended' } },
     { $set: { billingStatus: 'suspended', billingSuspension: { reason: s.reason, invoiceId: s.invoiceId ?? null, ...(s.note ? { note: s.note } : {}), at: new Date(), by: s.by ?? null } } },
     session ? { session } : {},
   );
   return r.modifiedCount === 1;
 }
 
-/** Marks open invoices past due: renewal → overdue + billing suspension; upgrade → void (plan unchanged). */
-export async function markOverdue(now = new Date()): Promise<{ overdue: number; suspended: number; voided: number }> {
-  const out = { overdue: 0, suspended: 0, voided: 0 };
-  const due = await Invoice.find({ status: 'open', dueDate: { $lt: now } }).select('storeId kind number').lean<InvoiceLean[]>();
+/**
+ * Marks open invoices past due: renewal -> overdue + billing suspension; upgrade -> void (plan unchanged).
+ * Each invoice is handled in its own transaction under the store finance lock, re-checked there, so a payment
+ * settling the invoice at the same moment can never leave the store suspended without an overdue invoice
+ * (security review L3, code review M2). Side effects (audit, notifications) run after commit.
+ */
+export async function markOverdue(now = new Date(), deadline = Infinity): Promise<{ overdue: number; suspended: number; voided: number; more: number }> {
+  const out = { overdue: 0, suspended: 0, voided: 0, more: 0 };
+  const due = await Invoice.find({ status: 'open', dueDate: { $lt: now } }).sort({ dueDate: 1 }).select('storeId kind number').limit(2000).lean<InvoiceLean[]>();
   for (const inv of due) {
-    if (inv.kind === 'upgrade') {
-      if (await BillingPayment.exists({ invoiceId: inv._id, status: 'pending', method: 'manual' })) continue; // wait for the admin review
-      const r = await Invoice.updateOne({ _id: inv._id, status: 'open' }, { $set: { status: 'void', voidedAt: now, voidReason: 'expired' } });
-      if (r.modifiedCount) out.voided++;
-      continue;
+    if (Date.now() > deadline) {
+      out.more = 1;
+      break;
     }
-    const r = await Invoice.updateOne({ _id: inv._id, status: 'open' }, { $set: { status: 'overdue', overdueAt: now } });
-    if (!r.modifiedCount) continue;
-    out.overdue++;
-    const owner = await storeOwner(inv.storeId);
-    if (await suspendForBilling(inv.storeId, { reason: 'overdue', invoiceId: inv._id })) {
-      out.suspended++;
-      invalidateStoreIndex();
-      await audit({ action: 'billing.store_suspended', actorRole: 'system', targetType: 'Store', targetId: inv.storeId, storeId: inv.storeId, meta: { reason: 'overdue', invoice: inv.number } });
-      notifyOwner(owner?.ownerId, 'billing.suspended', 'Store hidden: invoice overdue', `Invoice ${inv.number} is overdue. Pay it to make your store visible again.`);
-    } else {
-      notifyOwner(owner?.ownerId, 'billing.overdue', 'Invoice overdue', `Invoice ${inv.number} is overdue.`);
+    try {
+      await ensureSubscription(inv.storeId);
+      const r = await withTx(async (session) => {
+        await lockStoreFinance(inv.storeId, session);
+        const fresh = await Invoice.findOne({ _id: inv._id, status: 'open', dueDate: { $lt: now } }).session(session).lean<InvoiceLean>();
+        if (!fresh || amountDue(fresh) <= 0) return null;
+        if (fresh.kind === 'upgrade') {
+          if (await BillingPayment.exists({ invoiceId: fresh._id, status: 'pending', method: 'manual' }).session(session)) return null; // wait for the admin review
+          await Invoice.updateOne({ _id: fresh._id, status: 'open' }, { $set: { status: 'void', voidedAt: now, voidReason: 'expired' } }, { session });
+          return 'voided' as const;
+        }
+        await Invoice.updateOne({ _id: fresh._id, status: 'open' }, { $set: { status: 'overdue', overdueAt: now } }, { session });
+        return (await suspendForBilling(inv.storeId, { reason: 'overdue', invoiceId: fresh._id }, session)) ? ('suspended' as const) : ('overdue' as const);
+      });
+      if (!r) continue;
+      if (r === 'voided') {
+        out.voided++;
+        continue;
+      }
+      out.overdue++;
+      const owner = await storeOwner(inv.storeId);
+      if (r === 'suspended') {
+        out.suspended++;
+        invalidateStoreIndex();
+        await audit({ action: 'billing.store_suspended', actorRole: 'system', targetType: 'Store', targetId: inv.storeId, storeId: inv.storeId, meta: { reason: 'overdue', invoice: inv.number } });
+        notifyOwner(owner?.ownerId, 'billing.suspended', 'Store hidden: invoice overdue', `Invoice ${inv.number} is overdue. Pay it to make your store visible again.`);
+      } else {
+        notifyOwner(owner?.ownerId, 'billing.overdue', 'Invoice overdue', `Invoice ${inv.number} is overdue.`);
+      }
+    } catch (err) {
+      logger.error({ err, invoice: inv.number }, 'Marking invoice overdue failed (retried next sweep)');
     }
   }
+  if (due.length === 2000) out.more = 1;
   return out;
 }
 
@@ -376,10 +514,11 @@ export async function createUpgradeInvoice(storeId: Types.ObjectId, target: Stor
   const fee = PLANS[current].priceMinor;
   if (fee > 0) {
     // Credit only time that was actually paid for (or grandfathered): an unpaid renewal of this period gives no credit.
-    const periodInvoice = await Invoice.findOne({ storeId, kind: 'renewal', periodStart: sub.currentPeriodStart }).session(session).lean<InvoiceLean>();
-    const paid = !periodInvoice || periodInvoice.status === 'paid' || periodInvoice.status === 'waived';
+    // Only time that was actually paid for (or grandfathered) earns a credit: an unpaid/waived renewal or an admin-comped
+    // plan gives none (code review L3). If the renewal is paid later, applyUpgrade settles the difference.
+    const paid = await periodWasPaid(storeId, sub, session);
     const credit = paid ? unusedCredit(fee, sub.currentPeriodStart, sub.currentPeriodEnd, now) : 0;
-    if (credit > 0) lines.push({ type: 'proration_credit', description: `Unused ${PLANS[current].name} time until ${sub.currentPeriodEnd.toISOString().slice(0, 10)}`, amount: -credit, plan: current });
+    if (credit > 0) lines.push({ type: 'proration_credit', description: `Unused ${PLANS[current].name} time until ${sub.currentPeriodEnd.toISOString().slice(0, 10)}`, amount: -credit, plan: current, periodStart: sub.currentPeriodStart, periodEnd: sub.currentPeriodEnd });
   }
   const total = Math.max(0, lines.reduce((s, l) => s + l.amount, 0));
   const [inv] = await Invoice.create(
@@ -411,24 +550,32 @@ export async function changePlan(req: Request, target: StorePlan): Promise<Chang
       throw err;
     });
     await audit({ action: 'billing.upgrade_requested', targetType: 'Invoice', targetId: inv._id, meta: { from: current, plan: target, total: inv.total, number: inv.number }, req });
-    let result = { settled: false } as Partial<SettleResult>;
+    let settled = false;
     if (inv.total === 0) {
-      // Fully covered by credit: activate right away.
-      result = await withTx((session) => addToInvoice(inv._id, { waived: 0, paid: 0 }, now, session)).catch(() => ({ settled: false }));
+      // Fully covered by credit: activate right away (code review L1: errors surface, side effects run).
+      const result = await withTx(async (session) => {
+        await lockStoreFinance(storeId, session);
+        return addToInvoice(inv._id, {}, now, session);
+      });
+      await afterSettlement(result, req);
+      settled = result.settled;
     }
-    return { subscription: await subscriptionDTO(storeId), invoice: invoiceDTO((await Invoice.findById(inv._id).lean<InvoiceLean>())!), effective: result.settled ? ('now' as const) : ('on_payment' as const) };
+    return { subscription: await subscriptionDTO(storeId), invoice: invoiceDTO((await Invoice.findById(inv._id).lean<InvoiceLean>())!), effective: settled ? ('now' as const) : ('on_payment' as const) };
   }
 
-  await withTx(async (session) => {
+  // The period end is read inside the locked transaction so a concurrent renewal can't make it stale (code review L2).
+  const effectiveAt = await withTx(async (session) => {
     await lockStoreFinance(storeId, session);
+    const fresh = (await Subscription.findOne({ storeId }).session(session).lean<SubscriptionLean>())!;
     await voidOpenUpgrade(storeId, 'cancelled', now, session);
     await Subscription.updateOne(
       { storeId },
-      { $set: { scheduledChange: { plan: target, effectiveAt: sub.currentPeriodEnd, kind: target === 'free' ? 'cancel' : 'downgrade', requestedBy: oid(req.user!.id), requestedAt: now } } },
+      { $set: { scheduledChange: { plan: target, effectiveAt: fresh.currentPeriodEnd, kind: target === 'free' ? 'cancel' : 'downgrade', requestedBy: oid(req.user!.id), requestedAt: now } } },
       { session },
     );
+    return fresh.currentPeriodEnd;
   });
-  await audit({ action: target === 'free' ? 'billing.cancel_scheduled' : 'billing.downgrade_scheduled', targetType: 'Store', targetId: storeId, meta: { from: current, plan: target, effectiveAt: sub.currentPeriodEnd }, req });
+  await audit({ action: target === 'free' ? 'billing.cancel_scheduled' : 'billing.downgrade_scheduled', targetType: 'Store', targetId: storeId, meta: { from: current, plan: target, effectiveAt }, req });
   return { subscription: await subscriptionDTO(storeId), invoice: null, effective: 'period_end' as const };
 }
 
@@ -487,7 +634,8 @@ export async function adminExtend(req: Request, storeId: Types.ObjectId, days: n
     await lockStoreFinance(storeId, session);
     const sub = (await Subscription.findOne({ storeId }).session(session).lean<SubscriptionLean>())!;
     const end = addDays(sub.currentPeriodEnd, days);
-    await Subscription.updateOne({ storeId }, { $set: { currentPeriodEnd: end, ...(sub.scheduledChange ? { 'scheduledChange.effectiveAt': end } : {}) } }, { session });
+    // Re-anchor on the new end date so later periods stay one month long (code review M1).
+    await Subscription.updateOne({ storeId }, { $set: { currentPeriodEnd: end, anchorDay: end.getUTCDate(), ...(sub.scheduledChange ? { 'scheduledChange.effectiveAt': end } : {}) } }, { session });
     await BillingAdjustment.create([{ storeId, type: 'extension', amount: 0, reason, by: oid(req.user!.id), meta: { days, from: sub.currentPeriodEnd, to: end } }], { session });
   });
   await audit({ action: 'admin.billing_extended', targetType: 'Store', targetId: storeId, storeId, meta: { days, reason }, req });
@@ -501,7 +649,7 @@ export async function adminSuspend(req: Request, storeId: Types.ObjectId, reason
     if (ok) await BillingAdjustment.create([{ storeId, type: 'suspension', amount: 0, reason, by: oid(req.user!.id) }], { session });
     return ok;
   });
-  if (!changed) throw new AppError(409, 'ALREADY_SUSPENDED', 'The store is already suspended for billing');
+  if (!changed) throw new AppError(409, 'ALREADY_SUSPENDED', 'The store is already on an admin billing hold');
   invalidateStoreIndex();
   await audit({ action: 'admin.billing_suspended', targetType: 'Store', targetId: storeId, storeId, meta: { reason }, req });
   const owner = await storeOwner(storeId);
@@ -542,21 +690,49 @@ export async function adminWaive(req: Request, invoiceId: Types.ObjectId, amount
   return invoiceDTO(r.invoice);
 }
 
-/** The daily sweep (cron registry + in-process timer). Idempotent; safe to run concurrently with itself. */
-export async function runBillingSweep(now = new Date()): Promise<Record<string, number>> {
-  const migrated = await migrateBilling();
+/** Time budget of one sweep call: Vercel functions stop at 60 s (security review M7, code review M8). */
+export const SWEEP_BUDGET_MS = 45_000;
+
+/**
+ * Enforcement first, on its own (cron `billing.enforce`, and at the start of every billing sweep): overdue
+ * invoices -> billing suspension, expired upgrades -> void. Cheap and bounded, so it can never be starved by
+ * the renewal work.
+ */
+export async function runBillingEnforcement(now = new Date(), budgetMs = SWEEP_BUDGET_MS): Promise<Record<string, number>> {
+  return markOverdue(now, Date.now() + budgetMs);
+}
+
+/**
+ * The daily billing sweep (cron registry + in-process timer). Idempotent; safe to run concurrently with
+ * itself. Time-boxed: enforcement runs first, then ended periods are renewed oldest-first until ~45 s have
+ * passed; `more: 1` means work is left and the next call (cron / timer) resumes from the oldest remaining
+ * period, so no store starves. The legacy-data migration runs on boot (server start and every serverless
+ * cold start), not here.
+ */
+export async function runBillingSweep(now = new Date(), budgetMs = SWEEP_BUDGET_MS): Promise<Record<string, number>> {
+  const deadline = Date.now() + budgetMs;
+  const enforced = await markOverdue(now, deadline);
   const { syncCommissions } = await import('./commission.service');
-  const synced = await syncCommissions();
+  const synced = Date.now() < deadline ? await syncCommissions(undefined, 45, deadline) : { charges: 0, reversals: 0 };
   // Every store gets a subscription (periods drive COD commission invoices even on Free).
-  const stores = await Store.find({ status: { $ne: 'rejected' } }).select('_id').lean();
-  const withSub = new Set((await Subscription.find({}).select('storeId').lean()).map((s) => String(s.storeId)));
-  for (const s of stores) if (!withSub.has(String(s._id))) await ensureSubscription(s._id, now);
+  const withSub = await Subscription.distinct('storeId');
+  const missing = await Store.find({ status: { $ne: 'rejected' }, _id: { $nin: withSub } }).select('_id').limit(1000).lean();
+  for (const s of missing) {
+    if (Date.now() > deadline) break;
+    await ensureSubscription(s._id, now);
+  }
   let issued = 0;
   let advanced = 0;
   let failed = 0;
-  const due = await Subscription.find({ currentPeriodEnd: { $lte: now } }).select('storeId').lean();
+  let more = enforced.more;
   const rejected = new Set((await Store.find({ status: 'rejected' }).select('_id').lean()).map((s) => String(s._id)));
-  for (const s of due) {
+  // Oldest period end first (fair ordering): a store left over by a timed-out run is first in line next time.
+  const due = Subscription.find({ currentPeriodEnd: { $lte: now } }).sort({ currentPeriodEnd: 1, _id: 1 }).select('storeId').lean().cursor();
+  for await (const s of due) {
+    if (Date.now() > deadline) {
+      more = 1;
+      break;
+    }
     if (rejected.has(String(s.storeId))) continue;
     try {
       // Ledger first (refund debits etc.) so a negative balance is recovered on the invoice.
@@ -569,8 +745,9 @@ export async function runBillingSweep(now = new Date()): Promise<Record<string, 
       logger.error({ err, storeId: String(s.storeId) }, 'Billing renewal failed for store');
     }
   }
-  const overdue = await markOverdue(now);
-  return { migratedPlans: migrated.plans, charges: synced.charges, reversals: synced.reversals, invoicesIssued: issued, periodsAdvanced: advanced, failed, ...overdue };
+  await due.close().catch(() => undefined);
+  // Invoices issued above are due no sooner than MIN_NOTICE_DAYS, so a second enforcement pass is not needed.
+  return { charges: synced.charges, reversals: synced.reversals, invoicesIssued: issued, periodsAdvanced: advanced, failed, overdue: enforced.overdue, suspended: enforced.suspended, voided: enforced.voided, more };
 }
 
 let jobsStarted = false;
@@ -580,7 +757,9 @@ export function startBillingJobs(): void {
   jobsStarted = true;
   const run = async () => {
     const r = await runBillingSweep();
-    logger.info({ result: r }, 'Billing sweep done');
+    const { releaseAffiliateCommissions } = await import('../affiliate/affiliate.service');
+    const aff = await releaseAffiliateCommissions();
+    logger.info({ result: r, affiliate: aff }, 'Billing sweep done');
   };
   getJobs().every('billing.daily', 6 * 3600_000, run);
   const t = setTimeout(() => void run().catch((err) => logger.error({ err }, 'Billing sweep failed')), 20_000);

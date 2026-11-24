@@ -6,15 +6,29 @@ import { applyBps } from '../utils/money';
  */
 export const PLATFORM_COMMISSION_BPS = 1500;
 
+/**
+ * Affiliate commission (Phase 10, flag `affiliateLinks`): 200 bps = 2% of the item value (items - promo -
+ * store voucher), paid to the affiliate's wallet once the order's return window has passed.
+ */
+export const AFFILIATE_BPS = 200;
+
+/**
+ * Highest shipping rate a seller may charge per order (Rs 1,500). Shipping is outside the commission base,
+ * so an inflated shipping fee would dodge commission: zone rates are capped at this value and any shipping
+ * above it (legacy settings) is added to the commission base (security review M2, D-091).
+ */
+export const SHIPPING_RATE_CAP_MINOR = 150_000;
+
 /** Default days after the billing cut-off before an invoice is overdue (admin setting `billing.graceDays`). */
 export const DEFAULT_BILLING_GRACE_DAYS = 7;
 
 /**
- * Commission split for one sub-order. `base` = product subtotal after seller-funded discounts
- * (shipping excluded; platform vouchers/coins do not reduce it). Rounded half-up (applyBps).
+ * Commission split for one sub-order. `base` = product subtotal after seller-funded discounts (platform
+ * vouchers/coins do not reduce it) plus any shipping above SHIPPING_RATE_CAP_MINOR; normal shipping is
+ * excluded. Rounded half-up (applyBps).
  */
 export function commissionSplit(base: number, shipping = 0): { base: number; bps: number; commission: number; sellerNet: number } {
-  const b = Math.max(0, Math.trunc(base));
+  const b = Math.max(0, Math.trunc(base)) + Math.max(0, Math.trunc(shipping) - SHIPPING_RATE_CAP_MINOR);
   const commission = applyBps(b, PLATFORM_COMMISSION_BPS);
   return { base: b, bps: PLATFORM_COMMISSION_BPS, commission, sellerNet: b + Math.max(0, shipping) - commission };
 }

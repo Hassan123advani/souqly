@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { asyncHandler } from '../../lib/asyncHandler';
 import { csvRow } from '../../lib/csv';
 import { requireAuth } from '../../middleware/auth';
+import { forbidImpersonatedWrites } from '../../middleware/impersonation';
 import { requirePermission } from '../../middleware/permissions';
 import { storeContext } from '../../middleware/storeContext';
 import { validate } from '../../middleware/validate';
@@ -13,7 +14,8 @@ import * as svc from './finance.service';
 
 /** Seller finance (`/seller/finance/*`). storeId comes ONLY from req.store. */
 export const sellerFinanceRouter = Router();
-sellerFinanceRouter.use(requireAuth, storeContext);
+// Impersonating admins can view finance but never request payouts (security review H1).
+sellerFinanceRouter.use(requireAuth, forbidImpersonatedWrites, storeContext);
 const VIEW = requirePermission(PERMISSIONS.STORE_FINANCE_VIEW);
 const MANAGE = requirePermission(PERMISSIONS.STORE_FINANCE_MANAGE);
 

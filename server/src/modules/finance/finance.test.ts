@@ -52,6 +52,8 @@ describe('seller finance API', () => {
     await ReturnRequest.create({ orderId: old._id, buyerId: old.buyerId, storeId, items: [], reason: 'damaged', status: 'refunded', refund: { method: 'wallet', amount: 150_000, at: new Date() }, timeline: [] }).catch(async () => {
       await ReturnRequest.collection.insertOne({ orderId: old._id, storeId, status: 'refunded', refund: { method: 'wallet', amount: 150_000, at: new Date() } });
     });
+    // Real refunds run the ledger hook; a direct DB write needs an explicit reconcile (reads are throttled).
+    await reconcileLedger(storeId);
     res = await s.agent.get(api('/seller/finance/summary'));
     expect(res.body.data).toMatchObject({ available: 255_000 - 127_500, refunds: 127_500 });
 
@@ -99,8 +101,9 @@ describe('seller finance API', () => {
     res = await s.agent.post(api('/seller/finance/payout-requests')).send({ amount: 200_000 });
     expect(res.body.error.code).toBe('INSUFFICIENT_BALANCE');
 
-    // Admin rejects → reversal credit appears on the next read.
+    // Admin rejects → reversal credit appears once the ledger is reconciled (reads are throttled).
     await Payout.updateOne({ storeId }, { $set: { status: 'rejected', rejectedAt: new Date() } });
+    await reconcileLedger(storeId);
     res = await s.agent.get(api('/seller/finance/summary'));
     expect(res.body.data.available).toBe(425_000);
     res = await s.agent.get(api('/seller/finance/transactions?limit=2'));

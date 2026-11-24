@@ -8,7 +8,7 @@ import { api, key, makeBuyer, makeItem, makeSeller } from '../orders/orderTestFi
 import { getBalance } from '../wallet/wallet.service';
 import { WalletTransaction } from '../wallet/walletTransaction.model';
 import { AffiliateCommission } from './affiliate.model';
-import { creditAffiliateOnDelivery } from './affiliate.service';
+import { creditAffiliateOnDelivery, releaseAffiliateCommissions } from './affiliate.service';
 
 beforeAll(async () => {
   await CommissionRule.create({ scope: 'global', bps: 1000 });
@@ -20,7 +20,7 @@ async function deliver(orderId: unknown) {
 }
 
 describe('affiliate links', () => {
-  it('builds a link with the user code; commission recorded at checkout and credited once on delivery', async () => {
+  it('builds a link with the user code; commission recorded at checkout and paid once after the return window', async () => {
     const s = await makeSeller('Aff Store');
     const item = await makeItem(s.store._id, 100_000, 10);
     const affiliate = await makeBuyer();
@@ -40,8 +40,16 @@ describe('affiliate links', () => {
     expect(c).toMatchObject({ base: 200_000, bps: 200, amount: 4_000, status: 'pending' });
 
     await deliver(order!._id);
-    expect((await AffiliateCommission.findById(c!._id).lean())!.status).toBe('credited');
+    // Delivery only schedules the payout after the return window (D-091); nothing is paid yet.
+    const scheduled = (await AffiliateCommission.findById(c!._id).lean())!;
+    expect(scheduled.status).toBe('pending');
+    expect(scheduled.releaseAt!.getTime()).toBeGreaterThan(Date.now());
     expect(await creditAffiliateOnDelivery(order!)).toBe(false); // second call is a no-op
+    expect(await releaseAffiliateCommissions()).toMatchObject({ credited: 0 }); // not due yet
+    const later = new Date(Date.now() + 61 * 86_400_000);
+    expect(await releaseAffiliateCommissions(later)).toMatchObject({ credited: 1 });
+    expect(await releaseAffiliateCommissions(later)).toMatchObject({ credited: 0 }); // idempotent
+    expect((await AffiliateCommission.findById(c!._id).lean())!.status).toBe('credited');
     expect(await WalletTransaction.countDocuments({ ref: `affiliate:${order!._id}` })).toBe(1);
     expect(await getBalance(String(affiliate.user._id))).toBe(4_000);
     const mine = await affiliate.agent.get(api('/affiliate/commissions'));

@@ -5,6 +5,7 @@ import { Seo } from '@/components/layout/Seo';
 import { StorePermGate } from '@/components/seller/growth/gates';
 import { SectionHeader } from '@/components/ui';
 import { cn } from '@/lib/cn';
+import { COMMISSION_PCT } from '@/lib/rates';
 
 const TABS = [
   { to: '/seller/billing', key: 'overview', end: true },
@@ -21,7 +22,7 @@ export default function BillingLayout() {
   return (
     <StorePermGate perm={PERMISSIONS.STORE_FINANCE_VIEW}>
       <Seo title={t('billing.nav')} noindex />
-      <SectionHeader as="h1" title={t('billing.nav')} description={t('billing.subtitle')} />
+      <SectionHeader as="h1" title={t('billing.nav')} description={t('billing.subtitle', { pct: COMMISSION_PCT })} />
       <nav aria-label={t('billing.nav')} className="-mx-4 mb-5 overflow-x-auto px-4 sm:mx-0 sm:px-0">
         <div className="flex w-max gap-1 border-b border-border">
           {TABS.map((tab) => (

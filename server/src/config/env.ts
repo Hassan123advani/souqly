@@ -146,6 +146,10 @@ export const envSchema = z
     }
     if (e.DEV_OTP_ECHO) issue('DEV_OTP_ECHO', 'DEV_OTP_ECHO must be off in production');
     if (e.TRUST_PROXY === true) issue('TRUST_PROXY', 'TRUST_PROXY=true trusts any X-Forwarded-For; use a hop count (e.g. 1) or proxy IPs');
+    if ((e.SERVERLESS ?? !!e.VERCEL) && (e.TRUST_PROXY === undefined || e.TRUST_PROXY === false)) {
+      // Behind Vercel's proxy every request would share the proxy's IP: per-IP limits would lock everyone out at once.
+      issue('TRUST_PROXY', 'TRUST_PROXY must be set (hop count, e.g. 1 on Vercel) when running serverless in production');
+    }
   });
 
 export type ParsedEnv = z.infer<typeof envSchema>;

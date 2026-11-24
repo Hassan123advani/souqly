@@ -1,9 +1,9 @@
 import { useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueries, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-import { PERMISSIONS, type OrderDTO } from '@souqly/shared';
+import { PERMISSIONS, STORE_ROLE_PERMISSIONS, type OrderDTO } from '@souqly/shared';
 import { useMe } from '@/api/auth';
 import { api } from '@/api/client';
 import { useRealtime } from '@/api/config';
@@ -31,38 +31,67 @@ function useOrderSoundSync() {
 }
 
 const POLL_MS = 20_000;
+/** Upper bound on stores polled at once (one request per store every POLL_MS). */
+const MAX_POLLED_STORES = 5;
 /** Order ids already seen per store, kept across remounts so a polled order alerts only once. */
 const seenByStore = new Map<string, Set<string>>();
 
+type MemberStore = { id: string; role: string; status: string };
+
 /**
- * Polling fallback (no realtime): fetches the active store's latest orders every ~20 s and alerts
- * for ids not seen before. The first response is only a baseline (existing orders never chime).
+ * Stores whose orders this member may read. The active store uses its resolved permissions
+ * (covers custom roles); other stores use the built-in role's permissions (custom roles there are
+ * unknown, so they are skipped). Suspended / rejected stores are refused by storeContext.
+ */
+function orderViewStores(stores: MemberStore[], activeId: string | undefined, canViewActive: boolean): string[] {
+  return stores
+    .filter((st) => {
+      if (st.status === 'suspended' || st.status === 'rejected') return false;
+      if (st.id === activeId) return canViewActive;
+      const perms = (STORE_ROLE_PERMISSIONS as Record<string, readonly string[] | undefined>)[st.role];
+      return !!perms?.includes(PERMISSIONS.STORE_ORDERS_VIEW);
+    })
+    .map((st) => st.id)
+    .slice(0, MAX_POLLED_STORES);
+}
+
+/**
+ * Polling fallback (no realtime): fetches each allowed store's latest orders every ~20 s and alerts
+ * for ids not seen before, like the socket which announces orders of every store of the member.
+ * The first response per store is only a baseline (existing orders never chime).
  * POS sales are excluded, matching the socket which only announces checkout orders.
  */
-function usePolledNewOrders(storeId: string | undefined, enabled: boolean, onNew: (o: NewOrder, storeId: string) => void) {
-  const q = useQuery({
-    queryKey: ['seller', storeId ?? 'none', 'orders', 'alerts'],
-    queryFn: async () =>
-      (await api.get<{ data: OrderDTO[] }>('/seller/orders', { params: { limit: 10 }, headers: { 'x-store-id': storeId! } })).data.data,
-    enabled: enabled && !!storeId,
-    refetchInterval: POLL_MS,
-    staleTime: POLL_MS / 2,
+function usePolledNewOrders(storeIds: string[], enabled: boolean, onNew: (o: NewOrder, storeId: string) => void) {
+  const results = useQueries({
+    queries: storeIds.map((storeId) => ({
+      queryKey: ['seller', storeId, 'orders', 'alerts'],
+      queryFn: async () =>
+        (await api.get<{ data: OrderDTO[] }>('/seller/orders', { params: { limit: 10 }, headers: { 'x-store-id': storeId } })).data.data,
+      enabled,
+      refetchInterval: POLL_MS,
+      staleTime: POLL_MS / 2,
+      retry: false,
+    })),
   });
   useEffect(() => {
-    if (!storeId || !q.data) return;
-    const seen = seenByStore.get(storeId);
-    const ids = q.data.filter((o) => o.channel !== 'pos');
-    if (!seen) {
-      seenByStore.set(storeId, new Set(ids.map((o) => o.id)));
-      return;
-    }
-    // Oldest first, so several new orders toast in the order they were placed.
-    for (const o of [...ids].reverse()) {
-      if (seen.has(o.id)) continue;
-      seen.add(o.id);
-      onNew({ id: o.id, number: o.number, total: o.total, itemCount: o.items.reduce((a, i) => a + i.qty, 0), createdAt: o.createdAt, storeId }, storeId);
-    }
-  }, [q.data, storeId, onNew]);
+    results.forEach((r, i) => {
+      const storeId = storeIds[i];
+      if (!storeId || !r.data) return;
+      const seen = seenByStore.get(storeId);
+      const ids = r.data.filter((o) => o.channel !== 'pos');
+      if (!seen) {
+        seenByStore.set(storeId, new Set(ids.map((o) => o.id)));
+        return;
+      }
+      // Oldest first, so several new orders toast in the order they were placed.
+      for (const o of [...ids].reverse()) {
+        if (seen.has(o.id)) continue;
+        seen.add(o.id);
+        onNew({ id: o.id, number: o.number, total: o.total, itemCount: o.items.reduce((a, it) => a + it.qty, 0), createdAt: o.createdAt, storeId }, storeId);
+      }
+    });
+    // Idempotent (seen ids are skipped), so re-running when `results` is a fresh array is harmless.
+  }, [results, storeIds, onNew]);
 }
 
 /** Listens for live `order:new` / `order:updated` events (or polls without realtime) while the Seller Center is open. */
@@ -73,7 +102,9 @@ export function OrderAlerts() {
   const activeId = useActiveStoreId();
   const navigate = useNavigate();
   const { live, poll } = useRealtime();
+  const can = useCan();
   const storeIds = (me?.stores ?? []).map((st) => st.id).join(',');
+  const pollIds = orderViewStores(me?.stores ?? [], activeId, can(PERMISSIONS.STORE_ORDERS_VIEW));
   useOrderSoundSync();
 
   const refresh = useCallback(
@@ -107,7 +138,7 @@ export function OrderAlerts() {
     [t, activeId, qc, navigate, refresh],
   );
 
-  usePolledNewOrders(activeId, poll, announce);
+  usePolledNewOrders(pollIds, poll, announce);
 
   useEffect(() => {
     if (!live) return;

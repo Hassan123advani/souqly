@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { SHIPPING_RATE_CAP_MINOR } from '../constants/billing';
 import { STORE_PERMISSIONS } from '../constants/permissions';
 import { STORE_ROLES } from '../constants/roles';
 import { STORE_LAYOUTS, STORE_PLANS, STORE_SECTION_TYPES } from './catalog';
@@ -176,7 +177,7 @@ export const shippingZoneSchema = z
   .object({
     name: z.string().trim().min(1).max(60),
     cities: z.union([z.literal('all'), z.array(z.string().trim().min(2).max(60)).min(1).max(200)]),
-    rate: moneyMinorSchema,
+    rate: moneyMinorSchema.max(SHIPPING_RATE_CAP_MINOR, 'Shipping rate is above the Souqly maximum'),
     freeAbove: moneyMinorSchema.optional(),
     etaDays: z.tuple([z.number().int().min(0).max(60), z.number().int().min(0).max(60)]).refine(([a, b]) => a <= b, 'min must be ≤ max'),
   })

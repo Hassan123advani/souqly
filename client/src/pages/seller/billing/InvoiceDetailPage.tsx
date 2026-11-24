@@ -1,8 +1,9 @@
-import { useParams } from 'react-router-dom';
+import { useEffect, useRef } from 'react';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { ArrowLeft, Download } from 'lucide-react';
-import { useInvoice, useInvoicePdf } from '@/api/billing';
+import { useBillingInvalidate, useInvoice, useInvoicePdf } from '@/api/billing';
 import { getErrorMessage } from '@/api/client';
 import { BillingBadge } from '@/components/billing/BillingBadge';
 import { CommissionTable, InvoiceFacts, InvoiceLines, PaymentList } from '@/components/billing/InvoiceView';
@@ -12,9 +13,29 @@ import { Button, Card, CardBody, ErrorState, Skeleton } from '@/components/ui';
 export default function BillingInvoiceDetailPage() {
   const { t } = useTranslation();
   const { id } = useParams();
-  const q = useInvoice(id);
+  const [params, setParams] = useSearchParams();
+  const returnedFromGateway = params.get('paid') === '1';
+  const q = useInvoice(id, { awaitingGateway: returnedFromGateway });
   const pdf = useInvoicePdf();
+  const invalidate = useBillingInvalidate();
   const inv = q.data;
+  const settled = inv?.status === 'paid';
+  const announced = useRef(false);
+
+  // Stripe return: once the webhook has settled the invoice, refresh plan / balance views and drop `?paid=1`.
+  useEffect(() => {
+    if (!returnedFromGateway || !settled || announced.current) return;
+    announced.current = true;
+    toast.success(t('billing.pay.gatewayPaid'));
+    invalidate();
+    setParams(
+      (p) => {
+        p.delete('paid');
+        return p;
+      },
+      { replace: true },
+    );
+  }, [returnedFromGateway, settled, invalidate, setParams, t]);
 
   const back = (
     <Button to="/seller/billing/invoices" variant="ghost" size="sm" leftIcon={<ArrowLeft className="flip-rtl size-4" />}>

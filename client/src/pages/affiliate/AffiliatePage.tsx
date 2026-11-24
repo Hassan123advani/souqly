@@ -6,6 +6,7 @@ import { Seo } from '@/components/layout/Seo';
 import { Badge, Button, Card, EmptyState, ErrorState, SectionHeader, Skeleton, type BadgeTone } from '@/components/ui';
 import { useLang } from '@/lib/catalog';
 import { formatDate, money } from '@/lib/format';
+import { AFFILIATE_PCT } from '@/lib/rates';
 
 const TONE: Record<AffiliateCommission['status'], BadgeTone> = { pending: 'warning', credited: 'success', void: 'neutral' };
 
@@ -22,7 +23,7 @@ export default function AffiliatePage() {
   return (
     <>
       <Seo title={t('growth.affiliate.title')} noindex />
-      <SectionHeader as="h1" title={t('growth.affiliate.title')} description={t('growth.affiliate.howItWorks')} />
+      <SectionHeader as="h1" title={t('growth.affiliate.title')} description={t('growth.affiliate.howItWorks', { pct: AFFILIATE_PCT })} />
       {cfg.isLoading ? (
         <Skeleton className="h-48" />
       ) : !on ? (

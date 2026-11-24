@@ -20,6 +20,9 @@ let ready: Promise<Express> | null = null;
 async function init(): Promise<Express> {
   const { connectDb } = await import('./config/db');
   await connectDb();
+  // Idempotent legacy-data migration once per cold start (it no longer runs inside every billing sweep).
+  const { migrateBilling } = await import('./modules/billing/billing.service');
+  await migrateBilling().catch((err: unknown) => console.error('[souqly] Billing migration failed:', err instanceof Error ? err.message : err));
   const { app } = await import('./app');
   return app;
 }

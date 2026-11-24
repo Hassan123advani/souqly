@@ -8,6 +8,7 @@ import { getErrorMessage } from '@/api/client';
 import { useFlag } from '@/api/config';
 import { useAffiliateLink } from '@/api/growth';
 import { Button, IconButton, Input, Modal } from '@/components/ui';
+import { AFFILIATE_PCT } from '@/lib/rates';
 import { rememberAffiliate } from './affiliateCode';
 
 /** Remembers `?aff=` from a shared product link so the next checkout is attributed. Renders nothing. */
@@ -42,7 +43,7 @@ export function AffiliateButton({ productId, title }: { productId: string; title
       <IconButton label={t('growth.affiliate.shareEarn')} variant="outline" onClick={start}>
         <HandCoins className="size-[18px]" />
       </IconButton>
-      <Modal open={open} onOpenChange={setOpen} title={t('growth.affiliate.shareEarn')} description={t('growth.affiliate.howItWorks')}>
+      <Modal open={open} onOpenChange={setOpen} title={t('growth.affiliate.shareEarn')} description={t('growth.affiliate.howItWorks', { pct: AFFILIATE_PCT })}>
         <div className="grid gap-3">
           <Input readOnly dir="ltr" value={link.isPending ? t('common.loading') : url} aria-label={t('growth.affiliate.yourLink')} onFocus={(e) => e.target.select()} />
           <div className="flex flex-wrap gap-2">

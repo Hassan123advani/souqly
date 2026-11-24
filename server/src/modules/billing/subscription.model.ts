@@ -15,6 +15,8 @@ export interface ISubscription {
   anchorDay: number;
   scheduledChange?: { plan: StorePlan; effectiveAt: Date; kind: 'downgrade' | 'cancel'; requestedBy?: Types.ObjectId; requestedAt: Date } | null;
   lockVersion: number;
+  /** High-water mark of the per-store commission safety-net sync (code review M6). */
+  commissionSyncedAt?: Date | null;
   demo: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -32,6 +34,7 @@ const schema = new Schema<ISubscription>(
       default: null,
     },
     lockVersion: { type: Number, default: 0 },
+    commissionSyncedAt: { type: Date, default: null },
     demo: { type: Boolean, default: false },
   },
   { timestamps: true },

@@ -22,8 +22,7 @@ import { cursorFilter, cursorSort, paginate } from '../../lib/pagination';
 import { escapeRegex } from '../../lib/text';
 import { isStripeConfigured } from '../../services/payment/stripe';
 import { Product } from '../catalog/product.model';
-import { balanceSnapshot, financeSummary, reconcileLedger } from '../finance/finance.service';
-import { logger } from '../../lib/logger';
+import { balanceSnapshot, financeSummary, throttledSync } from '../finance/finance.service';
 import { Payout } from '../payouts/payout.model';
 import { Store } from '../stores/store.model';
 import { StoreMember } from '../stores/storeMember.model';
@@ -84,22 +83,7 @@ export async function plansCatalog(storeId: Types.ObjectId, plan: StorePlan | un
   return { current: normalizePlan(plan), commissionBps: PLATFORM_COMMISSION_BPS, plans: Object.values(PLANS), usage: await planUsage(storeId) };
 }
 
-const SYNC_EVERY_MS = 10 * 60_000;
-const lastSync = new Map<string, number>();
-
-/**
- * Throttled safety-net sync for frequently polled reads (the summary is fetched on every Seller Center
- * page): commission + ledger are re-derived at most once per 10 min per store and instance. The real work
- * happens in the delivery / refund / cancel hooks and the daily sweep. Never throws.
- */
-export async function throttledSync(storeId: Types.ObjectId): Promise<void> {
-  const k = String(storeId);
-  const now = Date.now();
-  if (now - (lastSync.get(k) ?? 0) < SYNC_EVERY_MS) return;
-  if (lastSync.size > 5000) lastSync.clear();
-  lastSync.set(k, now);
-  await reconcileLedger(storeId).catch((err) => logger.warn({ err, storeId: k }, 'Throttled billing sync failed'));
-}
+export { throttledSync };
 
 export async function sellerSummary(storeId: Types.ObjectId): Promise<BillingSummaryDTO> {
   await throttledSync(storeId);

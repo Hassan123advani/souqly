@@ -1,3 +1,4 @@
+import { Types } from 'mongoose';
 import { logger } from '../lib/logger';
 import { withTx } from '../lib/tx';
 import { BillingAdjustment } from '../modules/billing/adjustment.model';
@@ -77,7 +78,9 @@ export async function seedBilling(): Promise<Record<string, number>> {
     await BillingPayment.create({ storeId: pending.storeId, invoiceId: pending._id, invoiceNumber: pending.number, method: 'manual', amount: pending.total, status: 'pending', channel: 'jazzcash', reference: ref, refLock: `jazzcash:${ref}`, note: 'Sent from shop JazzCash account', demo: true });
     out.pendingManual++;
   }
-  // 3) Overdue → billing suspension through the real sweep step.
+  // 3) Overdue → billing suspension through the real sweep step. Real renewals always give a minimum notice
+  // period (renewalDueDate), so the demo invoice is backdated as if that notice had already passed.
+  await Invoice.updateMany({ storeId: new Types.ObjectId(overdueStore), kind: 'renewal', status: 'open' }, { $set: { dueDate: new Date(now.getTime() - 2 * DAY) } });
   const r = await markOverdue(now);
   out.suspended = r.suspended;
   await CommissionEntry.updateMany({ storeId: { $in: stores.map((s) => s._id) } }, { $set: { demo: true } });

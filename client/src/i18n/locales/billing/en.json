@@ -1,7 +1,7 @@
 {
   "billing": {
     "nav": "Billing & finance",
-    "subtitle": "Your plan, monthly invoices, the 15% commission on delivered sales, payments and payouts.",
+    "subtitle": "Your plan, monthly invoices, the {{pct}}% commission on delivered sales, payments and payouts.",
     "tabs": { "overview": "Overview", "plans": "Plans", "invoices": "Invoices", "payments": "Payment history", "commissions": "Commission ledger", "payouts": "Payouts" },
     "common": { "all": "All" },
     "planName": { "free": "Free", "pro": "Pro", "premium": "Premium" },
@@ -27,7 +27,7 @@
     },
     "suspensionReason": { "overdue": "Overdue invoice", "admin": "Suspended by Souqly" },
     "kind": { "renewal": "Monthly renewal", "upgrade": "Plan upgrade" },
-    "lineType": { "subscription": "Subscription fee", "commission": "COD commission (15%)", "proration_credit": "Credit for unused days", "balance_recovery": "Negative balance recovery" },
+    "lineType": { "subscription": "Subscription fee", "commission": "COD commission ({{pct}}%)", "proration_credit": "Credit for unused days", "balance_recovery": "Negative balance recovery" },
     "method": { "balance": "Souqly balance", "manual": "Bank / wallet transfer", "gateway": "Online payment", "admin": "Recorded by Souqly" },
     "channel": { "bank": "Bank transfer", "jazzcash": "JazzCash", "easypaisa": "EasyPaisa", "other": "Other", "cod": "Cash on delivery", "online": "Online" },
     "entryKind": { "charge": "Commission", "reversal": "Refund reversal" },
@@ -181,6 +181,7 @@
       "awaitingBody": "You submitted a transfer on {{date}}. Souqly will verify it shortly; the invoice is marked paid once approved.",
       "gatewayPendingTitle": "Online payment in progress",
       "gatewayPendingBody": "Finish the checkout to complete the payment. The invoice updates automatically once the payment is confirmed.",
+      "gatewayPaid": "Payment received. Your invoice is paid.",
       "continueCheckout": "Continue checkout",
       "card": "Card payment",
       "payCard": "Pay {{amount}} online",
@@ -198,7 +199,7 @@
       "reviewNote": "Souqly: {{note}}"
     },
     "commissions": {
-      "basis": "15% of the product amount after your own discounts. Shipping is not included. Charged only when an order is delivered.",
+      "basis": "{{pct}}% of the product amount after your own discounts. Shipping is not included. Charged only when an order is delivered.",
       "date": "Date",
       "order": "Order",
       "channel": "Channel",

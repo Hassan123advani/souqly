@@ -3,6 +3,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { asyncHandler } from '../../lib/asyncHandler';
 import { requireAuth } from '../../middleware/auth';
+import { forbidWhileImpersonating } from '../../middleware/impersonation';
 import { requirePermission } from '../../middleware/permissions';
 import { can } from '../admin/common';
 import { storeContext } from '../../middleware/storeContext';
@@ -16,6 +17,7 @@ sellerPlanRouter.get('/plan', requireAuth, storeContext, requirePermission(PERMI
 sellerPlanRouter.post(
   '/plan/request',
   requireAuth,
+  forbidWhileImpersonating,
   storeContext,
   requirePermission(PERMISSIONS.STORE_SETTINGS_MANAGE),
   validate({ body: planRequestSchema }),
@@ -32,7 +34,8 @@ adminPlanRouter.get(
 );
 adminPlanRouter.patch(
   '/plan-requests/:id',
-  ...can(PERMISSIONS.ADMIN_STORES_MANAGE),
+  // Approving changes the plan without an invoice: billing.manage only (security review H2).
+  ...can(PERMISSIONS.ADMIN_BILLING_MANAGE),
   validate({ params: z.object({ id: objectIdSchema }), body: adminPlanRequestReviewSchema }),
   asyncHandler(async (req, res) => res.json({ data: await reviewPlanRequest(req, req.params.id!, req.body.status, req.body.note) })),
 );

@@ -60,7 +60,7 @@ function Reversals({ storeId, channel }: { storeId: string; channel: string }) {
   const rows = list.data?.pages.flatMap((p) => p.data) ?? [];
   const columns: Column<CommissionEntry>[] = [
     { key: 'date', header: t('billing.commissions.date'), cell: (e) => <span className="whitespace-nowrap text-fg-muted">{formatDate(e.at, lang)}</span> },
-    { key: 'store', header: t('admin.stores.store'), cell: (e) => (e.storeId ? storeLink(e.storeId, t('billing.admin.storeN', { id: e.storeId.slice(-6) })) : '—') },
+    { key: 'store', header: t('admin.stores.store'), cell: (e) => (e.storeId ? storeLink(e.storeId, e.storeName ?? t('billing.admin.storeN', { id: e.storeId.slice(-6) })) : '—') },
     {
       key: 'order',
       header: t('billing.commissions.order'),
@@ -112,7 +112,7 @@ function Adjustments({ storeId, type }: { storeId: string; type: string }) {
   const rows = list.data?.pages.flatMap((p) => p.data) ?? [];
   const columns: Column<BillingAdjustment>[] = [
     { key: 'date', header: t('billing.payments.date'), cell: (a) => <span className="whitespace-nowrap text-fg-muted">{formatDateTime(a.createdAt, lang)}</span> },
-    { key: 'store', header: t('admin.stores.store'), cell: (a) => storeLink(a.storeId, t('billing.admin.storeN', { id: a.storeId.slice(-6) })) },
+    { key: 'store', header: t('admin.stores.store'), cell: (a) => storeLink(a.storeId, a.storeName) },
     { key: 'type', header: t('billing.admin.adjustments.type'), cell: (a) => t(`billing.adjustmentType.${a.type}`) },
     { key: 'amount', header: t('billing.invoice.amount'), align: 'end', cell: (a) => <span className="tabular" dir="ltr">{a.amount ? money(a.amount) : '—'}</span> },
     {

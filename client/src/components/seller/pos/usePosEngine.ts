@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import axios from 'axios';
 import { getErrorCode, getErrorStatus } from '@/api/client';
-import { posClient, type PosCatalogRow, type PosSaleBody } from '@/api/growth';
+import { posClient, type PosCatalogRow, type PosSaleBody, type PosSaleResult } from '@/api/growth';
 import { getMeta, openPosDb, setMeta, toStored, type LocalReceipt, type PosDb, type QueuedSale } from './posDb';
 
 const SYNC_BATCH = 50;
 const SYNC_EVERY_MS = 30_000;
 const KEEP_SYNCED_MS = 7 * 24 * 3600_000;
+/** Safety cap on truncated catalog pages fetched in one refresh. */
+const MAX_CATALOG_PAGES = 20;
 
 /** Browser online state (navigator.onLine + events). */
 export function useOnline(): boolean {
@@ -57,19 +59,28 @@ export function usePosEngine(storeId: string | undefined) {
       if (!db || !storeId || !navigator.onLine) return;
       setRefreshing(true);
       try {
-        const since = full ? undefined : await getMeta(db, 'serverTime');
-        const { items, serverTime } = await posClient(storeId).catalog(since);
-        const tx = db.transaction('catalog', 'readwrite');
-        if (full) await tx.store.clear();
-        for (const r of items) await tx.store.put(toStored(r));
-        await tx.done;
-        await setMeta(db, { key: 'serverTime', value: serverTime });
+        let since = full ? undefined : await getMeta(db, 'serverTime');
+        let clear = full;
+        // Follow truncated pages (`hasMore`) so large catalogs are mirrored completely.
+        for (let page = 0; page < MAX_CATALOG_PAGES; page++) {
+          const { items, serverTime, hasMore } = await posClient(storeId).catalog(since);
+          if (dbRef.current !== db) return;
+          const tx = db.transaction('catalog', 'readwrite');
+          if (clear) await tx.store.clear();
+          for (const r of items) await tx.store.put(toStored(r));
+          await tx.done;
+          await setMeta(db, { key: 'serverTime', value: serverTime });
+          setLastSync(serverTime);
+          clear = false;
+          since = serverTime;
+          if (!hasMore || items.length === 0) break;
+        }
         const rows = await db.getAll('catalog');
         setCatalog(new Map(rows.map((r) => [r.variantId, r])));
         setCatalogError(null);
-        setLastSync(serverTime);
       } catch (err) {
-        if (!isNetworkError(err)) setCatalogError(err);
+        // The DB is closed once the store changes or the page unmounts; that is not a catalog error.
+        if (dbRef.current === db && !isNetworkError(err)) setCatalogError(err);
       } finally {
         setRefreshing(false);
       }
@@ -77,47 +88,70 @@ export function usePosEngine(storeId: string | undefined) {
     [storeId],
   );
 
-  /** Sends pending sales in batches of 50. Server results are idempotent per clientId. */
+  /** Writes server results for sent sales (non-retryable errors stop; SYNC_FAILED stays pending). */
+  const applyResults = useCallback(async (db: PosDb, sent: QueuedSale[], results: PosSaleResult[]) => {
+    const byId = new Map(results.map((r) => [r.clientId, r]));
+    const tx = db.transaction('queue', 'readwrite');
+    for (const p of sent) {
+      const r = byId.get(p.clientId);
+      if (!r) continue;
+      const retryable = r.status === 'error' && r.error?.code === 'SYNC_FAILED';
+      await tx.store.put({ ...p, result: r, attempts: p.attempts + 1, status: r.status === 'error' ? (retryable ? 'pending' : 'error') : 'synced' });
+    }
+    await tx.done;
+  }, []);
+
+  /**
+   * Sends pending sales in batches of 50. Server results are idempotent per clientId. Never rejects:
+   * it is fired with `void` from timers and effects, and the DB may be closed underneath it on unmount.
+   */
   const flush = useCallback(async () => {
     const db = dbRef.current;
     if (!db || !storeId || syncing.current || !navigator.onLine) return;
     syncing.current = true;
     setIsSyncing(true);
+    const client = posClient(storeId);
+    const isValidation = (err: unknown) => getErrorStatus(err) === 400 && getErrorCode(err) === 'VALIDATION_ERROR';
     try {
       for (;;) {
+        if (dbRef.current !== db) return;
         const pending = (await db.getAllFromIndex('queue', 'status', 'pending')).sort((a, b) => a.createdAt.localeCompare(b.createdAt)).slice(0, SYNC_BATCH);
         if (!pending.length) break;
-        let results;
+        let results: PosSaleResult[];
         try {
-          results = (await posClient(storeId).sync(pending.map((p) => p.body))).results;
+          results = (await client.sync(pending.map((p) => p.body))).results;
         } catch (err) {
-          const status = getErrorStatus(err);
-          // Whole batch rejected by validation: mark each as error so one bad sale cannot block the queue forever.
-          if (status === 400 && getErrorCode(err) === 'VALIDATION_ERROR') {
-            const tx = db.transaction('queue', 'readwrite');
-            for (const p of pending) await tx.store.put({ ...p, status: 'error', attempts: p.attempts + 1, result: { clientId: p.clientId, status: 'error', error: { code: 'VALIDATION_ERROR', message: '' } } });
-            await tx.done;
-            continue;
+          if (!isValidation(err)) break; // offline, auth or server error: retry later
+          // The batch was rejected by validation: resend one by one so only the invalid sales are marked as errors.
+          let stop = false;
+          for (const p of pending) {
+            if (dbRef.current !== db) return;
+            try {
+              await applyResults(db, [p], (await client.sync([p.body])).results);
+            } catch (one) {
+              if (!isValidation(one)) {
+                stop = true;
+                break;
+              }
+              await db.put('queue', { ...p, status: 'error', attempts: p.attempts + 1, result: { clientId: p.clientId, status: 'error', error: { code: 'VALIDATION_ERROR', message: '' } } });
+            }
           }
-          break; // offline, auth or server error: retry later
+          if (stop) break;
+          continue;
         }
-        const byId = new Map(results.map((r) => [r.clientId, r]));
-        const tx = db.transaction('queue', 'readwrite');
-        for (const p of pending) {
-          const r = byId.get(p.clientId);
-          if (!r) continue;
-          const retryable = r.status === 'error' && r.error?.code === 'SYNC_FAILED';
-          await tx.store.put({ ...p, result: r, attempts: p.attempts + 1, status: r.status === 'error' ? (retryable ? 'pending' : 'error') : 'synced' });
-        }
-        await tx.done;
+        if (dbRef.current !== db) return;
+        await applyResults(db, pending, results);
         if (results.some((r) => r.status === 'error' && r.error?.code === 'SYNC_FAILED')) break;
       }
+    } catch (err) {
+      // A closed DB (store switch / unmount) is expected; anything else is a storage failure.
+      if (dbRef.current === db) setDbError(err);
     } finally {
       syncing.current = false;
       setIsSyncing(false);
-      await reloadQueue();
+      if (dbRef.current === db) await reloadQueue().catch(() => undefined);
     }
-  }, [storeId, reloadQueue]);
+  }, [storeId, reloadQueue, applyResults]);
 
   // Open the store's DB, load the mirror + queue, prune old synced sales, then sync.
   useEffect(() => {

@@ -1,6 +1,6 @@
 import { MIN_PAYOUT_MINOR, formatMoney } from '@souqly/shared';
 import type { Request } from 'express';
-import { Types, type AnyBulkWriteOperation } from 'mongoose';
+import { Types, type AnyBulkWriteOperation, type ClientSession } from 'mongoose';
 import { AppError, notFound } from '../../lib/AppError';
 import { logger } from '../../lib/logger';
 import { cursorFilter, cursorSort, paginate } from '../../lib/pagination';
@@ -12,6 +12,7 @@ import { ReturnRequest } from '../returns/return.model';
 import { Store } from '../stores/store.model';
 import { withTx } from '../../lib/tx';
 import { syncCommissions, recognizeCommission } from '../billing/commission.service';
+import { Invoice, amountDue, type InvoiceLean } from '../billing/invoice.model';
 import { ensureSubscription, lockStoreFinance } from '../billing/subscription.service';
 import { computeBalance, holdDays } from './hold';
 import { SellerLedger, type ISellerLedger, type LedgerType, type SellerLedgerLean } from './ledger.model';
@@ -44,23 +45,39 @@ export async function ledgerOnDelivered(order: Pick<OrderLean, '_id' | 'number'>
 }
 
 /**
- * Re-derives missing ledger entries from orders, refunded returns and payouts (idempotent). Runs on
- * every finance read so events written outside the hooks (admin refunds, payout reviews) always land.
+ * Re-derives missing ledger entries from orders, refunded returns and payouts (idempotent). Called by the
+ * refund/cancel hooks, money-moving paths (payout, pay-from-balance), the billing sweep and (throttled) by
+ * finance reads. Missing entries are written inside a transaction under the store finance lock and
+ * re-derived there, so a refund debit can never land concurrently with a payout's balance check (L1).
  */
 export async function reconcileLedger(storeId: Types.ObjectId): Promise<void> {
   // Sale credits (online only) and commission credits are written by the commission ledger (billing).
   await syncCommissions(storeId);
-  const existing = new Set((await SellerLedger.find({ storeId }).select('ref').lean()).map((e) => e.ref));
+  const missing = await missingLedgerEntries(storeId);
+  if (!missing.length) return;
+  await ensureSubscription(storeId);
+  await withTx(async (session) => {
+    await lockStoreFinance(storeId, session);
+    const entries = await missingLedgerEntries(storeId, session);
+    if (entries.length) await SellerLedger.create(entries, { session, ordered: true });
+  });
+}
+
+/** Ledger entries that should exist (refund debits, payouts, payout reversals) but don't yet. */
+async function missingLedgerEntries(storeId: Types.ObjectId, session?: ClientSession): Promise<Entry[]> {
+  const ss = session ?? null;
+  const existing = new Set((await SellerLedger.find({ storeId }).select('ref').session(ss).lean()).map((e) => e.ref));
   const entries: Entry[] = [];
 
-  const refunds = await ReturnRequest.find({ storeId, status: 'refunded', 'refund.amount': { $gt: 0 } }).select('orderId refund').lean();
-  if (refunds.length) {
+  const refunds = await ReturnRequest.find({ storeId, status: 'refunded', 'refund.amount': { $gt: 0 } }).select('orderId refund').session(ss).lean();
+  const pendingRefunds = refunds.filter((r) => !existing.has(`refund:${String(r._id)}`));
+  if (pendingRefunds.length) {
     const ords = new Map(
-      (await Order.find({ _id: { $in: refunds.map((r) => r.orderId) }, storeId }).select('number total sellerNet payment').lean()).map((o) => [String(o._id), o]),
+      (await Order.find({ _id: { $in: pendingRefunds.map((r) => r.orderId) }, storeId }).select('number total sellerNet payment').session(ss).lean()).map((o) => [String(o._id), o]),
     );
-    for (const r of refunds) {
+    for (const r of pendingRefunds) {
       const o = ords.get(String(r.orderId));
-      if (!o || existing.has(`refund:${String(r._id)}`)) continue;
+      if (!o) continue;
       // COD: the seller holds the buyer's cash, so the whole refund Souqly paid the buyer is owed back (the
       // commission share comes back separately as a commission reversal). Online: the seller bears the refund
       // pro rata of what they were credited (commission share is absorbed by the platform).
@@ -76,7 +93,7 @@ export async function reconcileLedger(storeId: Types.ObjectId): Promise<void> {
     }
   }
 
-  const payouts = await Payout.find({ storeId }).select('amount status createdAt rejectedAt').lean<PayoutLean[]>();
+  const payouts = await Payout.find({ storeId }).select('amount status createdAt rejectedAt').session(ss).lean<PayoutLean[]>();
   for (const p of payouts) {
     if (!existing.has(`payout:${String(p._id)}`)) entries.push({ storeId, type: 'payout', amount: -p.amount, ref: `payout:${String(p._id)}`, payoutId: p._id, availableAt: p.createdAt, at: p.createdAt });
     if (p.status === 'rejected' && !existing.has(`payout_reversal:${String(p._id)}`)) {
@@ -84,13 +101,31 @@ export async function reconcileLedger(storeId: Types.ObjectId): Promise<void> {
       entries.push({ storeId, type: 'payout_reversal', amount: p.amount, ref: `payout_reversal:${String(p._id)}`, payoutId: p._id, availableAt: at, at });
     }
   }
-  await writeLedger(entries);
+  return entries;
+}
+
+const SYNC_EVERY_MS = 10 * 60_000;
+const lastSync = new Map<string, number>();
+
+/**
+ * Throttled safety-net sync for frequently polled reads (billing summary, finance summary / transactions /
+ * statements): commission + ledger are re-derived at most once per 10 min per store and instance (L9). The
+ * real work happens in the delivery / refund / cancel hooks and the daily sweep; money-moving paths (payouts,
+ * pay-from-balance) always run the full `reconcileLedger`. Never throws.
+ */
+export async function throttledSync(storeId: Types.ObjectId): Promise<void> {
+  const k = String(storeId);
+  const now = Date.now();
+  if (now - (lastSync.get(k) ?? 0) < SYNC_EVERY_MS) return;
+  if (lastSync.size > 5000) lastSync.clear();
+  lastSync.set(k, now);
+  await reconcileLedger(storeId).catch((err) => logger.warn({ err, storeId: k }, 'Throttled billing sync failed'));
 }
 
 export type FinanceSummary = { available: number; onHold: number; pendingPayouts: number; lifetime: number; paidOut: number; refunds: number; holdDays: number; minPayout: number; currency: 'PKR' };
 
 export async function financeSummary(storeId: Types.ObjectId): Promise<FinanceSummary> {
-  await reconcileLedger(storeId);
+  await throttledSync(storeId);
   return balanceSnapshot(storeId);
 }
 
@@ -120,7 +155,7 @@ const entryDTO = (e: SellerLedgerLean) => ({
 });
 
 export async function listTransactions(storeId: Types.ObjectId, q: { cursor?: string; limit: number; type?: LedgerType }) {
-  await reconcileLedger(storeId);
+  await throttledSync(storeId);
   const rows = await SellerLedger.find({ storeId, ...(q.type ? { type: q.type } : {}), ...cursorFilter('at', -1, q.cursor) })
     .sort(cursorSort('at', -1))
     .limit(q.limit + 1)
@@ -167,8 +202,10 @@ export async function listPayouts(storeId: Types.ObjectId, q: { cursor?: string;
 }
 
 /**
- * Seller payout request. Must be ≥ Rs. 1,000 and ≤ available. Payout + ledger debit are written in one
+ * Seller payout request. Must be >= Rs. 1,000 and <= what is payable. Payout + ledger debit are written in one
  * transaction under the store finance lock, after re-checking the balance (no concurrent overdraw, D-078).
+ * Security review M1: no payouts while the store is billing-suspended, and open/overdue invoices are kept
+ * back from the balance (payable = available - outstanding invoice dues).
  */
 export async function requestPayout(req: Request, amount: number) {
   const storeId = req.store!._id;
@@ -176,14 +213,21 @@ export async function requestPayout(req: Request, amount: number) {
   const store = await Store.findById(storeId).select('+payout').lean();
   const masked = maskPayout(store?.payout as Partial<StoredPayout> | undefined);
   if (!masked) throw new AppError(409, 'NO_PAYOUT_METHOD', 'Add your payout account in store settings first');
-  const before = await financeSummary(storeId);
-  if (amount > before.available) throw new AppError(400, 'INSUFFICIENT_BALANCE', 'Amount is more than your available balance', { available: before.available });
+  await reconcileLedger(storeId); // money path: always the full reconcile
   await ensureSubscription(storeId);
 
   const payout = await withTx(async (session) => {
     await lockStoreFinance(storeId, session);
+    const fresh = await Store.findById(storeId).select('billingStatus').session(session).lean();
+    if (fresh?.billingStatus === 'suspended') throw new AppError(409, 'BILLING_SUSPENDED', 'Payouts are paused while your store is on a Souqly billing hold. Pay your dues first.');
     const rows = await SellerLedger.find({ storeId }).select('type amount availableAt').session(session).lean();
-    if (amount > computeBalance(rows).available) throw new AppError(409, 'INSUFFICIENT_BALANCE', 'Your balance changed. Please try again.');
+    const open = await Invoice.find({ storeId, status: { $in: ['open', 'overdue'] } }).select('total amountPaid amountWaived').session(session).lean<InvoiceLean[]>();
+    const outstanding = open.reduce((sum, i) => sum + amountDue(i), 0);
+    const available = computeBalance(rows).available;
+    const payable = Math.max(0, available - outstanding);
+    if (amount > payable) {
+      throw new AppError(400, 'INSUFFICIENT_BALANCE', outstanding > 0 ? 'Unpaid Souqly invoices are kept back from your payable balance' : 'Amount is more than your available balance', { available, outstanding, payable });
+    }
     const [p] = await Payout.create(
       [
         {
@@ -205,7 +249,7 @@ export async function requestPayout(req: Request, amount: number) {
 
 // ---------------- monthly statement ----------------
 export async function statement(storeId: Types.ObjectId, month: string) {
-  await reconcileLedger(storeId);
+  await throttledSync(storeId);
   const from = new Date(`${month}-01T00:00:00.000Z`);
   const to = new Date(Date.UTC(from.getUTCFullYear(), from.getUTCMonth() + 1, 1));
   const [openingRow, rows] = await Promise.all([

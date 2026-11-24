@@ -1,5 +1,6 @@
 import { recomputeAllCategoryPaths } from '../../modules/admin/catalog.routes';
-import { runBillingSweep } from '../../modules/billing/billing.service';
+import { releaseAffiliateCommissions } from '../../modules/affiliate/affiliate.service';
+import { runBillingEnforcement, runBillingSweep } from '../../modules/billing/billing.service';
 import { sweepAlerts } from '../../modules/alerts/alert.service';
 import { recomputeAllHealth } from '../../modules/health/storeHealth.service';
 
@@ -21,11 +22,15 @@ export type Sweep = () => Promise<SweepResult>;
  * TTL indexes and need no sweep.
  */
 export const SWEEPS = {
+  /** Billing enforcement first and on its own: overdue -> suspension, expired upgrades void (never starved by renewals). */
+  'billing.enforce': async () => runBillingEnforcement(),
   'alerts.sweep': async () => ({ sent: await sweepAlerts() }),
   'storeHealth.recompute': async () => ({ stores: await recomputeAllHealth() }),
   'catalog.recomputeCategoryPaths': async () => recomputeAllCategoryPaths(),
-  /** Daily billing: commission sync, renewal invoices, overdue → billing suspension (docs/api-billing.md §3). */
+  /** Daily billing: enforcement, commission sync, renewal invoices; time-boxed (~45 s), `more: 1` = call again. */
   'billing.daily': async () => runBillingSweep(),
+  /** Affiliate commissions whose return window has passed are paid to the wallet (D-091). */
+  'affiliate.release': async () => releaseAffiliateCommissions(),
 } satisfies Record<string, Sweep>;
 
 export type SweepName = keyof typeof SWEEPS;

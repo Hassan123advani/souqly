@@ -7,6 +7,7 @@ import { Card, CardHeader, EmptyState } from '@/components/ui';
 import { useLang } from '@/lib/catalog';
 import { cn } from '@/lib/cn';
 import { formatDate, formatDateTime, money } from '@/lib/format';
+import { COMMISSION_PCT } from '@/lib/rates';
 import { BillingBadge, usePlanName } from './BillingBadge';
 
 const Amount = ({ v, className }: { v: number; className?: string }) => (
@@ -62,7 +63,7 @@ export function InvoiceLines({ invoice }: { invoice: Invoice }) {
             {invoice.lines.map((l, i) => (
               <tr key={i} className="border-t border-border">
                 <td className="px-5 py-3 align-top">
-                  <p className="font-semibold text-fg">{t(`billing.lineType.${l.type}`)}</p>
+                  <p className="font-semibold text-fg">{t(`billing.lineType.${l.type}`, { pct: COMMISSION_PCT })}</p>
                   <p className="text-xs text-fg-muted">{l.description}</p>
                 </td>
                 <td className="px-5 py-3 align-top text-xs text-fg-muted">
@@ -109,7 +110,7 @@ export function CommissionTable({ entries, orderHref, invoiceHref, title }: { en
   const lang = useLang();
   return (
     <Card className="overflow-hidden">
-      <CardHeader title={title ?? t('billing.invoice.commissions')} description={t('billing.commissions.basis')} />
+      <CardHeader title={title ?? t('billing.invoice.commissions')} description={t('billing.commissions.basis', { pct: COMMISSION_PCT })} />
       {entries.length === 0 ? (
         <EmptyState compact icon={<Receipt />} title={t('billing.commissions.empty')} />
       ) : (

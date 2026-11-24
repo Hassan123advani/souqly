@@ -363,7 +363,7 @@
     "affiliate": {
       "title": "Affiliate earnings",
       "shareEarn": "Share & earn",
-      "howItWorks": "Share your personal product link. When someone buys through it, you earn 2% of the item value in your wallet once the order is delivered.",
+      "howItWorks": "Share your personal product link. When someone buys through it, you earn {{pct}}% of the item value in your wallet once the order is delivered.",
       "yourLink": "Your link",
       "copy": "Copy link",
       "myEarnings": "My earnings",
