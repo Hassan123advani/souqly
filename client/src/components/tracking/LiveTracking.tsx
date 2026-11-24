@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { Bike, Clock, Phone, Radio } from 'lucide-react';
 import type { OrderTrackingDTO, RiderLocationEvent } from '@souqly/shared';
+import { useRealtime } from '@/api/config';
 import { trackingKey, useOrderTracking } from '@/api/delivery';
 import { Button, Card, ErrorState, Skeleton } from '@/components/ui';
 import { acquireSocket, releaseSocket } from '@/lib/socket';
@@ -63,8 +64,11 @@ export function LiveTracking({ orderId, number }: { orderId: string; number: str
   const { t } = useTranslation();
   const lang = useUi((s) => s.language);
   const [live, setLive] = useState(true);
-  const joined = useLiveRoom(orderId, number, live);
-  const q = useOrderTracking(number, { poll: live && !joined });
+  const realtime = useRealtime();
+  const joined = useLiveRoom(orderId, number, live && realtime.live);
+  // Socket room down: poll every 15 s; no realtime at all (serverless): poll the rider every 5 s.
+  const pollMs = !live || joined ? undefined : realtime.poll ? 5_000 : 15_000;
+  const q = useOrderTracking(number, { pollMs });
   const active = q.data?.active ?? true;
 
   useEffect(() => {

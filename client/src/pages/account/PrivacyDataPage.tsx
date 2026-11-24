@@ -2,10 +2,11 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-import { Download, Store, Trash2 } from 'lucide-react';
+import { Cookie, Download, Store, Trash2 } from 'lucide-react';
 import { useDeleteAccount, useExportData } from '@/api/account';
 import { getErrorCode, getErrorMessage } from '@/api/client';
 import { Seo } from '@/components/layout/Seo';
+import { useConsent } from '@/stores/consent';
 import { ReauthFields, useReauth } from '@/components/account/ReauthFields';
 import { Alert, Button, Card, CardBody, CardFooter, CardHeader, FormField, Input, Modal } from '@/components/ui';
 
@@ -28,6 +29,7 @@ export default function PrivacyDataPage() {
     }
   };
 
+  const reopenConsent = useConsent((st) => st.reopen);
   return (
     <>
       <Seo title={t('account.nav.privacy')} noindex />
@@ -60,6 +62,15 @@ export default function PrivacyDataPage() {
         </CardFooter>
       </Card>
 
+      <Card>
+        <CardHeader title={t('consent.settings')} description={t('consent.body')} />
+        <CardFooter>
+          <Button variant="secondary" onClick={reopenConsent}>
+            <Cookie className="h-4 w-4" aria-hidden />
+            {t('consent.manage')}
+          </Button>
+        </CardFooter>
+      </Card>
       <Card className="border-danger/30">
         <CardHeader title={<span className="text-danger">{t('dataPage.delete.title')}</span>} description={t('dataPage.delete.subtitle')} />
         <CardBody>

@@ -7,7 +7,7 @@ import { requirePermission } from '../../middleware/permissions';
 import { storeContext } from '../../middleware/storeContext';
 import { validate } from '../../middleware/validate';
 import { audit } from '../audit/audit.service';
-import { hasPlanFeature } from '../plans/plan.service';
+import { assertPlanFeature, hasPlanFeature } from '../plans/plan.service';
 import { AppError } from '../../lib/AppError';
 import { analyticsCsv, analyticsPdf, getAnalytics } from './analytics.service';
 
@@ -23,8 +23,9 @@ sellerAnalyticsRouter.get(
     const q = req.query as unknown as z.infer<typeof analyticsQuerySchema>;
     const store = req.store!;
     if (q.format !== 'json' && !hasPlanFeature(store, 'analyticsExport')) {
-      throw new AppError(403, 'PLAN_LIMIT', 'Analytics export is available on Pro and Business plans.', { plan: store.plan ?? 'free', feature: 'analyticsExport', requiredPlan: 'pro' });
+      throw new AppError(403, 'PLAN_LIMIT', 'Analytics export is available on Pro and Premium plans.', { plan: store.plan ?? 'free', feature: 'analyticsExport', requiredPlan: 'pro' });
     }
+    if (q.range === '90d') assertPlanFeature(store, 'advancedAnalytics');
     const report = await getAnalytics(store._id, q.range);
     if (q.format === 'json') return void res.json({ data: report });
     await audit({ action: 'store.analytics_exported', targetType: 'Store', targetId: store._id, meta: { format: q.format, range: q.range }, req });

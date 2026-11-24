@@ -9,7 +9,8 @@
 - All code, comments, commit messages and docs are in English.
 
 ## Safety
-- Never delete anything outside this folder. Never deploy, never push to a remote, never commit `.env` files, never sign up for or pay for services.
+- Never delete anything outside this folder. Never commit `.env` / `*.local` files or secrets, never sign up for or pay for services.
+- Push/deploy: the owner authorized (2026-11-24) pushing to GitHub `Hassan123advani/souqly` (private, remote `origin`) and deploying to Vercel (team `hassan-advani`, project `souqly`). See docs/deploy-vercel.md. Production secrets live only in `server/.env.production.local` (gitignored) and the Vercel dashboard.
 - `souqly/` is its own local git repo (the parent home folder is also a git repo; never commit there).
 
 ## Stack

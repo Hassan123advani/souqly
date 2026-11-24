@@ -1,8 +1,9 @@
 import { NavLink, Outlet } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-import { BadgeCheck, Bell, Database, LifeBuoy, MapPin, Package, Settings2, ShieldCheck, Undo2, User } from 'lucide-react';
+import { BadgeCheck, Bell, HandCoins, Database, LifeBuoy, MapPin, Package, Settings2, ShieldCheck, Undo2, User } from 'lucide-react';
 import { useMe, useResendVerification } from '@/api/auth';
+import { useFlag } from '@/api/config';
 import { getErrorMessage } from '@/api/client';
 import { Alert, Avatar, Badge, Button, Container } from '@/components/ui';
 import { PendingReviewsBanner } from '@/components/reviews/PendingReviewsBanner';
@@ -47,6 +48,7 @@ export default function AccountLayout() {
   const lang = useUi((s) => s.language);
   const { data: me } = useMe();
   const socialNav = useSocialAccountNav();
+  const affiliateOn = useFlag('affiliateLinks');
   if (!me) return null;
   const nav = [
     { to: 'profile', label: t('account.nav.profile'), icon: User },
@@ -54,6 +56,7 @@ export default function AccountLayout() {
     { to: 'returns', label: t('returns.title'), icon: Undo2 },
     { to: 'notifications', label: t('notifications.title'), icon: Bell },
     ...socialNav,
+    ...(affiliateOn ? [{ to: 'affiliate', label: t('growth.affiliate.title'), icon: HandCoins }] : []),
     { to: 'addresses', label: t('account.nav.addresses'), icon: MapPin },
     { to: 'security', label: t('account.nav.security'), icon: ShieldCheck },
     { to: 'preferences', label: t('account.nav.preferences'), icon: Settings2 },

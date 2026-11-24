@@ -1,4 +1,4 @@
-import type { BusinessInput, OnboardingChecklist, PayoutInput, SellerStore, StoreUpdateInput } from '@souqly/shared';
+import { normalizePlan, type BusinessInput, type OnboardingChecklist, type PayoutInput, type SellerStore, type StoreUpdateInput } from '@souqly/shared';
 import type { Request } from 'express';
 import { Types } from 'mongoose';
 import { AppError } from '../../lib/AppError';
@@ -8,6 +8,7 @@ import { invalidateStoreIndex } from '../catalog/catalog.service';
 import { Product } from '../catalog/product.model';
 import { assertActiveCategories } from '../onboarding/categories';
 import { assertOwnedMedia, storePrefix, tmpPrefix } from '../onboarding/media';
+import { assertStoreDesign } from '../plans/plan.service';
 import { maskBusiness, maskPayout, sealBusiness, sealPayout, type StoredBusiness, type StoredPayout } from '../onboarding/sensitive';
 import { checkSlug } from '../stores/slug.service';
 import { Store, type IStore } from '../stores/store.model';
@@ -66,7 +67,9 @@ export async function getSellerStore(storeId: Types.ObjectId, member: StoreMembe
       ...(s.holidayMode?.message ? { message: s.holidayMode.message } : {}),
       ...(s.holidayMode?.until ? { until: new Date(s.holidayMode.until).toISOString() } : {}),
     },
-    plan: s.plan,
+    plan: normalizePlan(s.plan),
+    billingStatus: s.billingStatus === 'suspended' ? 'suspended' : 'active',
+    billingSuspension: s.billingStatus === 'suspended' && s.billingSuspension ? { reason: s.billingSuspension.reason, at: new Date(s.billingSuspension.at).toISOString() } : null,
     healthScore: s.healthScore ?? 100,
     ...(s.slugChangedAt ? { slugChangedAt: new Date(s.slugChangedAt).toISOString() } : {}),
     ...(business ? { business } : {}),
@@ -85,6 +88,7 @@ export async function updateStore(req: Request, input: StoreUpdateInput): Promis
   const unset: Record<string, 1> = {};
   const prefixes = [storePrefix(String(store._id)), tmpPrefix(req.user!.id)];
 
+  assertStoreDesign(store, input); // plan: layout templates + section count (docs/api-billing.md §1)
   for (const key of ['name', 'tagline', 'description', 'themeColor', 'policies', 'seo', 'layoutTemplate', 'sections', 'holidayMode'] as const) {
     if (input[key] !== undefined) set[key] = input[key];
   }

@@ -1,4 +1,4 @@
-import { applyBps, formatMoney, planCommissionBps, type CheckoutDTO, type CheckoutPreviewDTO, type CheckoutInput, type CheckoutPreviewInput, type PaymentMethod } from '@souqly/shared';
+import { commissionSplit, formatMoney, type CheckoutDTO, type CheckoutPreviewDTO, type CheckoutInput, type CheckoutPreviewInput, type PaymentMethod } from '@souqly/shared';
 import type { Request } from 'express';
 import { Types } from 'mongoose';
 import { AppError } from '../../lib/AppError';
@@ -11,7 +11,6 @@ import { Address } from '../account/address.model';
 import { audit } from '../audit/audit.service';
 import { getOrCreateCart } from '../cart/cart.service';
 import { buildQuote, type Quote } from '../cart/quote';
-import { resolveCommissionBps } from '../commission/commission.model';
 import { FlashSale } from '../catalog/marketing.models';
 import { Order, type IAddressSnapshot, type OrderLean } from '../orders/order.model';
 import { invoiceNumberFor, newCheckoutNumber, orderSuffix, storeInfoMap, toOrderDTO } from '../orders/order.service';
@@ -226,14 +225,12 @@ export async function placeCheckout(req: Request, input: CheckoutInput): Promise
     for (const sp of quote.pricing.stores) {
       const storeLines = quote.lines.filter((l) => String(l.store._id) === sp.storeId);
       const pricedById = new Map(sp.lines.map((pl) => [pl.id, pl]));
-      // Phase 10: the store's plan lowers the resolved commission rate (PLANS.commissionDiscountBps).
-      const bps = planCommissionBps(
-        await resolveCommissionBps(sp.storeId, storeLines.map((l) => l.product.categoryPath ?? [])),
-        quote.stores.get(sp.storeId)?.plan,
-      );
-      // Commission on what the seller actually sells: items minus the store's own promo + voucher discounts (platform-funded discounts do not reduce it).
-      const commissionBase = Math.max(0, sp.itemsSubtotal - sp.promoDiscount - sp.storeDiscount);
-      const commissionAmount = applyBps(commissionBase, bps);
+      // Flat platform commission (PLATFORM_COMMISSION_BPS = 15%, every plan) on what the seller actually sells:
+      // items minus the store's own promo + voucher discounts (platform-funded discounts do not reduce it; shipping excluded).
+      // This is a snapshot; the commission is recognized (and re-computed the same way) only on delivery.
+      const split = commissionSplit(sp.itemsSubtotal - sp.promoDiscount - sp.storeDiscount, sp.shippingFee);
+      const bps = split.bps;
+      const commissionAmount = split.commission;
       const number = `${checkout.number}-${orderSuffix(i++)}`;
       docs.push({
         storeId: oid(sp.storeId),
@@ -269,7 +266,7 @@ export async function placeCheckout(req: Request, input: CheckoutInput): Promise
         total: sp.total,
         commission: { bps, amount: commissionAmount },
         // Seller receives items - own promo/voucher discounts + shipping - commission (platform discounts are platform-funded).
-        sellerNet: commissionBase + sp.shippingFee - commissionAmount,
+        sellerNet: split.sellerNet,
         status: input.paymentMethod === 'cod' ? 'placed' : 'pending_payment',
         timeline: [{ status: input.paymentMethod === 'cod' ? 'placed' : 'pending_payment', at: now, by: oid(userId), actor: 'buyer' }],
         payment: { method: input.paymentMethod, status: 'pending' },

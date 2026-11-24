@@ -1,9 +1,9 @@
 import mongoose from 'mongoose';
-import type { MongoMemoryServer } from 'mongodb-memory-server';
+import type { MongoMemoryReplSet } from 'mongodb-memory-server';
 import { logger } from '../lib/logger';
 import { env, isProd } from './env';
 
-let memoryServer: MongoMemoryServer | null = null;
+let memoryServer: MongoMemoryReplSet | null = null;
 let usingMemory = false;
 
 /**
@@ -13,10 +13,11 @@ let usingMemory = false;
 export async function connectDb(): Promise<{ inMemory: boolean }> {
   let uri = env.MONGODB_URI;
   if (!uri) {
-    if (isProd) throw new Error('MONGODB_URI is required in production');
-    const { MongoMemoryServer } = await import('mongodb-memory-server');
+    if (isProd || env.SERVERLESS) throw new Error('MONGODB_URI is required in production and on serverless');
+    const { MongoMemoryReplSet } = await import('mongodb-memory-server');
     // The mongod binary is downloaded and cached on first start (can take a minute once).
-    memoryServer = await MongoMemoryServer.create();
+    // Single-node replica set (wiredTiger) so multi-document transactions work like on Atlas (D-078).
+    memoryServer = await MongoMemoryReplSet.create({ replSet: { count: 1, storageEngine: 'wiredTiger' } });
     uri = memoryServer.getUri('souqly');
     usingMemory = true;
     const line = '='.repeat(78);
@@ -27,7 +28,8 @@ export async function connectDb(): Promise<{ inMemory: boolean }> {
     );
   }
   mongoose.set('strictQuery', true);
-  await mongoose.connect(uri, { serverSelectionTimeoutMS: 10_000 });
+  // Serverless: many short-lived instances share the Atlas connection limit, so keep each pool small.
+  await mongoose.connect(uri, { serverSelectionTimeoutMS: 10_000, ...(env.SERVERLESS ? { maxPoolSize: 5, minPoolSize: 0, maxIdleTimeMS: 60_000 } : {}) });
   logger.info({ inMemory: usingMemory }, 'MongoDB connected');
   return { inMemory: usingMemory };
 }

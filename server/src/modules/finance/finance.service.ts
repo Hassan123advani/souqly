@@ -9,19 +9,14 @@ import { maskPayout, type StoredPayout } from '../onboarding/sensitive';
 import { Order, type OrderLean } from '../orders/order.model';
 import { Payout, type PayoutLean } from '../payouts/payout.model';
 import { ReturnRequest } from '../returns/return.model';
-import { getSetting } from '../settings/settings.service';
 import { Store } from '../stores/store.model';
+import { withTx } from '../../lib/tx';
+import { syncCommissions, recognizeCommission } from '../billing/commission.service';
+import { ensureSubscription, lockStoreFinance } from '../billing/subscription.service';
+import { computeBalance, holdDays } from './hold';
 import { SellerLedger, type ISellerLedger, type LedgerType, type SellerLedgerLean } from './ledger.model';
 
-const DAY = 24 * 3600_000;
-export const DEFAULT_HOLD_DAYS = 7;
-/** Orders whose sale stays credited (refunds are separate debits from the Return documents). */
-const DELIVERED_STATES = ['delivered', 'return_requested', 'returned', 'refunded'];
-
-export async function holdDays(): Promise<number> {
-  const v = await getSetting<number>('financeHoldDays').catch(() => undefined);
-  return typeof v === 'number' && Number.isInteger(v) && v >= 0 && v <= 60 ? v : DEFAULT_HOLD_DAYS;
-}
+export { computeBalance, holdDays, DEFAULT_HOLD_DAYS } from './hold';
 
 type Entry = Omit<ISellerLedger, 'createdAt' | 'demo'> & { demo?: boolean };
 
@@ -35,31 +30,16 @@ export async function writeLedger(entries: Entry[]): Promise<number> {
   return r.upsertedCount;
 }
 
-const deliveredAt = (o: Pick<OrderLean, 'timeline' | 'updatedAt'>) =>
-  [...(o.timeline ?? [])].reverse().find((t) => t.status === 'delivered')?.at ?? o.updatedAt ?? new Date();
-
-function saleEntry(o: OrderLean, hold: number): Entry {
-  const at = new Date(deliveredAt(o));
-  return {
-    storeId: o.storeId,
-    type: 'sale',
-    amount: o.sellerNet,
-    ref: `sale:${String(o._id)}`,
-    orderId: o._id,
-    orderNumber: o.number,
-    commission: { bps: o.commission?.bps ?? 0, amount: o.commission?.amount ?? 0 },
-    availableAt: new Date(at.getTime() + hold * DAY),
-    at,
-  };
-}
-
-/** Order delivered hook: credits the seller (online orders only; POS cash never passes through Souqly). Never throws. */
-export async function ledgerOnDelivered(order: OrderLean): Promise<void> {
+/**
+ * Order delivered hook: recognizes the flat 15% commission (docs/api-billing.md §2). Online orders also
+ * credit the seller balance (sellerNet) in the same transaction; COD orders only create a receivable
+ * (the seller already holds the cash). POS sales are never in the ledger. Never throws.
+ */
+export async function ledgerOnDelivered(order: Pick<OrderLean, '_id' | 'number'>): Promise<void> {
   try {
-    if (order.channel === 'pos' || order.sellerNet <= 0) return;
-    await writeLedger([saleEntry(order, await holdDays())]);
+    await recognizeCommission(order._id);
   } catch (err) {
-    logger.error({ err, order: order.number }, 'Ledger write on delivery failed (reconciled on next finance read)');
+    logger.error({ err, order: order.number }, 'Commission recognition on delivery failed (reconciled on next finance read)');
   }
 }
 
@@ -68,25 +48,28 @@ export async function ledgerOnDelivered(order: OrderLean): Promise<void> {
  * every finance read so events written outside the hooks (admin refunds, payout reviews) always land.
  */
 export async function reconcileLedger(storeId: Types.ObjectId): Promise<void> {
-  const hold = await holdDays();
+  // Sale credits (online only) and commission credits are written by the commission ledger (billing).
+  await syncCommissions(storeId);
   const existing = new Set((await SellerLedger.find({ storeId }).select('ref').lean()).map((e) => e.ref));
   const entries: Entry[] = [];
-
-  const orders = await Order.find({ storeId, channel: { $ne: 'pos' }, status: { $in: DELIVERED_STATES }, 'timeline.status': 'delivered', sellerNet: { $gt: 0 } })
-    .select('storeId number sellerNet commission timeline updatedAt total channel')
-    .lean<OrderLean[]>();
-  for (const o of orders) if (!existing.has(`sale:${String(o._id)}`)) entries.push(saleEntry(o, hold));
 
   const refunds = await ReturnRequest.find({ storeId, status: 'refunded', 'refund.amount': { $gt: 0 } }).select('orderId refund').lean();
   if (refunds.length) {
     const ords = new Map(
-      (await Order.find({ _id: { $in: refunds.map((r) => r.orderId) }, storeId }).select('number total sellerNet').lean()).map((o) => [String(o._id), o]),
+      (await Order.find({ _id: { $in: refunds.map((r) => r.orderId) }, storeId }).select('number total sellerNet payment').lean()).map((o) => [String(o._id), o]),
     );
     for (const r of refunds) {
       const o = ords.get(String(r.orderId));
       if (!o || existing.has(`refund:${String(r._id)}`)) continue;
-      // Seller bears the refund pro rata of what they earned on the order (commission share is returned too).
-      const debit = o.total > 0 ? Math.min(o.sellerNet, Math.round((r.refund.amount * o.sellerNet) / o.total)) : 0;
+      // COD: the seller holds the buyer's cash, so the whole refund Souqly paid the buyer is owed back (the
+      // commission share comes back separately as a commission reversal). Online: the seller bears the refund
+      // pro rata of what they were credited (commission share is absorbed by the platform).
+      const debit =
+        o.payment?.method === 'cod'
+          ? Math.min(o.total, r.refund.amount)
+          : o.total > 0
+            ? Math.min(o.sellerNet, Math.round((r.refund.amount * o.sellerNet) / o.total))
+            : 0;
       if (debit <= 0) continue;
       const at = r.refund.at ?? new Date();
       entries.push({ storeId, type: 'refund', amount: -debit, ref: `refund:${String(r._id)}`, orderId: o._id, orderNumber: o.number, returnId: r._id, availableAt: at, at });
@@ -106,25 +89,13 @@ export async function reconcileLedger(storeId: Types.ObjectId): Promise<void> {
 
 export type FinanceSummary = { available: number; onHold: number; pendingPayouts: number; lifetime: number; paidOut: number; refunds: number; holdDays: number; minPayout: number; currency: 'PKR' };
 
-/** Pure balance math over ledger rows (unit-tested). */
-export function computeBalance(rows: Pick<ISellerLedger, 'type' | 'amount' | 'availableAt'>[], now = new Date()) {
-  let total = 0;
-  let onHold = 0;
-  let lifetime = 0;
-  let refunds = 0;
-  for (const r of rows) {
-    total += r.amount;
-    if (r.type === 'sale') {
-      lifetime += r.amount;
-      if (r.availableAt > now) onHold += r.amount;
-    }
-    if (r.type === 'refund') refunds += -r.amount;
-  }
-  return { available: total - onHold, onHold, lifetime, refunds };
-}
-
 export async function financeSummary(storeId: Types.ObjectId): Promise<FinanceSummary> {
   await reconcileLedger(storeId);
+  return balanceSnapshot(storeId);
+}
+
+/** Balance from the ledger as written (no reconcile): the cheap read path for frequently polled screens. */
+export async function balanceSnapshot(storeId: Types.ObjectId): Promise<FinanceSummary> {
   const [rows, payoutAgg, hold] = await Promise.all([
     SellerLedger.find({ storeId }).select('type amount availableAt').lean(),
     Payout.aggregate<{ _id: string; n: number }>([{ $match: { storeId } }, { $group: { _id: '$status', n: { $sum: '$amount' } } }]),
@@ -196,8 +167,8 @@ export async function listPayouts(storeId: Types.ObjectId, q: { cursor?: string;
 }
 
 /**
- * Seller payout request. Must be ≥ Rs. 1,000 and ≤ available. The debit is written to the ledger
- * immediately; if a concurrent request overdrew the balance, this one is rolled back (409).
+ * Seller payout request. Must be ≥ Rs. 1,000 and ≤ available. Payout + ledger debit are written in one
+ * transaction under the store finance lock, after re-checking the balance (no concurrent overdraw, D-078).
  */
 export async function requestPayout(req: Request, amount: number) {
   const storeId = req.store!._id;
@@ -207,20 +178,27 @@ export async function requestPayout(req: Request, amount: number) {
   if (!masked) throw new AppError(409, 'NO_PAYOUT_METHOD', 'Add your payout account in store settings first');
   const before = await financeSummary(storeId);
   if (amount > before.available) throw new AppError(400, 'INSUFFICIENT_BALANCE', 'Amount is more than your available balance', { available: before.available });
+  await ensureSubscription(storeId);
 
-  const payout = await Payout.create({
-    storeId,
-    amount,
-    status: 'requested',
-    method: { type: masked.method, ...(masked.bankName ? { bankName: masked.bankName } : {}), accountTitle: masked.accountTitle, accountMasked: masked.accountNumber },
-    requestedBy: new Types.ObjectId(req.user!.id),
+  const payout = await withTx(async (session) => {
+    await lockStoreFinance(storeId, session);
+    const rows = await SellerLedger.find({ storeId }).select('type amount availableAt').session(session).lean();
+    if (amount > computeBalance(rows).available) throw new AppError(409, 'INSUFFICIENT_BALANCE', 'Your balance changed. Please try again.');
+    const [p] = await Payout.create(
+      [
+        {
+          storeId,
+          amount,
+          status: 'requested',
+          method: { type: masked.method, ...(masked.bankName ? { bankName: masked.bankName } : {}), accountTitle: masked.accountTitle, accountMasked: masked.accountNumber },
+          requestedBy: new Types.ObjectId(req.user!.id),
+        },
+      ],
+      { session },
+    );
+    await SellerLedger.create([{ storeId, type: 'payout', amount: -amount, ref: `payout:${String(p!._id)}`, payoutId: p!._id, availableAt: p!.createdAt, at: p!.createdAt }], { session });
+    return p!;
   });
-  await writeLedger([{ storeId, type: 'payout', amount: -amount, ref: `payout:${String(payout._id)}`, payoutId: payout._id, availableAt: payout.createdAt, at: payout.createdAt }]);
-  const rows = await SellerLedger.find({ storeId }).select('type amount availableAt').lean();
-  if (computeBalance(rows).available < 0) {
-    await Promise.all([Payout.deleteOne({ _id: payout._id }), SellerLedger.deleteOne({ storeId, ref: `payout:${String(payout._id)}` })]);
-    throw new AppError(409, 'INSUFFICIENT_BALANCE', 'Your balance changed. Please try again.');
-  }
   await audit({ action: 'store.payout_requested', targetType: 'Payout', targetId: payout._id, meta: { amount }, req });
   return payoutDTO(payout.toObject() as PayoutLean);
 }
@@ -235,13 +213,16 @@ export async function statement(storeId: Types.ObjectId, month: string) {
     SellerLedger.find({ storeId, at: { $gte: from, $lt: to } }).sort({ at: 1, _id: 1 }).limit(5000).lean<SellerLedgerLean[]>(),
   ]);
   const opening = openingRow[0]?.n ?? 0;
-  const totals = { sales: 0, commission: 0, refunds: 0, payouts: 0, reversals: 0 };
+  const totals = { sales: 0, commission: 0, refunds: 0, payouts: 0, reversals: 0, invoicePayments: 0, commissionCredits: 0, balanceTransfers: 0 };
   for (const r of rows) {
     if (r.type === 'sale') {
       totals.sales += r.amount;
       totals.commission += r.commission?.amount ?? 0;
     } else if (r.type === 'refund') totals.refunds += -r.amount;
     else if (r.type === 'payout') totals.payouts += -r.amount;
+    else if (r.type === 'invoice_payment') totals.invoicePayments += -r.amount;
+    else if (r.type === 'commission_credit') totals.commissionCredits += r.amount;
+    else if (r.type === 'balance_transfer') totals.balanceTransfers += r.amount;
     else totals.reversals += r.amount;
   }
   const closing = opening + rows.reduce((a, r) => a + r.amount, 0);

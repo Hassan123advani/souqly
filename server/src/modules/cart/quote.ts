@@ -57,7 +57,8 @@ async function activeFlashPrices(productIds: Types.ObjectId[]): Promise<Map<stri
 }
 
 export function isStoreOpen(store: StoreLean | undefined): boolean {
-  if (!store || store.status !== 'approved') return false;
+  // Billing-suspended stores (docs/api-billing.md §3) take no new orders; their lines show as unavailable.
+  if (!store || store.status !== 'approved' || store.billingStatus === 'suspended') return false;
   const h = store.holidayMode;
   return !(h?.enabled && (!h.until || h.until.getTime() > Date.now()));
 }
@@ -84,7 +85,7 @@ export async function buildQuote(cart: CartDoc, userId: string, buyerCity?: stri
   const productMap = new Map(products.map((p) => [String(p._id), p]));
   const storeIds = [...new Set([...cart.items.map((i) => String(i.storeId)), ...products.map((p) => String(p.storeId))])];
   const storeDocs = await Store.find({ _id: { $in: storeIds.map((s) => new Types.ObjectId(s)) } })
-    .select('name slug logo isMall status address holidayMode plan')
+    .select('name slug logo isMall status address holidayMode plan billingStatus')
     .lean<StoreLean[]>();
   const stores = new Map(storeDocs.map((s) => [String(s._id), s]));
 

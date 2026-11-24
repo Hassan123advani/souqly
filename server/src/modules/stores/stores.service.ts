@@ -43,7 +43,7 @@ const STORE_SORTS = {
 
 export async function listStores(q: StoreListQuery): Promise<{ items: StoreCard[]; nextCursor: string | null }> {
   const { field, dir } = STORE_SORTS[q.sort];
-  const filter: Record<string, unknown> = { status: 'approved', ...cursorFilter(field, dir, q.cursor) };
+  const filter: Record<string, unknown> = { status: 'approved', billingStatus: { $ne: 'suspended' }, ...cursorFilter(field, dir, q.cursor) };
   if (q.mall) filter.isMall = true;
   if (q.q) filter.name = { $regex: escapeRegex(q.q), $options: 'i' };
   const rows = (await Store.find(filter).sort(cursorSort(field, dir)).limit(q.limit + 1).select(CARD_SELECT).lean()) as StoreLean[];
@@ -52,7 +52,7 @@ export async function listStores(q: StoreListQuery): Promise<{ items: StoreCard[
 }
 
 export async function findApprovedStore(slug: string): Promise<StoreLean> {
-  const s = (await Store.findOne({ slug, status: 'approved' }).select(PUBLIC_SELECT).lean()) as StoreLean | null;
+  const s = (await Store.findOne({ slug, status: 'approved', billingStatus: { $ne: 'suspended' } }).select(PUBLIC_SELECT).lean()) as StoreLean | null;
   if (!s) throw notFound('Store');
   return s;
 }
@@ -105,6 +105,6 @@ export async function storeCategories(slug: string): Promise<{ id: string; slug:
 }
 
 export async function topStores(limit = 12): Promise<StoreCard[]> {
-  const rows = (await Store.find({ status: 'approved' }).sort({ followerCount: -1, _id: -1 }).limit(limit).select(CARD_SELECT).lean()) as StoreLean[];
+  const rows = (await Store.find({ status: 'approved', billingStatus: { $ne: 'suspended' } }).sort({ followerCount: -1, _id: -1 }).limit(limit).select(CARD_SELECT).lean()) as StoreLean[];
   return rows.map(toStoreCard);
 }

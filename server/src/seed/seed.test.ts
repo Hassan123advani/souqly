@@ -17,6 +17,10 @@ import { setStorage, type StorageService } from '../services/storage';
 import { api } from '../test/helpers';
 import { clearDemoData } from './clear';
 import { runSeed } from './seed';
+import { BillingPayment } from '../modules/billing/billingPayment.model';
+import { CommissionEntry } from '../modules/billing/commissionEntry.model';
+import { Invoice } from '../modules/billing/invoice.model';
+import { Subscription } from '../modules/billing/subscription.model';
 
 const files = new Map<string, string>();
 const memoryStorage: StorageService = {
@@ -62,10 +66,19 @@ describe('demo seed', () => {
     expect(await Bundle.countDocuments({ demo: true })).toBeGreaterThanOrEqual(2);
     expect(await Promotion.countDocuments({ demo: true })).toBeGreaterThanOrEqual(2);
     expect(await Store.countDocuments({ demo: true, plan: 'pro' })).toBeGreaterThanOrEqual(1); // plans come from data/stores.ts
-    expect(await Store.countDocuments({ demo: true, plan: 'business' })).toBeGreaterThanOrEqual(1);
+    expect(await Store.countDocuments({ demo: true, plan: 'premium' })).toBeGreaterThanOrEqual(1);
     expect(await Order.countDocuments({ demo: true, channel: 'pos' })).toBeGreaterThan(0);
     expect(await PosShift.countDocuments({ demo: true, status: 'closed' })).toBe(1);
-    expect(await SellerLedger.countDocuments({ demo: true })).toBeGreaterThan(0);
+    // Billing demo (docs/api-billing.md): commission derived from delivered COD orders (flat 15%), invoices, one billing-suspended store.
+    expect(await SellerLedger.countDocuments({ demo: false })).toBe(0);
+    const charges = await CommissionEntry.find({ demo: true, kind: 'charge' }).lean();
+    expect(charges.length).toBeGreaterThan(0);
+    expect(charges.every((c) => c.bps === 1500 && c.amount === Math.round((c.base * 1500) / 10_000))).toBe(true);
+    expect(await Subscription.countDocuments({ demo: true })).toBe(12);
+    expect(await Invoice.countDocuments({ demo: true, status: 'paid' })).toBe(1);
+    expect(await Invoice.countDocuments({ demo: true, status: 'open' })).toBeGreaterThanOrEqual(1);
+    expect(await Store.countDocuments({ demo: true, billingStatus: 'suspended', 'billingSuspension.reason': 'overdue' })).toBe(1);
+    expect(await BillingPayment.countDocuments({ demo: true, status: 'pending' })).toBe(1);
     expect(await AnalyticsEvent.countDocuments({ demo: true })).toBeGreaterThan(100);
     expect([...files.keys()].every((k) => k.startsWith('seed/'))).toBe(true);
     expect(files.get([...files.keys()].find((k) => k.startsWith('seed/products/'))!)).toMatch(/^<svg/);

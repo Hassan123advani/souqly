@@ -23,7 +23,7 @@ export async function getVocabulary(): Promise<Map<string, number>> {
     const [cats, brands, stores, products] = await Promise.all([
       Category.find({ isActive: true }).select('name').lean(),
       Brand.find().select('name').lean(),
-      Store.find({ status: 'approved' }).select('name').lean(),
+      Store.find({ status: 'approved', billingStatus: { $ne: 'suspended' } }).select('name').lean(),
       Product.find({ status: 'published', deletedAt: { $exists: false } }).select('title tags').limit(20_000).lean(),
     ]);
     for (const c of cats) add(c.name.en, 5);

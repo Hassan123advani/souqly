@@ -1,6 +1,7 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import type { CartDTO, CartItemDTO, CheckoutDTO, PaymentMethod } from '@souqly/shared';
 import { del, get, patch, post } from './client';
+import { clearAffiliate, readAffiliate } from '@/components/affiliate/affiliateCode';
 
 export const cartKey = ['cart'] as const;
 
@@ -112,9 +113,13 @@ export function useCheckoutPreview(addressId: string | undefined, paymentMethod:
 export function usePlaceOrder() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (body: { addressId: string; paymentMethod: PaymentMethod; notes?: Record<string, string>; idempotencyKey: string; coins?: number }) =>
-      post<CheckoutDTO>('/checkout', body),
+    mutationFn: (body: { addressId: string; paymentMethod: PaymentMethod; notes?: Record<string, string>; idempotencyKey: string; coins?: number }) => {
+      // Phase 10 affiliate attribution: a remembered `?aff=` code (server ignores it when the flag is off).
+      const aff = readAffiliate();
+      return post<CheckoutDTO>('/checkout', aff ? { ...body, aff } : body);
+    },
     onSuccess: (checkout) => {
+      clearAffiliate();
       qc.setQueryData(['checkout', checkout.number], checkout);
       void qc.invalidateQueries({ queryKey: cartKey });
       void qc.invalidateQueries({ queryKey: ['orders'] });

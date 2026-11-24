@@ -1,6 +1,6 @@
 # Progress
 
-_Last updated: 2026-11-22_
+_Last updated: 2026-11-24_
 
 ## How to run
 ```bash
@@ -46,10 +46,16 @@ Admin: souqly@gmail.com / souqly123 (from server/.env)
 
 - Phase 7 FE (5bfc948), Phase 8 FE (f2ebb32), Phase 9 BE + follow-ups 1–20 (9e74db5) committed. 238 tests.
 
-## In progress — as of 2026-11-23 (later)
-- Phase 9 FRONTEND admin panel (owns pages/admin, components/admin, api/admin.ts, locales/admin, pages/support, CMS page rendering).
-- Phase 10 BACKEND seller growth (docs/api-growth.md).
-- NEXT after these: client follow-up agent to adopt new endpoints (cart select-store, google2fa next, GET conversation by id, seller order picker for chat, orders?store=, coinsDiscount in summary, products meta.counts + bulk, category attributes endpoint, /seller/orders/riders, returns counts); then Phase 10 FE (marketing, finance, analytics, POS offline, bulk CSV, plans).
+## In progress — as of 2026-11-24
+- Phase 10 BACKEND committed (5b3578d). Phase 10 FRONTEND done (uncommitted): marketing, analytics, offline POS, bulk CSV, health card, affiliate, admin nominations.
+- Vercel deployment readiness done (uncommitted): vercel.json, api/index.mjs, server/src/vercel.ts, cron endpoint + sweep registry, realtime=false polling fallback on the client, docs/deploy-vercel.md.
+- Cookie consent + Firebase Analytics (after consent) done (uncommitted).
+- Keys connected locally: Cloudinary (server/.env), Firebase (client/.env), VAPID generated. MongoDB Atlas URI in server/.env.production.local (gitignored; local DNS can't resolve SRV, so MONGODB_URI_DIRECT is used for local seeding).
+- RUNNING: owner's Seller Subscription + flat 15% commission + monthly invoice/billing system (backend first; contract docs/api-billing.md), replaces old plans (business→premium) and Seller Finance area.
+- NEXT: billing frontend (seller billing/plans/finance pages, admin billing, wizard plan step; re-point growth 'not in your plan' card); backend follow-ups from Phase 10 FE: (1) /seller/health recommendations as i18n keys, (2) admin nominations list with product/store names, (3) sq_aff cookie (optional), (4) marketing lists should include product titles, (5) POS catalog updatedSince must report deleted ids; code + security review of Phase 10 + billing; commit; Phase 11; Phase 12; seed Atlas; push GitHub + Vercel deploy (owner asked explicitly on 2026-11-23).
+- WAITING ON OWNER: gh auth login / empty repo, vercel login, strong production ADMIN_PASSWORD (12+), bank details for manual invoice payments.
+
+- Seller subscriptions + flat 15% commission + monthly billing BACKEND done (uncommitted): contract docs/api-billing.md, decisions D-078..D-089, module server/src/modules/billing, Mongo replica set for transactions. Needs: billing FRONTEND (seller plan/billing pages, admin billing panel, wizard plan step), owner input on open questions (POS commission, admin goodwill refunds), Stripe keys for card invoice payments.
 
 ## Previous in-progress notes
 - Backend: follow-ups (coins refund, unreadChats, select-store, COD race, google2fa next, product counts, bulk, riders list, all attributes, newOrderSound) + Phase 9 admin API (docs/api-admin.md).

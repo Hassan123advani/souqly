@@ -19,7 +19,7 @@ export type StoreLayout = (typeof STORE_LAYOUTS)[number];
 export const STORE_SECTION_TYPES = ['hero', 'featured', 'category_row', 'deals', 'new_arrivals', 'best_sellers', 'banner', 'text'] as const;
 export type StoreSectionType = (typeof STORE_SECTION_TYPES)[number];
 
-export const STORE_PLANS = ['free', 'pro', 'business'] as const;
+export const STORE_PLANS = ['free', 'pro', 'premium'] as const;
 export type StorePlan = (typeof STORE_PLANS)[number];
 
 export const HOME_SECTION_TYPES = ['trending', 'new_arrivals', 'top_rated', 'best_sellers', 'mall', 'top_stores', 'campaign'] as const;

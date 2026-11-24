@@ -7,6 +7,7 @@ import {
   LayoutDashboard,
   MessageSquare,
   Package,
+  ScanBarcode,
   Undo2,
   Settings,
   ShoppingBag,
@@ -45,7 +46,8 @@ export default function SellerLayout() {
       tourId: 'inventory',
     },
     { to: '/seller/store', label: t('seller.nav.store'), icon: Store, ready: active && can(PERMISSIONS.STORE_SETTINGS_MANAGE), tourId: 'store' },
-    { to: '/seller/marketing', label: t('seller.nav.marketing'), icon: BadgePercent, ready: false },
+    { to: '/seller/marketing', label: t('seller.nav.marketing'), icon: BadgePercent, ready: active && can(PERMISSIONS.STORE_MARKETING_MANAGE) },
+    { to: '/seller/pos', label: t('growth.pos.nav'), icon: ScanBarcode, ready: active && can(PERMISSIONS.STORE_POS_USE) },
     { to: '/seller/chat', label: t('seller.nav.chat'), icon: MessageSquare, ready: active && can(PERMISSIONS.STORE_CHAT_MANAGE), badge: chatUnread },
     {
       to: '/seller/reviews',
@@ -53,8 +55,8 @@ export default function SellerLayout() {
       icon: Star,
       ready: active && (can(PERMISSIONS.STORE_ORDERS_VIEW) || can(PERMISSIONS.STORE_CHAT_MANAGE)),
     },
-    { to: '/seller/finance', label: t('seller.nav.finance'), icon: Wallet, ready: false },
-    { to: '/seller/analytics', label: t('seller.nav.analytics'), icon: BarChart3, ready: false },
+    { to: '/seller/billing', label: t('billing.nav'), icon: Wallet, ready: active && can(PERMISSIONS.STORE_FINANCE_VIEW) },
+    { to: '/seller/analytics', label: t('seller.nav.analytics'), icon: BarChart3, ready: active && can(PERMISSIONS.STORE_ANALYTICS_VIEW) },
     { to: '/seller/staff', label: t('seller.nav.staff'), icon: Users, ready: active && can(PERMISSIONS.STORE_STAFF_MANAGE), tourId: 'staff' },
     {
       to: '/seller/settings',

@@ -11,6 +11,8 @@ async function main() {
   // Import the app after the env/db are ready (registers all models).
   const { app } = await import('./app');
   await dropLegacyIndexes();
+  // Billing migrations (business → premium, flat-commission ledger fix); idempotent.
+  await (await import('./modules/billing/billing.service')).migrateBilling().catch((err) => logger.error({ err }, 'Billing migration failed'));
 
   if (inMemory) {
     const { runSeed } = await import('./seed/seed');
@@ -21,6 +23,7 @@ async function main() {
   initSocket(server);
   (await import('./modules/alerts/alert.service')).startAlertJobs(); // Phase 8: 10-min alert sweep
   (await import('./modules/health/storeHealth.service')).startHealthJobs(); // Phase 10: nightly store health
+  (await import('./modules/billing/billing.service')).startBillingJobs(); // Billing: invoices, overdue → suspension (docs/api-billing.md)
 
   await new Promise<void>((resolve, reject) => {
     server.once('error', reject);

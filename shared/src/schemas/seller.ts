@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { STORE_PERMISSIONS } from '../constants/permissions';
 import { STORE_ROLES } from '../constants/roles';
-import { STORE_LAYOUTS, STORE_SECTION_TYPES } from './catalog';
+import { STORE_LAYOUTS, STORE_PLANS, STORE_SECTION_TYPES } from './catalog';
 import { addressSchema, cursorQuerySchema, moneyMinorSchema, objectIdSchema } from './common';
 
 /** Phase 5: seller onboarding + Seller Center core (docs/api-seller-orders.md). */
@@ -64,6 +64,8 @@ export const onboardingSchema = z
     payout: payoutSchema,
     policies: policiesSchema.optional(),
     acceptTerms: z.literal(true),
+    /** Plan chosen in the wizard (docs/api-billing.md §3): the store starts on Free; a paid choice creates an upgrade invoice. */
+    plan: z.enum(STORE_PLANS).optional(),
   })
   .strict();
 export type OnboardingInput = z.infer<typeof onboardingSchema>;

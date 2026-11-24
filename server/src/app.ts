@@ -17,6 +17,7 @@ import { cartRouter } from './modules/cart/cart.routes';
 import { marketplaceRouter } from './modules/catalog/catalog.routes';
 import { checkoutRouter } from './modules/checkout/checkout.routes';
 import { configRouter } from './modules/config/config.routes';
+import { cronRouter } from './modules/cron/cron.routes';
 import { ordersRouter } from './modules/orders/orders.routes';
 import { riderRouter } from './modules/delivery/rider.routes';
 import { sellerRidersRouter } from './modules/delivery/sellerRiders.routes';
@@ -53,6 +54,9 @@ import { adminNominationsRouter, publicMarketingRouter, sellerMarketingRouter } 
 import { adminPlanRouter, sellerPlanRouter } from './modules/plans/plan.routes';
 import { publicReceiptRouter, sellerPosRouter } from './modules/pos/pos.routes';
 import { UPLOADS_DIR } from './services/storage';
+// Billing: subscriptions, 15% commission, invoices (docs/api-billing.md)
+import { adminBillingRouter } from './modules/billing/adminBilling.routes';
+import { publicPlansRouter, sellerBillingRouter, webhookRouter } from './modules/billing/billing.routes';
 
 /** Paths whose query strings carry secrets (OAuth code/state) and are never logged. */
 const SECRET_QUERY_PATHS = ['/api/v1/auth/google/callback'];
@@ -112,6 +116,10 @@ export function createApp() {
     res.type('text/plain').send(`User-agent: *\nAllow: /\nDisallow: /api/\nDisallow: /account\nDisallow: /seller\nDisallow: /admin\n`);
   });
 
+  // Payment gateway webhooks need the RAW body for signature checks: mounted before the JSON parser,
+  // the JSON content-type gate and CORS (server-to-server; authenticated only by the signature).
+  app.use('/api/v1/webhooks', rateLimits.general, webhookRouter);
+
   const api = Router();
   api.use(
     cors({
@@ -131,6 +139,7 @@ export function createApp() {
     next();
   });
   api.use(rateLimits.general);
+  api.use('/', cronRouter); // /internal/cron/:job (CRON_SECRET bearer; runs during maintenance too)
   api.use(maintenanceGate);
 
   api.use('/', configRouter); // /health, /config/public
@@ -168,6 +177,9 @@ export function createApp() {
   api.use('/seller/marketing', sellerMarketingRouter);
   api.use('/seller/finance', sellerFinanceRouter);
   api.use('/seller/pos', sellerPosRouter);
+  api.use('/seller/billing', sellerBillingRouter);
+  api.use('/admin', adminBillingRouter); // /admin/billing/* (per-route can())
+  api.use('/', publicPlansRouter); // GET /plans
   api.use('/seller', sellerBulkRouter); // /seller/products/export.csv|import-template.csv|import (before /products/:id)
   api.use('/seller', sellerAnalyticsRouter); // /seller/analytics
   api.use('/seller', sellerHealthRouter); // /seller/health*

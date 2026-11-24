@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { RiderLocationInput } from '@souqly/shared';
+import { useRealtime } from '@/api/config';
 import { postRiderLocation } from '@/api/delivery';
 import { getErrorCode } from '@/api/client';
 import { acquireSocket, releaseSocket } from '@/lib/socket';
@@ -26,7 +27,8 @@ function toInput(c: GeolocationCoordinates): RiderLocationInput {
 
 /**
  * While `active`, watches GPS and sends the latest fix every ~5 s over the socket (`rider:location`
- * with ack), falling back to REST when the socket is down. Holds a screen wake lock when the
+ * with ack), falling back to REST when the socket is down. Without realtime (serverless) every fix
+ * goes over REST (`POST /rider/deliveries/:id/location`) and no socket is opened. Holds a screen wake lock when the
  * browser supports it. Everything stops when `active` turns false or the component unmounts.
  * `onRejected` fires when the server refuses a location for good (e.g. the order is no longer out
  * for delivery).
@@ -36,12 +38,15 @@ export function useLiveLocation(orderId: string, active: boolean, onRejected?: (
   const latest = useRef<RiderLocationInput | null>(null);
   const rejected = useRef(onRejected);
   rejected.current = onRejected;
+  const { live, poll } = useRealtime();
 
   useEffect(() => {
     if (!active) {
       setState((s) => ({ ...s, status: s.status === 'idle' ? 'idle' : 'stopped', wakeLock: false }));
       return;
     }
+    // Wait for the public config so the transport is known before GPS starts.
+    if (!live && !poll) return;
     if (!('geolocation' in navigator)) {
       setState((s) => ({ ...s, status: 'unavailable' }));
       return;
@@ -49,7 +54,7 @@ export function useLiveLocation(orderId: string, active: boolean, onRejected?: (
     let stopped = false;
     let sending = false;
     let lock: WakeLockSentinelLike | null = null;
-    const socket = acquireSocket();
+    const socket = live ? acquireSocket() : null;
     setState((s) => ({ ...s, status: 'locating' }));
 
     const watchId = navigator.geolocation.watchPosition(
@@ -85,7 +90,7 @@ export function useLiveLocation(orderId: string, active: boolean, onRejected?: (
           .finally(() => {
             sending = false;
           });
-      if (!socket.connected) return void viaRest();
+      if (!socket?.connected) return void viaRest();
       socket.timeout(4_000).emit('rider:location', { orderId, ...loc }, (err: Error | null, ack?: Ack) => {
         if (err) return void viaRest();
         sending = false;
@@ -116,9 +121,9 @@ export function useLiveLocation(orderId: string, active: boolean, onRejected?: (
       window.clearInterval(timer);
       document.removeEventListener('visibilitychange', requestLock);
       if (lock && !lock.released) void lock.release();
-      releaseSocket();
+      if (socket) releaseSocket();
     };
-  }, [orderId, active]);
+  }, [orderId, active, live, poll]);
 
   return state;
 }

@@ -49,6 +49,10 @@ export type SellerStore = {
   sections: { type: StoreSectionType; title?: string; config: Record<string, unknown> }[];
   holidayMode: { enabled: boolean; message?: string; until?: string };
   plan: StorePlan;
+  /** Billing hold (docs/api-billing.md §3): storefront hidden, no new orders/publishes; Seller Center + billing stay usable. */
+  billingStatus?: 'active' | 'suspended';
+  /** Set while billing-suspended: 'overdue' (lifted automatically on payment) or 'admin'. */
+  billingSuspension?: { reason: 'overdue' | 'admin'; at: string } | null;
   healthScore: number;
   slugChangedAt?: string;
   business?: MaskedBusiness;

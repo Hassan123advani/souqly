@@ -11,6 +11,7 @@ import {
 import { Router } from 'express';
 import type { Types } from 'mongoose';
 import { z } from 'zod';
+import { env } from '../../config/env';
 import { AppError, notFound } from '../../lib/AppError';
 import { asyncHandler } from '../../lib/asyncHandler';
 import { logger } from '../../lib/logger';
@@ -63,6 +64,17 @@ export async function recomputeCategoryPaths(rootId: string): Promise<{ categori
   invalidateCategoryCache();
   logger.info({ rootId, categories: descendants.length, products }, 'Category paths recomputed');
   return { categories: descendants.length, products };
+}
+
+/** Re-derives the paths of every category tree (all roots). Idempotent; used by the daily cron. */
+export async function recomputeAllCategoryPaths(): Promise<{ categories: number; products: number }> {
+  const total = { categories: 0, products: 0 };
+  for (const root of await Category.find({ parentId: null }).select('_id').lean()) {
+    const r = await recomputeCategoryPaths(String(root._id));
+    total.categories += r.categories + 1;
+    total.products += r.products;
+  }
+  return total;
 }
 
 export const CATEGORY_PATH_JOB = 'catalog.recomputeCategoryPaths';
@@ -124,7 +136,6 @@ adminCatalogRouter.post(
       ...(b.icon ? { icon: b.icon } : {}),
       ...(b.image ? { image: b.image } : {}),
       ...(b.color ? { color: b.color } : {}),
-      ...(b.commissionBps !== undefined ? { commissionBps: b.commissionBps } : {}),
     });
     invalidateCategoryCache();
     await audit({ action: 'admin.category_created', targetType: 'Category', targetId: c._id, meta: { slug: c.slug }, req });
@@ -139,7 +150,8 @@ adminCatalogRouter.patch(
   asyncHandler(async (req, res) => {
     const b = req.body as z.infer<typeof adminCategoryUpdateSchema>;
     const set: Record<string, unknown> = {};
-    for (const k of ['name', 'icon', 'image', 'color', 'commissionBps', 'isActive'] as const) if (b[k] !== undefined) set[k] = b[k];
+    // `commissionBps` is accepted but ignored: commission is a flat PLATFORM_COMMISSION_BPS (D-079).
+    for (const k of ['name', 'icon', 'image', 'color', 'isActive'] as const) if (b[k] !== undefined) set[k] = b[k];
     const c = await Category.findByIdAndUpdate(req.params.id, { $set: set }, { new: true }).lean();
     if (!c) throw notFound('Category');
     // A renamed category is denormalized into its descendants' ancestors.
@@ -168,9 +180,12 @@ adminCatalogRouter.post(
     const newOrder = order ?? (await Category.countDocuments({ parentId: parent?._id ?? null, _id: { $ne: c._id } }));
     await Category.updateOne({ _id: c._id }, { $set: { parentId: parent?._id ?? null, ancestors, order: newOrder } });
     invalidateCategoryCache();
-    getJobs().schedule(CATEGORY_PATH_JOB, new Date(), { categoryId: String(c._id) });
+    // Serverless instances may be frozen right after the response, so a background timer could never
+    // run there: recompute inline instead (the daily cron also re-derives every path as a safety net).
+    if (env.SERVERLESS) await recomputeCategoryPaths(String(c._id));
+    else getJobs().schedule(CATEGORY_PATH_JOB, new Date(), { categoryId: String(c._id) });
     await audit({ action: 'admin.category_moved', targetType: 'Category', targetId: c._id, meta: { from: c.parentId ? String(c.parentId) : null, to: parentId }, req });
-    res.status(202).json({ data: { id: String(c._id), parentId, recompute: 'scheduled' } });
+    res.status(202).json({ data: { id: String(c._id), parentId, recompute: env.SERVERLESS ? 'done' : 'scheduled' } });
   }),
 );
 

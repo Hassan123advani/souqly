@@ -1,4 +1,4 @@
-import { PLANS, type PlanFeature, type StorePlan } from '@souqly/shared';
+import { PLANS, PLATFORM_COMMISSION_BPS, normalizePlan, requiredPlanFor, type PlanFeature, type StoreLayout, type StorePlan } from '@souqly/shared';
 import type { Request, RequestHandler } from 'express';
 import { Schema, Types, model } from 'mongoose';
 import { AppError, notFound } from '../../lib/AppError';
@@ -7,7 +7,11 @@ import { Product } from '../catalog/product.model';
 import { Store } from '../stores/store.model';
 import { StoreMember } from '../stores/storeMember.model';
 
-/** Seller plans (Phase 10). Limits come from the shared PLANS constant; upgrades are admin-approved requests. */
+/**
+ * Seller plan limits (docs/api-billing.md §1). Limits come from the shared PLANS constant. Paid upgrades go
+ * through billing (`/seller/billing/change-plan`); PlanRequest is the legacy "comp request" path (admin approval
+ * changes the plan without an invoice, recorded as a billing adjustment).
+ */
 
 export interface IPlanRequest {
   storeId: Types.ObjectId;
@@ -44,7 +48,7 @@ planRequestSchema.index({ status: 1, createdAt: -1 });
 planRequestSchema.index({ storeId: 1 }, { unique: true, partialFilterExpression: { status: 'pending' }, name: 'one_pending_per_store' });
 export const PlanRequest = model<IPlanRequest>('PlanRequest', planRequestSchema);
 
-const planOf = (store: { plan?: StorePlan }) => PLANS[store.plan ?? 'free'] ?? PLANS.free;
+const planOf = (store: { plan?: StorePlan | string }) => PLANS[normalizePlan(store.plan)];
 
 const planLimit = (plan: StorePlan, details: Record<string, unknown>, message: string) =>
   new AppError(403, 'PLAN_LIMIT', message, { plan, ...details });
@@ -54,12 +58,43 @@ export function requirePlanFeature(feature: PlanFeature): RequestHandler {
   return (req, _res, next) => {
     const p = planOf(req.store!);
     if (p.features[feature]) return next();
-    next(planLimit(p.id, { feature, requiredPlan: feature === 'customDomain' ? 'business' : 'pro' }, `Your ${p.name} plan does not include this feature. Upgrade to use it.`));
+    next(planLimit(p.id, { feature, requiredPlan: requiredPlanFor(feature) }, `Your ${p.name} plan does not include this feature. Upgrade to use it.`));
   };
 }
 
 export function hasPlanFeature(store: { plan?: StorePlan }, feature: PlanFeature): boolean {
   return planOf(store).features[feature];
+}
+
+/** Throws 403 PLAN_LIMIT when the store's plan lacks `feature`. */
+export function assertPlanFeature(store: { plan?: StorePlan }, feature: PlanFeature): void {
+  const p = planOf(store);
+  if (!p.features[feature]) throw planLimit(p.id, { feature, requiredPlan: requiredPlanFor(feature) }, `Your ${p.name} plan does not include this feature. Upgrade to use it.`);
+}
+
+/**
+ * Publishing: live products (published + in review) must stay within the plan limit. After a downgrade
+ * nothing is unpublished or deleted, but new publishes beyond the limit are refused.
+ */
+export async function assertLiveProductLimit(store: { _id: Types.ObjectId; plan?: StorePlan }): Promise<void> {
+  const p = planOf(store);
+  if (p.limits.products === null) return;
+  const live = await Product.countDocuments({ storeId: store._id, deletedAt: { $exists: false }, status: { $in: ['published', 'pending_review'] } });
+  if (live + 1 > p.limits.products) {
+    throw planLimit(p.id, { limit: 'liveProducts', used: live, max: p.limits.products, requiredPlan: p.id === 'free' ? 'pro' : 'premium' }, `Your ${p.name} plan allows up to ${p.limits.products} live products. Upgrade to publish more.`);
+  }
+}
+
+/** Store page builder: layout template and section count must be allowed by the plan (checked only when changed). */
+export function assertStoreDesign(store: { plan?: StorePlan; layoutTemplate?: StoreLayout; sections?: unknown[] }, input: { layoutTemplate?: StoreLayout; sections?: unknown[] }): void {
+  const p = planOf(store);
+  if (input.layoutTemplate && input.layoutTemplate !== store.layoutTemplate && !p.layouts.includes(input.layoutTemplate)) {
+    throw planLimit(p.id, { feature: 'layoutTemplates', requiredPlan: requiredPlanFor('layoutTemplates') }, `The ${input.layoutTemplate} layout needs the Pro plan.`);
+  }
+  const before = store.sections?.length ?? 0;
+  if (input.sections && input.sections.length > p.limits.storeSections && input.sections.length > before) {
+    throw planLimit(p.id, { limit: 'storeSections', used: input.sections.length, max: p.limits.storeSections, requiredPlan: p.id === 'free' ? 'pro' : 'premium' }, `Your ${p.name} plan allows up to ${p.limits.storeSections} store sections.`);
+  }
 }
 
 /** Throws PLAN_LIMIT if adding `adding` products would exceed the plan's product limit (soft-deleted excluded). */
@@ -91,6 +126,7 @@ export async function planSummary(store: { _id: Types.ObjectId; plan?: StorePlan
   return {
     plan: p.id,
     definition: p,
+    commissionBps: PLATFORM_COMMISSION_BPS,
     usage: { products, staff },
     plans: Object.values(PLANS),
     pendingRequest: pending ? { id: String(pending._id), plan: pending.plan, createdAt: pending.createdAt.toISOString() } : null,
@@ -131,7 +167,11 @@ export async function reviewPlanRequest(req: Request, id: string, status: 'appro
     { new: true },
   ).lean();
   if (!r) throw notFound('Pending plan request');
-  if (status === 'approved') await Store.updateOne({ _id: r.storeId }, { $set: { plan: r.plan } });
+  if (status === 'approved') {
+    // Comped plan change through billing (subscription + store + adjustment record).
+    const { adminSetPlan } = await import('../billing/billing.service');
+    await adminSetPlan(req, r.storeId, normalizePlan(r.plan), note ?? `Plan request approved (${r.from} → ${r.plan})`);
+  }
   await audit({ action: `admin.plan_request_${status}`, targetType: 'Store', targetId: r.storeId, meta: { plan: r.plan, from: r.from }, req });
   return { id, status, plan: r.plan };
 }

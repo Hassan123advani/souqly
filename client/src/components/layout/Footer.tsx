@@ -3,10 +3,12 @@ import { useTranslation } from 'react-i18next';
 import { Smartphone } from 'lucide-react';
 import { Logo } from '@/components/brand/Logo';
 import { usePublicConfig } from '@/api/config';
+import { useConsent } from '@/stores/consent';
 
 export function Footer() {
   const { t } = useTranslation();
   const { data: cfg } = usePublicConfig();
+  const reopenConsent = useConsent((s) => s.reopen);
   const payments = cfg?.integrations.payments;
   // COD is always available; others show only when the server enables them.
   const methods = [
@@ -42,6 +44,7 @@ export function Footer() {
     },
     {
       title: t('footer.policies'),
+      cookieSettings: true,
       links: [
         { to: '/terms', label: t('footer.terms') },
         { to: '/privacy', label: t('footer.privacy') },
@@ -74,6 +77,13 @@ export function Footer() {
                     </Link>
                   </li>
                 ))}
+                {'cookieSettings' in c && (
+                  <li>
+                    <button type="button" onClick={reopenConsent} className="text-start text-sm text-fg-muted transition-colors hover:text-primary-700">
+                      {t('consent.settings')}
+                    </button>
+                  </li>
+                )}
               </ul>
             </div>
           ))}

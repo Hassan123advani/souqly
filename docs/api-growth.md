@@ -47,6 +47,7 @@ POS orders: `channel:'pos'`, `status:'delivered'`, no buyer (`buyerId` null), id
 ## 6. Health — `GET /seller/health` (`store.dashboard.view`), `POST /seller/health/recompute`. Nightly job `storeHealth.recompute`.
 
 ## 7. Plans — `GET /seller/plan`, `POST /seller/plan/request {plan}`; admin `GET /admin/plan-requests`, `PATCH /admin/plan-requests/:id {status}`.
+> **Superseded by docs/api-billing.md**: plans are Free / Pro / Premium (`business` renamed), paid upgrades go through `/seller/billing/change-plan` + invoices, commission is a flat 15% (no plan discount). The request endpoints remain as a legacy comp path.
 
 ## 8. Affiliate (flag `affiliateLinks`) — `GET /affiliate/link?productId=` → `{url, code}`; checkout body accepts `aff` (or cookie `sq_aff`); `AffiliateCommission` 2% of item value credited to wallet on delivery (idempotent per order). `GET /affiliate/commissions`.
 

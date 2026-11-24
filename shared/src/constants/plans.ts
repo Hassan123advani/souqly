@@ -1,43 +1,81 @@
-import type { StorePlan } from '../schemas/catalog';
+import type { StoreLayout, StorePlan } from '../schemas/catalog';
 
-export type PlanFeature = 'analyticsExport' | 'pos' | 'bulkUpload' | 'customDomain';
+/**
+ * Seller plans (docs/api-billing.md). Monthly prices in paisa. Commission is the same flat
+ * PLATFORM_COMMISSION_BPS for every plan (no plan discount).
+ */
+export type PlanFeature =
+  | 'analyticsExport'
+  /** 90-day analytics / dashboard range. */
+  | 'advancedAnalytics'
+  | 'pos'
+  | 'bulkUpload'
+  | 'flashDeals'
+  /** Bundles and Buy-X-Get-Y promotions. */
+  | 'bundles'
+  | 'featuredProducts'
+  /** Every store layout template (Free: classic only). */
+  | 'layoutTemplates'
+  | 'prioritySupport';
+
+export const PLAN_FEATURES: PlanFeature[] = ['analyticsExport', 'advancedAnalytics', 'pos', 'bulkUpload', 'flashDeals', 'bundles', 'featuredProducts', 'layoutTemplates', 'prioritySupport'];
 
 export interface PlanDefinition {
   id: StorePlan;
   name: string;
-  /** `null` = unlimited. */
-  limits: { products: number | null; staff: number };
-  /** Discount on the resolved commission rate, in basis points of the order (e.g. 100 = 1 percentage point). */
-  commissionDiscountBps: number;
+  /** Monthly fee in minor units (paisa). */
+  priceMinor: number;
+  interval: 'month';
+  /** `products: null` = unlimited. `staff` = non-owner members incl. pending invites. `storeSections` = store page builder sections. */
+  limits: { products: number | null; staff: number; storeSections: number };
+  /** Store layout templates the plan may switch to. */
+  layouts: StoreLayout[];
   features: Record<PlanFeature, boolean>;
 }
 
-/** Seller plans (Phase 10). Upgrades are request → admin approval; there are no payments yet. */
+const ALL_LAYOUTS: StoreLayout[] = ['classic', 'bold', 'boutique', 'minimal'];
+
 export const PLANS: Record<StorePlan, PlanDefinition> = {
   free: {
     id: 'free',
     name: 'Free',
-    limits: { products: 50, staff: 2 },
-    commissionDiscountBps: 0,
-    features: { analyticsExport: false, pos: false, bulkUpload: false, customDomain: false },
+    priceMinor: 0,
+    interval: 'month',
+    limits: { products: 50, staff: 2, storeSections: 4 },
+    layouts: ['classic'],
+    features: { analyticsExport: false, advancedAnalytics: false, pos: false, bulkUpload: false, flashDeals: false, bundles: false, featuredProducts: false, layoutTemplates: false, prioritySupport: false },
   },
   pro: {
     id: 'pro',
     name: 'Pro',
-    limits: { products: 1000, staff: 10 },
-    commissionDiscountBps: 100,
-    features: { analyticsExport: true, pos: true, bulkUpload: true, customDomain: false },
+    priceMinor: 50_000,
+    interval: 'month',
+    limits: { products: 1000, staff: 10, storeSections: 12 },
+    layouts: ALL_LAYOUTS,
+    features: { analyticsExport: true, advancedAnalytics: true, pos: true, bulkUpload: true, flashDeals: true, bundles: true, featuredProducts: true, layoutTemplates: true, prioritySupport: false },
   },
-  business: {
-    id: 'business',
-    name: 'Business',
-    limits: { products: null, staff: 50 },
-    commissionDiscountBps: 200,
-    features: { analyticsExport: true, pos: true, bulkUpload: true, customDomain: true },
+  premium: {
+    id: 'premium',
+    name: 'Premium',
+    priceMinor: 100_000,
+    interval: 'month',
+    limits: { products: null, staff: 50, storeSections: 20 },
+    layouts: ALL_LAYOUTS,
+    features: { analyticsExport: true, advancedAnalytics: true, pos: true, bulkUpload: true, flashDeals: true, bundles: true, featuredProducts: true, layoutTemplates: true, prioritySupport: true },
   },
 };
 
-/** Commission after the plan discount (never below 0). */
-export function planCommissionBps(baseBps: number, plan: StorePlan | undefined): number {
-  return Math.max(0, baseBps - (PLANS[plan ?? 'free']?.commissionDiscountBps ?? 0));
+/** Plans ordered by price (used for upgrade/downgrade decisions). */
+export const PLAN_ORDER: StorePlan[] = ['free', 'pro', 'premium'];
+export const planRank = (plan: StorePlan): number => PLAN_ORDER.indexOf(plan);
+
+/** Cheapest plan that includes `feature`. */
+export function requiredPlanFor(feature: PlanFeature): StorePlan {
+  return PLAN_ORDER.find((p) => PLANS[p].features[feature]) ?? 'premium';
+}
+
+/** Maps legacy plan ids (`business` → `premium`) and unknown values to a valid plan. */
+export function normalizePlan(plan: string | null | undefined): StorePlan {
+  if (plan === 'business') return 'premium';
+  return plan === 'pro' || plan === 'premium' ? plan : 'free';
 }

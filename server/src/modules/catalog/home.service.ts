@@ -159,7 +159,7 @@ export async function suggest(q: string): Promise<SearchSuggest> {
   const prefix = new RegExp(`(^|\\s)${escapeRegex(norm)}`, 'i');
   const [{ cards, meta }, stores, tree, storeIndex] = await Promise.all([
     listProducts({ q, sort: 'relevance', limit: 6 } as ProductListQuery, { skipLog: true }),
-    Store.find({ status: 'approved', name: { $regex: escapeRegex(norm), $options: 'i' } }).sort({ followerCount: -1 }).limit(4).select('slug name logo isMall').lean(),
+    Store.find({ status: 'approved', billingStatus: { $ne: 'suspended' }, name: { $regex: escapeRegex(norm), $options: 'i' } }).sort({ followerCount: -1 }).limit(4).select('slug name logo isMall').lean(),
     getCategoryTree(),
     getPublicStoreIndex(),
   ]);

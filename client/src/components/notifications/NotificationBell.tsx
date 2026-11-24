@@ -1,10 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { Bell, CheckCheck } from 'lucide-react';
 import type { NotificationDTO } from '@souqly/shared';
 import { useMe } from '@/api/auth';
+import { useRealtime } from '@/api/config';
 import { useIngestNotification, useMarkAllRead, useMarkRead, useNotifications, useUnreadCount } from '@/api/notifications';
 import { getErrorMessage } from '@/api/client';
 import {
@@ -47,12 +49,24 @@ function LiveNotifications() {
   return null;
 }
 
+/** Polling fallback (no realtime): when the polled unread count rises, refresh the cached lists. */
+function PolledNotifications({ count }: { count: number }) {
+  const qc = useQueryClient();
+  const prev = useRef(count);
+  useEffect(() => {
+    if (count > prev.current) void qc.invalidateQueries({ queryKey: ['notifications', 'list'] });
+    prev.current = count;
+  }, [count, qc]);
+  return null;
+}
+
 /** Header bell: unread badge + dropdown with the latest 8 notifications. */
 export function NotificationBell() {
   const { t } = useTranslation();
   const { data: me } = useMe();
   const [open, setOpen] = useState(false);
   const { data: count = 0 } = useUnreadCount();
+  const { live, poll } = useRealtime();
   const list = useNotifications({ limit: 8, enabled: open && !!me });
   const markRead = useMarkRead();
   const markAll = useMarkAllRead();
@@ -68,7 +82,8 @@ export function NotificationBell() {
 
   return (
     <>
-      <LiveNotifications />
+      {live && <LiveNotifications />}
+      {poll && <PolledNotifications count={count} />}
       <DropdownMenu open={open} onOpenChange={setOpen}>
         <span className="relative inline-flex">
           <DropdownMenuTrigger asChild>

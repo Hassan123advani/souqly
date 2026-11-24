@@ -50,7 +50,7 @@ describe('affiliate links', () => {
 
   it('ignores self-referral and unknown codes; cancellation voids the commission', async () => {
     const s = await makeSeller('Aff Store Two');
-    await setPlan(s.store._id, 'business');
+    await setPlan(s.store._id, 'premium');
     const item = await makeItem(s.store._id, 100_000, 10);
     const buyer = await makeBuyer();
     const own = (await buyer.agent.get(api(`/affiliate/link?productId=${item.productId}`))).body.data.code;
@@ -58,8 +58,8 @@ describe('affiliate links', () => {
     await buyer.agent.post(api('/checkout')).send({ addressId: buyer.addressId, paymentMethod: 'cod', idempotencyKey: key(), aff: own });
     let order = await Order.findOne({ storeId: s.store._id }).lean();
     expect(order!.affiliateUserId).toBeUndefined();
-    // Business plan: global 10% − 2 points = 8% commission.
-    expect(order!.commission.bps).toBe(800);
+    // Flat 15% platform commission for every plan (docs/api-billing.md).
+    expect(order!.commission.bps).toBe(1500);
 
     const aff = await makeBuyer();
     const code = (await aff.agent.get(api(`/affiliate/link?productId=${item.productId}`))).body.data.code;

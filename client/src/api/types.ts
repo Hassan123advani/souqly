@@ -64,6 +64,8 @@ export type PublicConfig = {
     email: boolean;
     sms: boolean;
     webPush: boolean;
+    /** False on serverless deployments (no Socket.io): live features poll instead. */
+    realtime?: boolean;
     vapidPublicKey?: string;
     payments: { cod: boolean; jazzcash: boolean; easypaisa: boolean; stripe: boolean; wallet: boolean };
   };

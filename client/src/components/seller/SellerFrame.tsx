@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Ban } from 'lucide-react';
 import { PERMISSIONS, STORE_ROLES } from '@souqly/shared';
 import { useSellerStore } from '@/api/seller';
+import { BillingSuspendedBanner } from '@/components/billing/SuspendedBanner';
 import { Alert, Card, EmptyState, ErrorState, PageSpinner, SectionHeader } from '@/components/ui';
 import { BusinessCard, PayoutCard } from './forms/AccountForms';
 import { OrderAlerts } from './OrderAlerts';
@@ -43,6 +44,7 @@ export default function SellerFrame() {
   return (
     <>
       {store.myPermissions.includes(PERMISSIONS.STORE_ORDERS_VIEW) && <OrderAlerts />}
+      <BillingSuspendedBanner />
       {store.status === 'pending' && (
         <Alert tone="warning" title={t('seller.status.pendingTitle')} className="mb-5">
           {t('seller.status.pendingBody')}

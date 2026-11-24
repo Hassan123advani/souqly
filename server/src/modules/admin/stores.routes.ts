@@ -1,5 +1,6 @@
 import {
   PERMISSIONS,
+  PLATFORM_COMMISSION_BPS,
   adminReasonSchema,
   adminStoreCommissionSchema,
   adminStoreListQuerySchema,
@@ -18,6 +19,7 @@ import { validate } from '../../middleware/validate';
 import { audit } from '../audit/audit.service';
 import { invalidateStoreIndex } from '../catalog/catalog.service';
 import { CommissionRule } from '../commission/commission.model';
+import { adminSetPlan } from '../billing/billing.service';
 import { notify } from '../notifications/notification.service';
 import { maskBusiness, maskPayout } from '../onboarding/sensitive';
 import { Order } from '../orders/order.model';
@@ -124,7 +126,12 @@ adminStoresAdminRouter.get(
         owner: owner ? { id: String(owner._id), name: owner.name, email: owner.email ?? null, phone: owner.phone ?? null, status: owner.status } : null,
         members,
         stats: { gmv: orderStats[0]?.gmv ?? 0, orders: orderStats[0]?.orders ?? 0 },
-        commissionOverrideBps: commission?.isActive ? commission.bps : null,
+        // Retired per-store overrides are never applied (D-079); kept only for history.
+        commissionOverrideBps: null,
+        legacyCommissionOverrideBps: commission?.isActive ? commission.bps : null,
+        commissionBps: PLATFORM_COMMISSION_BPS,
+        billingStatus: s.billingStatus ?? 'active',
+        billingSuspension: s.billingStatus === 'suspended' && s.billingSuspension ? { reason: s.billingSuspension.reason, at: iso(s.billingSuspension.at) } : null,
         hasBusinessInfo: !!s.business,
       },
     });
@@ -197,8 +204,11 @@ adminStoresAdminRouter.patch(
   ...can(PERMISSIONS.ADMIN_STORES_MANAGE),
   validate({ params: idParams, body: adminStorePlanSchema }),
   asyncHandler(async (req, res) => {
-    const s = await setStoreFields(req, {}, { $set: { plan: req.body.plan } }, 'admin.store_plan_changed', { plan: req.body.plan });
-    res.json({ data: { id: String(s._id), plan: s.plan } });
+    // Routed through billing so the subscription and an adjustment record stay consistent (docs/api-billing.md §8).
+    const storeId = oid(req.params.id!);
+    if (!(await Store.exists({ _id: storeId }))) throw notFound('Store');
+    const sub = await adminSetPlan(req, storeId, req.body.plan, 'Admin plan change');
+    res.json({ data: { id: String(storeId), plan: sub.plan } });
   }),
 );
 
@@ -206,13 +216,9 @@ adminStoresAdminRouter.put(
   '/stores/:id/commission',
   ...can(PERMISSIONS.ADMIN_STORES_MANAGE),
   validate({ params: idParams, body: adminStoreCommissionSchema }),
-  asyncHandler(async (req, res) => {
-    const storeId = oid(req.params.id!);
-    if (!(await Store.exists({ _id: storeId }))) throw notFound('Store');
-    const bps = req.body.bps as number | null;
-    if (bps === null) await CommissionRule.deleteOne({ scope: 'store', storeId });
-    else await CommissionRule.updateOne({ scope: 'store', storeId, categoryId: null }, { $set: { bps, isActive: true } }, { upsert: true });
-    await audit({ action: 'admin.store_commission_set', targetType: 'Store', targetId: storeId, storeId, meta: { bps }, req });
-    res.json({ data: { id: String(storeId), commissionOverrideBps: bps } });
+  asyncHandler(async (req) => {
+    // Commission is a flat platform rate (D-079): per-store overrides are retired.
+    if (!(await Store.exists({ _id: oid(req.params.id!) }))) throw notFound('Store');
+    throw new AppError(409, 'COMMISSION_FIXED', `Commission is a flat ${PLATFORM_COMMISSION_BPS / 100}% on every sale for every plan`, { commissionBps: PLATFORM_COMMISSION_BPS });
   }),
 );

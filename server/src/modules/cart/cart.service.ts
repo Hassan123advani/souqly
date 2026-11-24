@@ -39,7 +39,7 @@ async function loadPurchasable(productId: string, variantId: string) {
     .lean();
   const v = p?.variants.find((x) => String(x._id) === variantId && x.isActive);
   if (!p || !v) throw notFound('Product');
-  const store = await Store.findById(p.storeId).select('status holidayMode').lean<StoreLean>();
+  const store = await Store.findById(p.storeId).select('status holidayMode billingStatus').lean<StoreLean>();
   if (!isStoreOpen(store ?? undefined)) throw new AppError(400, 'STORE_UNAVAILABLE', 'This store is not accepting orders right now');
   return { storeId: p.storeId, available: Math.max(0, v.stock - (v.reserved ?? 0)), price: v.price };
 }

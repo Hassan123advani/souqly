@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-import { Archive, Copy, MoreHorizontal, Package, Pencil, Plus, Search, Send } from 'lucide-react';
+import { Archive, Copy, FileSpreadsheet, MoreHorizontal, Package, Pencil, Plus, Search, Send } from 'lucide-react';
 import { PERMISSIONS, PRODUCT_STATUSES, type ProductStatus, type SellerProduct } from '@souqly/shared';
 import { getErrorMessage } from '@/api/client';
 import { useBulkProducts, useProductAction, useSellerProducts } from '@/api/seller';
@@ -26,6 +26,8 @@ import {
   Skeleton,
   type BadgeTone,
 } from '@/components/ui';
+import { PublishPausedAlert } from '@/components/billing/PublishPausedAlert';
+import { useBillingSuspension } from '@/components/billing/SuspendedBanner';
 import { useCan } from '@/components/seller/usePermissions';
 import { useDebounced } from '@/hooks/useDebounced';
 import { cn } from '@/lib/cn';
@@ -43,6 +45,7 @@ export default function ProductsPage() {
   const { t, i18n } = useTranslation();
   const can = useCan();
   const manage = can(PERMISSIONS.STORE_PRODUCTS_MANAGE);
+  const publishPaused = useBillingSuspension().suspended === true;
   const [sp, setSp] = useSearchParams();
   const status = (sp.get('status') as ProductStatus | null) ?? undefined;
   const [q, setQ] = useState(sp.get('q') ?? '');
@@ -99,12 +102,18 @@ export default function ProductsPage() {
         description={t('seller.products.subtitle')}
         action={
           manage && (
-            <Button to="/seller/products/new" leftIcon={<Plus className="size-4" />}>
-              {t('seller.products.add')}
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button to="/seller/products/bulk" variant="outline" leftIcon={<FileSpreadsheet className="size-4" />}>
+                {t('growth.bulk.short')}
+              </Button>
+              <Button to="/seller/products/new" leftIcon={<Plus className="size-4" />}>
+                {t('seller.products.add')}
+              </Button>
+            </div>
           )
         }
       />
+      {manage && publishPaused && <PublishPausedAlert className="mb-4" />}
       <div className="-mx-4 mb-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
         <div className="flex w-max gap-1 border-b border-border" role="tablist">
           {[undefined, ...PRODUCT_STATUSES].map((s) => (
@@ -143,6 +152,8 @@ export default function ProductsPage() {
               variant="outline"
               leftIcon={<Send className="size-4" />}
               loading={bulkMut.isPending}
+              disabled={publishPaused}
+              title={publishPaused ? t('billing.publishPaused.short') : undefined}
               onClick={() => void bulk('publish', selected)}
             >
               {t('seller.products.publish')}
@@ -225,7 +236,7 @@ export default function ProductsPage() {
                         </Link>
                       </DropdownMenuItem>
                       {(p.status === 'draft' || p.status === 'rejected' || p.status === 'archived') && (
-                        <DropdownMenuItem onSelect={() => void bulk('publish', [p.id])}>
+                        <DropdownMenuItem disabled={publishPaused} onSelect={() => void bulk('publish', [p.id])}>
                           <Send className="size-4" /> {t('seller.products.publish')}
                         </DropdownMenuItem>
                       )}

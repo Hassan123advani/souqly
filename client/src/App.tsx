@@ -3,6 +3,7 @@ import { Navigate, Route, Routes } from 'react-router-dom';
 import { PageSpinner } from '@/components/ui';
 import { AppEffects } from '@/components/layout/AppEffects';
 import { CartSync } from '@/components/cart/CartSync';
+import { CookieConsent } from '@/components/layout/CookieConsent';
 import { ErrorBoundary } from '@/components/layout/ErrorBoundary';
 import { MarketplaceLayout } from '@/components/layout/MarketplaceLayout';
 import { AuthLayout } from '@/components/layout/AuthLayout';
@@ -78,6 +79,32 @@ const ReferralsPage = lazy(() => import('@/pages/wallet/ReferralsPage'));
 const SellerChatPage = lazy(() => import('@/pages/seller/chat/SellerChatPage'));
 const SellerReviewsPage = lazy(() => import('@/pages/seller/reviews/SellerReviewsPage'));
 const SellerQuestionsPage = lazy(() => import('@/pages/seller/reviews/SellerQuestionsPage'));
+// Phase 10: seller growth
+const SellerMarketingPage = lazy(() => import('@/pages/seller/marketing/MarketingPage'));
+const SellerAnalyticsPage = lazy(() => import('@/pages/seller/analytics/AnalyticsPage'));
+const SellerPosPage = lazy(() => import('@/pages/seller/pos/PosPage'));
+const SellerBulkProductsPage = lazy(() => import('@/pages/seller/products/BulkProductsPage'));
+const ReceiptPage = lazy(() => import('@/pages/static/ReceiptPage'));
+// Billing: subscriptions, 15% commission, invoices (docs/api-billing.md)
+const SellerBillingLayout = lazy(() => import('@/pages/seller/billing/BillingLayout'));
+const SellerBillingOverviewPage = lazy(() => import('@/pages/seller/billing/OverviewPage'));
+const SellerBillingPlansPage = lazy(() => import('@/pages/seller/billing/PlansPage'));
+const SellerBillingInvoicesPage = lazy(() => import('@/pages/seller/billing/InvoicesPage'));
+const SellerBillingInvoiceDetailPage = lazy(() => import('@/pages/seller/billing/InvoiceDetailPage'));
+const SellerBillingPaymentsPage = lazy(() => import('@/pages/seller/billing/PaymentsPage'));
+const SellerBillingCommissionsPage = lazy(() => import('@/pages/seller/billing/CommissionsPage'));
+const SellerBillingPayoutsPage = lazy(() => import('@/pages/seller/billing/PayoutsPage'));
+const AdminBillingOverviewPage = lazy(() => import('@/pages/admin/billing/BillingOverviewPage'));
+const AdminBillingStoresPage = lazy(() => import('@/pages/admin/billing/BillingStoresPage'));
+const AdminBillingStoreDetailPage = lazy(() => import('@/pages/admin/billing/BillingStoreDetailPage'));
+const AdminBillingPaymentsPage = lazy(() => import('@/pages/admin/billing/BillingPaymentsPage'));
+const AdminBillingInvoicesPage = lazy(() => import('@/pages/admin/billing/BillingInvoicesPage'));
+const AdminBillingInvoiceDetailPage = lazy(() => import('@/pages/admin/billing/BillingInvoiceDetailPage'));
+const AdminBillingAdjustmentsPage = lazy(() => import('@/pages/admin/billing/BillingAdjustmentsPage'));
+const AdminBillingReportsPage = lazy(() => import('@/pages/admin/billing/BillingReportsPage'));
+const AdminBillingSettingsPage = lazy(() => import('@/pages/admin/billing/BillingSettingsPage'));
+const AffiliatePage = lazy(() => import('@/pages/affiliate/AffiliatePage'));
+const AdminNominationsPage = lazy(() => import('@/pages/admin/marketing/NominationsPage'));
 
 const AdminLayout = lazy(() => import('@/components/layout/AdminLayout'));
 const AdminHomePage = lazy(() => import('@/pages/admin/AdminHomePage'));
@@ -122,6 +149,7 @@ export function App() {
       <AppEffects />
       <ImpersonationBanner />
       <CartSync />
+      <CookieConsent />
       <Suspense fallback={<PageSpinner />}>
         <Routes>
           <Route element={<MarketplaceLayout />}>
@@ -169,6 +197,7 @@ export function App() {
                 <Route path="wallet" element={<WalletPage />} />
                 <Route path="coins" element={<CoinsPage />} />
                 <Route path="referrals" element={<ReferralsPage />} />
+                <Route path="affiliate" element={<AffiliatePage />} />
                 <Route path="support" element={<SupportTicketsPage />} />
                 <Route path="support/new" element={<NewTicketPage />} />
                 <Route path="support/:id" element={<TicketThreadPage />} />
@@ -198,6 +227,7 @@ export function App() {
             <Route element={<SellerFrame />}>
               <Route index element={<SellerHomePage />} />
               <Route path="products" element={<SellerProductsPage />} />
+              <Route path="products/bulk" element={<SellerBulkProductsPage />} />
               <Route path="products/:id" element={<SellerProductEditorPage />} />
               <Route path="inventory" element={<SellerInventoryPage />} />
               <Route path="orders" element={<SellerOrdersPage />} />
@@ -211,8 +241,23 @@ export function App() {
               <Route path="returns" element={<SellerReturnsPage />} />
               <Route path="returns/:id" element={<SellerReturnDetailPage />} />
               <Route path="riders" element={<SellerRidersPage />} />
+              <Route path="marketing" element={<SellerMarketingPage />} />
+              <Route path="analytics" element={<SellerAnalyticsPage />} />
+              <Route path="pos" element={<SellerPosPage />} />
+              <Route path="billing" element={<SellerBillingLayout />}>
+                <Route index element={<SellerBillingOverviewPage />} />
+                <Route path="plans" element={<SellerBillingPlansPage />} />
+                <Route path="invoices" element={<SellerBillingInvoicesPage />} />
+                <Route path="invoices/:id" element={<SellerBillingInvoiceDetailPage />} />
+                <Route path="payments" element={<SellerBillingPaymentsPage />} />
+                <Route path="commissions" element={<SellerBillingCommissionsPage />} />
+                <Route path="payouts" element={<SellerBillingPayoutsPage />} />
+              </Route>
+              <Route path="finance" element={<Navigate to="/seller/billing" replace />} />
             </Route>
           </Route>
+
+          <Route path="r/:token" element={<ReceiptPage />} />
 
           <Route path="rider" element={<RiderLayout />}>
             <Route index element={<RiderHomePage />} />
@@ -244,6 +289,7 @@ export function App() {
             <Route path="disputes" element={<AdminDisputesPage />} />
             <Route path="disputes/:id" element={<AdminDisputeDetailPage />} />
             <Route path="marketing/campaigns" element={<AdminCampaignsPage />} />
+            <Route path="marketing/nominations" element={<AdminNominationsPage />} />
             <Route path="marketing/flash-sales" element={<AdminFlashSalesPage />} />
             <Route path="marketing/vouchers" element={<AdminVouchersPage />} />
             <Route path="marketing/gift-cards" element={<AdminGiftCardsPage />} />
@@ -253,6 +299,15 @@ export function App() {
             <Route path="finance/payouts" element={<AdminPayoutsPage />} />
             <Route path="finance/commission" element={<AdminCommissionPage />} />
             <Route path="finance/reports" element={<AdminFinanceReportsPage />} />
+            <Route path="billing" element={<AdminBillingOverviewPage />} />
+            <Route path="billing/stores" element={<AdminBillingStoresPage />} />
+            <Route path="billing/stores/:storeId" element={<AdminBillingStoreDetailPage />} />
+            <Route path="billing/payments" element={<AdminBillingPaymentsPage />} />
+            <Route path="billing/invoices" element={<AdminBillingInvoicesPage />} />
+            <Route path="billing/invoices/:id" element={<AdminBillingInvoiceDetailPage />} />
+            <Route path="billing/adjustments" element={<AdminBillingAdjustmentsPage />} />
+            <Route path="billing/reports" element={<AdminBillingReportsPage />} />
+            <Route path="billing/settings" element={<AdminBillingSettingsPage />} />
             <Route path="moderation" element={<AdminModerationPage />} />
             <Route path="support" element={<AdminTicketsPage />} />
             <Route path="support/:id" element={<AdminTicketDetailPage />} />

@@ -110,10 +110,24 @@ export const envSchema = z
     VAPID_PRIVATE_KEY: str(),
     VAPID_SUBJECT: str(),
     OPENAI_API_KEY: str(),
+    /** Set by the Vercel runtime (build + functions). Only used to default SERVERLESS. */
+    VERCEL: str(),
+    /**
+     * Serverless runtime (Vercel function): no Socket.io, no in-process scheduler, read-only disk.
+     * Defaults to true when VERCEL is set. Local `npm run dev` / `npm start` leave it off.
+     */
+    SERVERLESS: bool(),
+    /** Bearer secret for /api/v1/internal/cron/:job (Vercel Cron sends it). Unset = endpoint 404s. */
+    CRON_SECRET: str(),
     LOG_LEVEL: z.preprocess(blankToUndefined, z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).optional()),
   })
   .superRefine((e, ctx) => {
     const issue = (path: string, message: string) => ctx.addIssue({ code: z.ZodIssueCode.custom, path: [path], message });
+    if (e.CRON_SECRET && e.CRON_SECRET.length < 16) issue('CRON_SECRET', 'CRON_SECRET must be at least 16 characters');
+    if ((e.SERVERLESS ?? !!e.VERCEL) && !e.MONGODB_URI) {
+      // The in-memory MongoDB fallback cannot run inside a serverless function.
+      issue('MONGODB_URI', 'MONGODB_URI is required when running serverless (Vercel)');
+    }
     if (e.NODE_ENV !== 'production') {
       if (e.DEV_OTP_ECHO && e.MONGODB_URI && !isLocalMongoUri(e.MONGODB_URI)) {
         issue('DEV_OTP_ECHO', 'DEV_OTP_ECHO must not be enabled against a non-local MONGODB_URI (real users would get their OTPs echoed)');
@@ -189,6 +203,8 @@ export const env = {
     .update(e.DATA_ENCRYPTION_KEY ?? `souqly-data:${JWT_REFRESH_SECRET}`)
     .digest(),
   COOKIE_SECURE: e.COOKIE_SECURE ?? e.NODE_ENV === 'production',
+  /** Serverless function runtime (Vercel): realtime/scheduler/local disk are unavailable. */
+  SERVERLESS: e.SERVERLESS ?? !!e.VERCEL,
 };
 
 export const isProd = env.NODE_ENV === 'production';

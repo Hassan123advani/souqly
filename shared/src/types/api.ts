@@ -1,3 +1,4 @@
+import type { PlanDefinition } from '../constants/plans';
 import type { PlatformRole, UserMode } from '../constants/roles';
 import type { AddressInput } from '../schemas/common';
 import type { Preferences } from '../schemas/account';
@@ -56,11 +57,15 @@ export type PublicConfig = {
     email: boolean;
     sms: boolean;
     webPush: boolean;
+    /** Socket.io is available. False on serverless deployments (Vercel): clients poll instead. */
+    realtime: boolean;
     vapidPublicKey?: string;
     payments: { cod: boolean; jazzcash: boolean; easypaisa: boolean; stripe: boolean; wallet: boolean };
   };
   flags: Record<string, boolean>;
   devMode: boolean;
+  /** Seller plans catalog + flat platform commission (docs/api-billing.md §7). Optional for older servers. */
+  billing?: { commissionBps: number; plans: PlanDefinition[] };
 };
 
 export type ApiError = { error: { code: string; message: string; details?: unknown } };

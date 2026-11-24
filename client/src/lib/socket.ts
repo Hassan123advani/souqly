@@ -8,6 +8,11 @@ let users = 0;
 /** False after logout: the socket stays down until the next sign-in. */
 let signedIn = true;
 let authRetries = 0;
+/**
+ * False when the server has no Socket.io endpoint (`integrations.realtime: false`, e.g. serverless).
+ * Consumers then poll instead; this guard makes sure nothing here ever opens a connection.
+ */
+let realtimeAvailable = true;
 let retryTimer: ReturnType<typeof setTimeout> | null = null;
 const MAX_AUTH_RETRIES = 5;
 const AUTH_ERRORS = new Set(['TOKEN_EXPIRED', 'UNAUTHENTICATED']);
@@ -21,14 +26,14 @@ function clearRetry() {
 function onConnectError(err: Error & { data?: { code?: string } }) {
   const s = socket;
   const code = err.data?.code ?? err.message;
-  if (!AUTH_ERRORS.has(code) || !s || !signedIn || retryTimer || authRetries >= MAX_AUTH_RETRIES) return;
+  if (!AUTH_ERRORS.has(code) || !s || !signedIn || !realtimeAvailable || retryTimer || authRetries >= MAX_AUTH_RETRIES) return;
   const delay = Math.min(30_000, 1000 * 2 ** authRetries);
   authRetries++;
   retryTimer = setTimeout(() => {
     retryTimer = null;
     refreshOnce()
       .then(() => {
-        if (socket === s && signedIn && !s.connected) s.connect();
+        if (socket === s && signedIn && realtimeAvailable && !s.connected) s.connect();
       })
       .catch(() => {
         /* refresh failed: the session is gone; useMe() will report the user as signed out */
@@ -42,17 +47,33 @@ function onConnect() {
 
 /** The server kicked us (e.g. memberships changed): reconnect with a fresh handshake while signed in. */
 function onDisconnect(reason: Socket.DisconnectReason) {
-  if (reason === 'io server disconnect' && signedIn) socket?.connect();
+  if (reason === 'io server disconnect' && signedIn && realtimeAvailable) socket?.connect();
+}
+
+/** Set from the public config (`useRealtime`). Turning it off drops any open connection. */
+export function setRealtimeAvailable(available: boolean): void {
+  if (realtimeAvailable === available) return;
+  realtimeAvailable = available;
+  if (!available) {
+    clearRetry();
+    socket?.disconnect();
+  }
 }
 
 /**
  * Shared socket.io connection (cookie auth, so `withCredentials`). The server joins the user's
  * own room and the rooms of every store they belong to on connect. Ref-counted: the connection
- * closes when the last consumer releases it.
+ * closes when the last consumer releases it. When realtime is unavailable the socket is created
+ * without connecting (consumers should not call this then; see `useRealtime`).
  */
 export function acquireSocket(): Socket {
   if (!socket) {
-    socket = io(base ?? '/', { path: '/socket.io', withCredentials: true, transports: ['websocket', 'polling'] });
+    socket = io(base ?? '/', {
+      path: '/socket.io',
+      withCredentials: true,
+      transports: ['websocket', 'polling'],
+      autoConnect: realtimeAvailable,
+    });
     socket.on('connect', onConnect);
     socket.on('connect_error', onConnectError);
     socket.on('disconnect', onDisconnect);
@@ -83,7 +104,7 @@ export function socketSignedIn(): void {
   signedIn = true;
   clearRetry();
   authRetries = 0;
-  if (socket) {
+  if (socket && realtimeAvailable) {
     socket.disconnect();
     socket.connect();
   }

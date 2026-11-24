@@ -43,10 +43,10 @@ function clean(params?: Record<string, unknown>) {
 }
 
 /** Every Seller Center call carries the selected store (the x-store-id header); the server verifies membership. */
-function cfg(sid: string | undefined, extra: AxiosRequestConfig = {}): AxiosRequestConfig {
+export function cfg(sid: string | undefined, extra: AxiosRequestConfig = {}): AxiosRequestConfig {
   return { ...extra, headers: { ...(sid && sid !== 'none' ? { 'x-store-id': sid } : {}), ...(extra.headers ?? {}) } };
 }
-function sc(sid: string | undefined) {
+export function sc(sid: string | undefined) {
   return {
     get: async <T,>(url: string, params?: Record<string, unknown>): Promise<T> =>
       (await api.get<Envelope<T>>(url, cfg(sid, { params: clean(params) }))).data.data,
@@ -61,7 +61,7 @@ function sc(sid: string | undefined) {
   };
 }
 /** Store-scoped request helpers for the active store. */
-function useSc() {
+export function useSc() {
   return sc(useActiveStoreId());
 }
 

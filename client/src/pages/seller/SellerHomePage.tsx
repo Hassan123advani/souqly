@@ -7,7 +7,7 @@ import { useDashboard, useSellerStore } from '@/api/seller';
 import { Seo } from '@/components/layout/Seo';
 import { Badge, Button, Card, CardHeader, ErrorState, SectionHeader, Skeleton } from '@/components/ui';
 import { ChecklistCard } from '@/components/seller/dashboard/ChecklistCard';
-import { HealthGauge } from '@/components/seller/dashboard/HealthGauge';
+import { HealthCard } from '@/components/seller/dashboard/HealthCard';
 import { KpiCards } from '@/components/seller/dashboard/KpiCards';
 import { RecentOrders } from '@/components/seller/dashboard/RecentOrders';
 import { SalesChart } from '@/components/seller/dashboard/SalesChart';
@@ -100,12 +100,7 @@ export default function SellerHomePage() {
                   <RecentOrders orders={d.recentOrders} />
                 </div>
               </Card>
-              <Card>
-                <CardHeader title={t('seller.dash.health')} description={t('seller.dash.healthHint')} />
-                <div className="p-5">
-                  <HealthGauge health={d.healthScore} />
-                </div>
-              </Card>
+              <HealthCard />
             </div>
           </>
         )}

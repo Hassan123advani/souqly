@@ -19,6 +19,8 @@ import { requirePermission } from '../../middleware/permissions';
 import { can } from '../admin/common';
 import { storeContext } from '../../middleware/storeContext';
 import { validate } from '../../middleware/validate';
+import { requirePlanFeature } from '../plans/plan.service';
+import type { PlanFeature } from '@souqly/shared';
 import { Product } from '../catalog/product.model';
 import { Store } from '../stores/store.model';
 import * as svc from './marketing.service';
@@ -34,6 +36,8 @@ sellerMarketingRouter.use(requireAuth, storeContext, requirePermission(PERMISSIO
 
 type Crud = {
   path: string;
+  /** Plan feature needed to create/edit (listing and deleting stay open so a downgraded store can clean up). */
+  feature?: PlanFeature;
   create: z.ZodTypeAny;
   update: z.ZodTypeAny;
   list: (storeId: import('mongoose').Types.ObjectId) => Promise<unknown>;
@@ -43,19 +47,22 @@ type Crud = {
 };
 const cruds: Crud[] = [
   { path: '/vouchers', create: sellerVoucherSchema, update: sellerVoucherUpdateSchema, list: svc.listVouchers, add: svc.createVoucher as never, edit: svc.updateVoucher as never, remove: svc.deleteVoucher },
-  { path: '/flash-deals', create: sellerFlashDealSchema, update: sellerFlashDealSchema, list: svc.listDeals, add: svc.createDeal as never, edit: svc.updateDeal as never, remove: svc.deleteDeal },
-  { path: '/bundles', create: bundleSchema, update: bundleSchema, list: svc.listBundles, add: svc.createBundle as never, edit: svc.updateBundle as never, remove: svc.deleteBundle },
-  { path: '/promotions', create: promotionSchema, update: promotionSchema, list: svc.listPromotions, add: svc.createPromotion as never, edit: svc.updatePromotion as never, remove: svc.deletePromotion },
+  { path: '/flash-deals', feature: 'flashDeals', create: sellerFlashDealSchema, update: sellerFlashDealSchema, list: svc.listDeals, add: svc.createDeal as never, edit: svc.updateDeal as never, remove: svc.deleteDeal },
+  { path: '/bundles', feature: 'bundles', create: bundleSchema, update: bundleSchema, list: svc.listBundles, add: svc.createBundle as never, edit: svc.updateBundle as never, remove: svc.deleteBundle },
+  { path: '/promotions', feature: 'bundles', create: promotionSchema, update: promotionSchema, list: svc.listPromotions, add: svc.createPromotion as never, edit: svc.updatePromotion as never, remove: svc.deletePromotion },
 ];
 for (const c of cruds) {
+  const gate = c.feature ? [requirePlanFeature(c.feature)] : [];
   sellerMarketingRouter.get(c.path, asyncHandler(async (req, res) => res.json({ data: await c.list(req.store!._id) })));
   sellerMarketingRouter.post(
     c.path,
+    ...gate,
     validate({ body: c.create }),
     asyncHandler(async (req, res) => res.status(201).json({ data: await c.add(req, req.body as never) })),
   );
   sellerMarketingRouter.patch(
     `${c.path}/:id`,
+    ...gate,
     validate({ params: idParams, body: c.update }),
     asyncHandler(async (req, res) => res.json({ data: await c.edit(req, req.params.id!, req.body as never) })),
   );
@@ -78,6 +85,8 @@ sellerMarketingRouter.post(
 sellerMarketingRouter.get('/featured', asyncHandler(async (req, res) => res.json({ data: await svc.getFeatured(req.store!._id) })));
 sellerMarketingRouter.put(
   '/featured',
+  // Clearing the list is always allowed (a downgraded store can remove its featured section).
+  (req, res, next) => (Array.isArray(req.body?.productIds) && req.body.productIds.length === 0 ? next() : requirePlanFeature('featuredProducts')(req, res, next)),
   validate({ body: featuredProductsSchema }),
   asyncHandler(async (req, res) => res.json({ data: await svc.setFeatured(req, req.body.productIds) })),
 );
@@ -114,7 +123,7 @@ publicMarketingRouter.get(
   '/stores/:slug/share-image.svg',
   validate({ params: slugParams }),
   asyncHandler(async (req, res) => {
-    const s = await Store.findOne({ slug: req.params.slug, status: 'approved' }).select('name tagline themeColor ratingAvg ratingCount isMall address.city').lean();
+    const s = await Store.findOne({ slug: req.params.slug, status: 'approved', billingStatus: { $ne: 'suspended' } }).select('name tagline themeColor ratingAvg ratingCount isMall address.city').lean();
     if (!s) throw notFound('Store');
     const sub = [s.tagline, s.address?.city].filter(Boolean).join(' · ');
     sendSvg(res, shareSvg({ kicker: s.isMall ? 'Souqly Mall store' : 'Shop on Souqly', title: s.name, ...(sub ? { subtitle: sub } : {}), ...(s.themeColor ? { themeColor: s.themeColor } : {}) }));

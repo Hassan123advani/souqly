@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch --clear-screen=false src/index.ts",
-    "build": "tsup src/index.ts src/seed/seed.ts src/seed/clear.ts --format esm --target node20 --out-dir dist --clean --no-external @souqly/shared",
+    "build": "tsup src/index.ts src/seed/seed.ts src/seed/clear.ts --format esm --target node20 --out-dir dist --clean",
+    "build:vercel": "tsup src/vercel.ts --format esm --target node20 --out-dir dist-vercel --clean",
     "start": "node dist/index.js",
     "seed": "tsx src/seed/seed.ts",
     "seed:clear": "tsx src/seed/clear.ts",

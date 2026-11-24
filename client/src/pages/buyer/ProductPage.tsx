@@ -13,6 +13,7 @@ import { QtyStepper, VariantPicker } from '@/components/pdp/VariantPicker';
 import { DeliveryEstimate } from '@/components/pdp/DeliveryEstimate';
 import { SellerCard } from '@/components/pdp/SellerCard';
 import { ShareMenu } from '@/components/pdp/ShareMenu';
+import { AffiliateButton, AffiliateCapture } from '@/components/affiliate/AffiliateButton';
 import { BoughtTogether } from '@/components/pdp/BoughtTogether';
 import { ProductReviews } from '@/components/reviews/ProductReviews';
 import { ProductQuestions } from '@/components/qa/ProductQuestions';
@@ -242,6 +243,7 @@ export default function ProductPage() {
 
   return (
     <Container className="pb-10 pt-4 sm:pt-6">
+      <AffiliateCapture />
       <Seo
         title={p.title}
         description={plainText(p.description, 160) || p.highlights.join(' · ')}
@@ -287,6 +289,7 @@ export default function ProductPage() {
             <span className="ms-auto flex items-center gap-1">
               <PdpWishlistButton productId={p.id} variantId={variant?.id} />
               <ShareMenu title={p.title} url={url} />
+              <AffiliateButton productId={p.id} title={p.title} />
               <ReportMenu targetType="product" targetId={p.id} />
             </span>
           </div>

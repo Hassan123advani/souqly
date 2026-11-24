@@ -1,4 +1,4 @@
-import { PLANS, planCommissionBps } from '@souqly/shared';
+import { PLANS, PLATFORM_COMMISSION_BPS, normalizePlan } from '@souqly/shared';
 import { Types } from 'mongoose';
 import { describe, expect, it } from 'vitest';
 import { setPlan } from '../../test/growthFixtures';
@@ -13,14 +13,17 @@ async function fillProducts(storeId: unknown, n: number) {
 }
 
 describe('PLANS constant', () => {
-  it('has the agreed limits and commission discounts', () => {
-    expect(PLANS.free.limits).toEqual({ products: 50, staff: 2 });
-    expect(PLANS.pro.limits).toEqual({ products: 1000, staff: 10 });
-    expect(PLANS.business.limits).toEqual({ products: null, staff: 50 });
-    expect(planCommissionBps(1000, 'business')).toBe(800);
-    expect(planCommissionBps(50, 'business')).toBe(0);
-    expect(PLANS.free.features.pos || PLANS.free.features.bulkUpload || PLANS.free.features.analyticsExport).toBe(false);
-    expect(PLANS.business.features.customDomain).toBe(true);
+  it('has the owner prices and limits; commission is flat for every plan (no plan discount)', () => {
+    expect([PLANS.free.priceMinor, PLANS.pro.priceMinor, PLANS.premium.priceMinor]).toEqual([0, 50_000, 100_000]);
+    expect(PLANS.free.limits).toEqual({ products: 50, staff: 2, storeSections: 4 });
+    expect(PLANS.pro.limits).toEqual({ products: 1000, staff: 10, storeSections: 12 });
+    expect(PLANS.premium.limits).toEqual({ products: null, staff: 50, storeSections: 20 });
+    expect(PLATFORM_COMMISSION_BPS).toBe(1500);
+    expect(Object.values(PLANS).some((p) => 'commissionDiscountBps' in p)).toBe(false);
+    expect(Object.values(PLANS.free.features).some(Boolean)).toBe(false);
+    expect(PLANS.premium.features.prioritySupport && !PLANS.pro.features.prioritySupport).toBe(true);
+    expect(PLANS.free.layouts).toEqual(['classic']);
+    expect(normalizePlan('business')).toBe('premium');
   });
 });
 
@@ -61,7 +64,7 @@ describe('plan upgrade requests', () => {
     let res = await s.agent.get(api('/seller/plan'));
     expect(res.body.data).toMatchObject({ plan: 'free', usage: { products: 0, staff: 0 }, pendingRequest: null });
     expect((await s.agent.post(api('/seller/plan/request')).send({ plan: 'free' })).body.error.code).toBe('ALREADY_ON_PLAN');
-    res = await s.agent.post(api('/seller/plan/request')).send({ plan: 'business', note: 'Growing fast' });
+    res = await s.agent.post(api('/seller/plan/request')).send({ plan: 'premium', note: 'Growing fast' });
     expect(res.status).toBe(201);
     const id = res.body.data.id;
     expect((await s.agent.post(api('/seller/plan/request')).send({ plan: 'pro' })).body.error.code).toBe('REQUEST_PENDING');
@@ -76,7 +79,7 @@ describe('plan upgrade requests', () => {
     expect(res.body.data.some((r: { id: string }) => r.id === id)).toBe(true);
     res = await admin.agent.patch(api(`/admin/plan-requests/${id}`)).send({ status: 'approved' });
     expect(res.status).toBe(200);
-    expect((await Store.findById(s.store._id).lean())!.plan).toBe('business');
+    expect((await Store.findById(s.store._id).lean())!.plan).toBe('premium');
     expect((await admin.agent.patch(api(`/admin/plan-requests/${id}`)).send({ status: 'rejected' })).status).toBe(404);
     expect((await admin.agent.patch(api(`/admin/plan-requests/${new Types.ObjectId()}`)).send({ status: 'approved' })).status).toBe(404);
   });

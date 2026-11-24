@@ -3,6 +3,7 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient, type InfiniteD
 import type { NotificationDTO } from '@souqly/shared';
 import { api, del, get, post } from './client';
 import { useMe } from './auth';
+import { useRealtime } from './config';
 
 type Page = { data: NotificationDTO[]; meta?: { nextCursor: string | null } };
 
@@ -14,12 +15,13 @@ export const notificationKeys = {
 
 export function useUnreadCount() {
   const { data: me } = useMe();
+  const { poll } = useRealtime();
   return useQuery({
     queryKey: notificationKeys.count,
     queryFn: () => get<{ count: number }>('/notifications/unread-count'),
     enabled: !!me,
-    // Socket pushes new rows; this is only a safety net for missed events.
-    refetchInterval: 120_000,
+    // Socket pushes new rows, so this is only a safety net; without realtime it is the update path.
+    refetchInterval: poll ? 30_000 : 120_000,
     select: (d) => d.count,
   });
 }

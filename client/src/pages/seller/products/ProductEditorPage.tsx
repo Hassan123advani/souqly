@@ -19,6 +19,8 @@ import { emptyProduct, fromProduct, toPayload, type ProductForm } from '@/compon
 import { OptionsVariants } from '@/components/seller/product/OptionsVariants';
 import { Repeater } from '@/components/seller/product/Repeater';
 import { RichTextEditor } from '@/components/seller/product/RichTextEditor';
+import { PublishPausedAlert } from '@/components/billing/PublishPausedAlert';
+import { useBillingSuspension } from '@/components/billing/SuspendedBanner';
 import { useCan } from '@/components/seller/usePermissions';
 import { PRODUCT_TONES } from './ProductsPage';
 
@@ -45,6 +47,7 @@ function Editor({ product }: { product?: SellerProduct }) {
   const navigate = useNavigate();
   const can = useCan();
   const readOnly = !can(PERMISSIONS.STORE_PRODUCTS_MANAGE);
+  const publishPaused = useBillingSuspension().suspended === true;
   const aiHelper = useFlag('aiDescriptionHelper');
   const preOrderFlag = useFlag('preOrders');
   const wholesaleFlag = useFlag('wholesaleTiers');
@@ -138,6 +141,7 @@ function Editor({ product }: { product?: SellerProduct }) {
           {t('seller.editor.pendingReview')}
         </Alert>
       )}
+      {!readOnly && publishPaused && <PublishPausedAlert className="mb-4" />}
       {formError && (
         <Alert tone="danger" className="mb-4">
           {formError}
@@ -317,8 +321,9 @@ function Editor({ product }: { product?: SellerProduct }) {
               <Button type="button" variant="outline" leftIcon={<Save className="size-4" />} loading={save.isPending && !action.isPending} disabled={busy} onClick={() => void submit(false)()}>
                 {product && product.status !== 'draft' ? t('seller.common.save') : t('seller.editor.saveDraft')}
               </Button>
+              {product?.status !== 'published' && publishPaused && <span className="text-xs text-danger">{t('billing.publishPaused.short')}</span>}
               {product?.status !== 'published' && (
-                <Button type="button" leftIcon={<Send className="flip-rtl size-4" />} loading={busy} onClick={() => void submit(true)()}>
+                <Button type="button" leftIcon={<Send className="flip-rtl size-4" />} loading={busy} disabled={publishPaused} onClick={() => void submit(true)()}>
                   {t('seller.products.publish')}
                 </Button>
               )}

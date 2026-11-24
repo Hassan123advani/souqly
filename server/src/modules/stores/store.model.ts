@@ -38,6 +38,12 @@ export interface IStore {
   /** Phase 10: factor breakdown + recommendations from the health job. */
   health?: { score: number; factors: { key: string; value: number; weight: number }[]; recommendations: string[]; computedAt: Date };
   plan: StorePlan;
+  /**
+   * Billing enforcement, separate from moderation `status` (D-082): `suspended` hides the storefront and
+   * blocks new orders/publishes, but the Seller Center (billing, orders) stays usable.
+   */
+  billingStatus: 'active' | 'suspended';
+  billingSuspension?: { reason: 'overdue' | 'admin'; invoiceId?: Types.ObjectId | null; note?: string; at: Date; by?: Types.ObjectId | null } | null;
   /** Phase 10: pinned products for the store page featured section (max 12, own products only). */
   featuredProductIds?: Types.ObjectId[];
   /** Encrypted fields (`*Enc`) + `*Last4` for masking; see modules/onboarding/sensitive.ts. */
@@ -90,6 +96,8 @@ const storeSchema = new Schema<IStore>(
     healthScore: { type: Number, default: 100 },
     health: { type: Schema.Types.Mixed, default: undefined },
     plan: { type: String, enum: STORE_PLANS, default: 'free' },
+    billingStatus: { type: String, enum: ['active', 'suspended'], default: 'active' },
+    billingSuspension: { type: { reason: String, invoiceId: Schema.Types.ObjectId, note: String, at: Date, by: Schema.Types.ObjectId, _id: false }, default: null },
     featuredProductIds: { type: [Schema.Types.ObjectId], default: undefined },
     business: { type: Schema.Types.Mixed, select: false },
     payout: { type: Schema.Types.Mixed, select: false },
@@ -101,6 +109,7 @@ const storeSchema = new Schema<IStore>(
   { timestamps: true, minimize: false },
 );
 storeSchema.index({ status: 1, isMall: 1 });
+storeSchema.index({ billingStatus: 1, status: 1 });
 storeSchema.index({ status: 1, createdAt: -1 });
 storeSchema.index({ mallRequested: 1, isMall: 1 });
 storeSchema.index({ status: 1, followerCount: -1 });

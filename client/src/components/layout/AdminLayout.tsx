@@ -2,8 +2,15 @@ import { useTranslation } from 'react-i18next';
 import {
   Activity,
   Banknote,
+  BadgeCheck,
+  CreditCard,
+  FileSpreadsheet,
+  Landmark,
+  ReceiptText,
+  SlidersHorizontal,
   BarChart3,
   FileText,
+  Files,
   Flag,
   FolderTree,
   Gavel,
@@ -11,6 +18,7 @@ import {
   LayoutDashboard,
   LayoutTemplate,
   LifeBuoy,
+  ListChecks,
   Mail,
   Megaphone,
   Package,
@@ -29,6 +37,7 @@ import {
 } from 'lucide-react';
 import { PERMISSIONS, type Permission } from '@souqly/shared';
 import { useAdminGet, type AdminDashboard } from '@/api/admin';
+import type { AdminBillingOverview } from '@/api/billing';
 import { PasswordChangeModal } from '@/components/admin/PasswordChangeModal';
 import { useAdminCan } from '@/components/admin/useAdminCan';
 import { DashboardShell, type DashNavItem } from './DashboardShell';
@@ -41,6 +50,7 @@ export default function AdminLayout() {
   // Queue counts for nav badges (shared cache with the dashboard's default range; refreshed every minute).
   const dash = useAdminGet<AdminDashboard>('dashboard', undefined, { enabled: can(P.ADMIN_DASHBOARD), refetchInterval: 60_000 });
   const pending = dash.data?.pending;
+  const billing = useAdminGet<AdminBillingOverview>('billing/overview', undefined, { enabled: can(P.ADMIN_BILLING_VIEW), refetchInterval: 60_000 });
   const g = {
     commerce: t('admin.nav.groups.commerce'),
     catalog: t('admin.nav.groups.catalog'),
@@ -60,13 +70,21 @@ export default function AdminLayout() {
     { to: '/admin/catalog/categories', label: t('admin.nav.categories'), icon: FolderTree, perm: P.ADMIN_CATALOG_MANAGE, group: g.catalog },
     { to: '/admin/catalog/brands', label: t('admin.nav.brands'), icon: Tags, perm: P.ADMIN_CATALOG_MANAGE, group: g.catalog },
     { to: '/admin/marketing/campaigns', label: t('admin.nav.campaigns'), icon: Megaphone, perm: P.ADMIN_MARKETING_MANAGE, group: g.growth },
+    { to: '/admin/marketing/nominations', label: t('growth.admin.nominationsNav'), icon: ListChecks, perm: P.ADMIN_MARKETING_MANAGE, group: g.growth },
     { to: '/admin/marketing/flash-sales', label: t('admin.nav.flashSales'), icon: Zap, perm: P.ADMIN_MARKETING_MANAGE, group: g.growth },
     { to: '/admin/marketing/vouchers', label: t('admin.nav.vouchers'), icon: Ticket, perm: P.ADMIN_MARKETING_MANAGE, group: g.growth },
     { to: '/admin/marketing/gift-cards', label: t('admin.nav.giftCards'), icon: Gift, perm: P.ADMIN_FINANCE_VIEW, group: g.growth },
     { to: '/admin/cms/home', label: t('admin.nav.homeCms'), icon: LayoutTemplate, perm: P.ADMIN_CMS_MANAGE, group: g.growth },
     { to: '/admin/cms/pages', label: t('admin.nav.pages'), icon: FileText, perm: P.ADMIN_CMS_MANAGE, group: g.growth },
+    { to: '/admin/billing', label: t('billing.admin.nav.overview'), icon: Landmark, end: true, perm: P.ADMIN_BILLING_VIEW, group: g.finance },
+    { to: '/admin/billing/stores', label: t('billing.admin.nav.stores'), icon: CreditCard, perm: P.ADMIN_BILLING_VIEW, group: g.finance },
+    { to: '/admin/billing/payments', label: t('billing.admin.nav.payments'), icon: BadgeCheck, perm: P.ADMIN_BILLING_VIEW, group: g.finance, badge: billing.data?.pendingManualPayments },
+    { to: '/admin/billing/invoices', label: t('billing.admin.nav.invoices'), icon: Files, perm: P.ADMIN_BILLING_VIEW, group: g.finance },
+    { to: '/admin/billing/adjustments', label: t('billing.admin.nav.adjustments'), icon: ReceiptText, perm: P.ADMIN_BILLING_VIEW, group: g.finance },
+    { to: '/admin/billing/reports', label: t('billing.admin.nav.reports'), icon: FileSpreadsheet, perm: P.ADMIN_BILLING_VIEW, group: g.finance },
+    { to: '/admin/billing/settings', label: t('billing.admin.nav.settings'), icon: SlidersHorizontal, perm: P.ADMIN_BILLING_VIEW, group: g.finance },
     { to: '/admin/finance/payouts', label: t('admin.nav.payouts'), icon: Banknote, perm: P.ADMIN_FINANCE_VIEW, group: g.finance, badge: pending?.payouts },
-    { to: '/admin/finance/commission', label: t('admin.nav.commission'), icon: Percent, perm: P.ADMIN_FINANCE_VIEW, group: g.finance },
+    { to: '/admin/finance/commission', label: t('billing.admin.nav.commission'), icon: Percent, perm: P.ADMIN_FINANCE_VIEW, group: g.finance },
     { to: '/admin/finance/reports', label: t('admin.nav.reports'), icon: BarChart3, perm: P.ADMIN_FINANCE_VIEW, group: g.finance },
     { to: '/admin/moderation', label: t('admin.nav.moderation'), icon: Flag, perm: P.ADMIN_REVIEWS_MODERATE, group: g.trust, badge: (pending?.reports ?? 0) + (pending?.fraudSignals ?? 0) },
     { to: '/admin/support', label: t('admin.nav.support'), icon: LifeBuoy, perm: P.ADMIN_SUPPORT_MANAGE, group: g.trust, badge: pending?.tickets },

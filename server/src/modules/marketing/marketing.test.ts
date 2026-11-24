@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { signupAgent, xhr } from '../../test/helpers';
 import { Campaign, FlashSale } from '../catalog/marketing.models';
 import { Product } from '../catalog/product.model';
+import { setPlan } from '../../test/growthFixtures';
 import { addStaff, api, makeBuyer, makeItem, makeSeller } from '../orders/orderTestFixtures';
 import { User } from '../users/user.model';
 import { shareSvg, wrap } from './shareImage';
@@ -49,6 +50,9 @@ describe('seller marketing API', () => {
     const item = await makeItem(s.store._id, 100_000, 10);
     const other = await makeItem(s.store._id, 100_000, 10);
     const ok = { title: 'Weekend deal', startsAt: soon(), endsAt: later(2), items: [{ productId: item.productId, variantId: item.variantId, price: 80_000, quantityLimit: 5 }] };
+    // Store flash deals are a Pro+ tool (docs/api-billing.md §1).
+    expect((await s.agent.post(api('/seller/marketing/flash-deals')).send(ok)).body.error).toMatchObject({ code: 'PLAN_LIMIT', details: { feature: 'flashDeals', requiredPlan: 'pro' } });
+    await setPlan(s.store._id, 'pro');
     expect((await s.agent.post(api('/seller/marketing/flash-deals')).send({ ...ok, endsAt: later(20) })).body.error.code).toBe('DEAL_TOO_LONG');
     expect((await s.agent.post(api('/seller/marketing/flash-deals')).send({ ...ok, items: [{ ...ok.items[0], price: 120_000 }] })).body.error.code).toBe('INVALID_DEAL');
     expect((await s.agent.post(api('/seller/marketing/flash-deals')).send({ ...ok, items: [{ ...ok.items[0], price: 5_000 }] })).body.error.details.items[0].code).toBe('PRICE_TOO_LOW');
@@ -67,6 +71,8 @@ describe('seller marketing API', () => {
   it('bundles + BXGY: shown on the PDP, applied in the cart only when complete, isolated per store', async () => {
     const s = await makeSeller('Mkt Bundle');
     const other = await makeSeller('Mkt Bundle Other');
+    await setPlan(s.store._id, 'pro');
+    await setPlan(other.store._id, 'premium');
     const kurta = await makeItem(s.store._id, 300_000, 10);
     const shawl = await makeItem(s.store._id, 200_000, 10);
     const tee = await makeItem(s.store._id, 100_000, 10);
@@ -105,6 +111,7 @@ describe('seller marketing API', () => {
   it('campaign nominations (seller) + admin approval; featured products; share images', async () => {
     const s = await makeSeller('Mkt Campaign');
     const other = await makeSeller('Mkt Campaign Other');
+    await setPlan(s.store._id, 'pro');
     const item = await makeItem(s.store._id, 100_000);
     const c = await Campaign.create({ slug: `eid-${Date.now()}`, name: 'Eid Sale', startsAt: new Date(Date.now() + DAY), endsAt: new Date(Date.now() + 5 * DAY) });
     let res = await s.agent.get(api('/seller/marketing/campaigns'));

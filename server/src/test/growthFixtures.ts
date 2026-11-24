@@ -7,7 +7,7 @@ import { Store } from '../modules/stores/store.model';
 let n = 0;
 const DAY = 86_400_000;
 
-export async function setPlan(storeId: unknown, plan: 'free' | 'pro' | 'business') {
+export async function setPlan(storeId: unknown, plan: 'free' | 'pro' | 'premium') {
   await Store.updateOne({ _id: storeId }, { $set: { plan } });
 }
 
@@ -19,7 +19,8 @@ export async function setPayoutMethod(storeId: unknown) {
 }
 
 /** Creates an order directly (skips checkout). `deliveredDaysAgo` adds a delivered timeline entry. */
-export async function makeOrder(o: { storeId: unknown; buyerId?: unknown; total?: number; sellerNet?: number; status?: OrderStatus; deliveredDaysAgo?: number; productId?: unknown; variantId?: unknown; createdAt?: Date }) {
+/** `method` defaults to COD; online orders (`stripe`) credit the seller balance on delivery (docs/api-billing.md). */
+export async function makeOrder(o: { storeId: unknown; buyerId?: unknown; total?: number; sellerNet?: number; status?: OrderStatus; deliveredDaysAgo?: number; productId?: unknown; variantId?: unknown; createdAt?: Date; method?: 'cod' | 'stripe' }) {
   n++;
   const total = o.total ?? 200_000;
   const deliveredAt = o.deliveredDaysAgo !== undefined ? new Date(Date.now() - o.deliveredDaysAgo * DAY) : undefined;
@@ -35,7 +36,7 @@ export async function makeOrder(o: { storeId: unknown; buyerId?: unknown; total?
     sellerNet: o.sellerNet ?? total - Math.round(total / 10),
     status: o.status ?? (deliveredAt ? 'delivered' : 'placed'),
     timeline: [{ status: 'placed', at: o.createdAt ?? new Date(), actor: 'buyer' }, ...(deliveredAt ? [{ status: 'delivered', at: deliveredAt, actor: 'rider' }] : [])],
-    payment: { method: 'cod', status: deliveredAt ? 'paid' : 'pending' },
+    payment: { method: o.method ?? 'cod', status: deliveredAt || o.method === 'stripe' ? 'paid' : 'pending' },
     invoiceNumber: `INV-${number.slice(3)}`,
     ...(o.createdAt ? { createdAt: o.createdAt } : {}),
   });

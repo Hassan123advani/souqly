@@ -23,7 +23,8 @@ Money = integer paisa. Rates = basis points.
 | Returns/disputes | `GET /returns?status` · `GET /disputes?status` · `GET /disputes/:id` · `POST /disputes/:id/messages {text}` · `POST /disputes/:id/resolve {outcome: refund_buyer\|side_with_seller, note}` | DISPUTES_MANAGE |
 | Marketing | `/campaigns`, `/flash-sales`, `/vouchers` (platform) CRUD | MARKETING_MANAGE |
 | CMS | `GET/PUT /cms/home` (heroSlides, sections, featured) · `POST /cms/uploads` (image) · `/pages` CRUD · public `GET /api/v1/pages/:slug` | CMS_MANAGE |
-| Commission | `/commission-rules` CRUD (global/category/store) | FINANCE_MANAGE (read: FINANCE_VIEW) |
+| Commission | `/commission-rules` read-only since billing (create/update/delete and `PUT /stores/:id/commission` → 409 `COMMISSION_FIXED`; flat 15%, docs/api-billing.md) | FINANCE_VIEW |
+| Billing | `/billing/*` subscriptions, invoices, manual payment verification, waivers, report, settings (docs/api-billing.md §6) | BILLING_VIEW / BILLING_MANAGE |
 | Finance | `GET /payouts?status&storeId` **CSV** · `POST /payouts/:id/approve\|mark-paid {reference}\|reject {notes}` · `GET /finance/report?from&to&groupBy=day\|month` (+`format=csv`) | FINANCE_VIEW / FINANCE_MANAGE |
 | Moderation | `GET /reviews?status` **CSV** · `POST /reviews/:id/hide\|restore` · `DELETE /reviews/:id` · `GET /reports?status` · `POST /reports/:id/resolve {action: dismiss\|hide_target\|resolved, note}` · `GET /fraud-signals` · `POST /fraud-signals/:id/dismiss` | REVIEWS_MODERATE |
 | Support | buyer: `POST/GET /api/v1/support/tickets`, `GET /support/tickets/:id`, `POST /support/tickets/:id/messages` · admin: `GET /tickets?status&assigneeId` · `GET /tickets/:id` · `POST /tickets/:id/assign {assigneeId}` · `POST /tickets/:id/reply {body}` · `PATCH /tickets/:id/status` | SUPPORT_MANAGE |

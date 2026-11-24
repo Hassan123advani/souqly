@@ -1,0 +1,17 @@
+{
+  "consent": {
+    "title": "We use cookies",
+    "body": "Essential cookies keep you signed in and remember your cart and settings. With your permission we also use analytics cookies to learn how Souqly is used and improve it.",
+    "privacyLink": "Privacy policy",
+    "acceptAll": "Accept all",
+    "essentialOnly": "Essential only",
+    "manage": "Manage",
+    "save": "Save choices",
+    "cancel": "Cancel",
+    "essential": "Essential",
+    "essentialHint": "Needed for sign-in, cart and security. Always on.",
+    "analytics": "Analytics",
+    "analyticsHint": "Anonymous usage statistics (Google Analytics via Firebase).",
+    "settings": "Cookie settings"
+  }
+}

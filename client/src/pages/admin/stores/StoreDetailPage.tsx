@@ -3,14 +3,14 @@ import { Link, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { Ban, CheckCircle2, Crown, ExternalLink, Eye, Lock, PlayCircle, XCircle } from 'lucide-react';
-import { PERMISSIONS, STORE_PLANS } from '@souqly/shared';
+import { PERMISSIONS, PLATFORM_COMMISSION_BPS } from '@souqly/shared';
 import { useAdminGet, useAdminList, useAdminMutation, type AdminOrderRow, type AdminProductRow, type AdminStoreDetail } from '@/api/admin';
 import { getErrorMessage } from '@/api/client';
 import { ConfirmDialog } from '@/components/admin/ConfirmDialog';
 import { PageHeader } from '@/components/admin/PageHeader';
 import { StatusPill } from '@/components/admin/StatusPill';
 import { useAdminCan } from '@/components/admin/useAdminCan';
-import { Alert, Avatar, Badge, Button, Card, CardHeader, ErrorState, Input, Select, Skeleton, Switch, Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui';
+import { Alert, Avatar, Badge, Button, Card, CardHeader, ErrorState, Skeleton, Switch, Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui';
 import { useLang } from '@/lib/catalog';
 import { formatDate, money } from '@/lib/format';
 
@@ -37,9 +37,7 @@ export default function StoreDetailPage() {
   const orders = useAdminList<AdminOrderRow>('orders', { storeId: id }, { enabled: can(PERMISSIONS.ADMIN_ORDERS_VIEW), limit: 10 });
   const post = useAdminMutation('post', ['stores', 'mall-requests']);
   const patch = useAdminMutation('patch', ['stores', 'mall-requests']);
-  const put = useAdminMutation('put', ['stores']);
   const [action, setAction] = useState<Action | null>(null);
-  const [commission, setCommission] = useState<string | null>(null);
   const s = q.data;
 
   if (q.error) return <ErrorState error={q.error} onRetry={() => void q.refetch()} />;
@@ -65,7 +63,6 @@ export default function StoreDetailPage() {
     unsuspend: { title: t('admin.stores.unsuspendTitle', { name: s.name }), desc: t('admin.stores.unsuspendDesc'), tone: 'primary' },
   };
   const spec = action ? specs[action] : null;
-  const pct = commission ?? (s.commissionOverrideBps !== null ? String(s.commissionOverrideBps / 100) : '');
 
   return (
     <>
@@ -124,7 +121,7 @@ export default function StoreDetailPage() {
                 </p>
                 <div className="mt-1 flex gap-1.5">
                   <StatusPill status={s.status} />
-                  <Badge size="sm">{t(`admin.plans.${s.plan}`)}</Badge>
+                  <Badge size="sm">{t(`billing.planName.${s.plan}`, { defaultValue: s.plan })}</Badge>
                 </div>
               </div>
             </div>
@@ -159,30 +156,21 @@ export default function StoreDetailPage() {
               />
               <div>
                 <p className="mb-1.5 text-sm font-semibold text-fg">{t('admin.stores.plan')}</p>
-                <Select
-                  value={s.plan}
-                  onValueChange={(plan) => patch.mutate({ path: `stores/${id}/plan`, body: { plan } }, { onSuccess: () => toast.success(t('admin.common.saved')), onError: fail })}
-                  options={STORE_PLANS.map((p) => ({ value: p, label: t(`admin.plans.${p}`) }))}
-                />
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <Badge size="sm">{t(`billing.planName.${s.plan}`, { defaultValue: s.plan })}</Badge>
+                  {can(PERMISSIONS.ADMIN_BILLING_VIEW) && (
+                    <Button to={`/admin/billing/stores/${id}`} size="sm" variant="outline">
+                      {t('billing.admin.stores.manageBilling')}
+                    </Button>
+                  )}
+                </div>
               </div>
               <div>
                 <p className="mb-1.5 text-sm font-semibold text-fg">{t('admin.stores.commission')}</p>
-                <div className="flex gap-2">
-                  <Input type="number" min={0} max={100} step="0.1" value={pct} placeholder={t('admin.stores.commissionDefault')} onChange={(e) => setCommission(e.target.value)} endAdornment={<span className="text-sm text-fg-muted">%</span>} />
-                  <Button
-                    variant="outline"
-                    loading={put.isPending}
-                    onClick={() =>
-                      put.mutate(
-                        { path: `stores/${id}/commission`, body: { bps: pct === '' ? null : Math.round(Number(pct) * 100) } },
-                        { onSuccess: () => (toast.success(t('admin.common.saved')), setCommission(null)), onError: fail },
-                      )
-                    }
-                  >
-                    {t('admin.common.save')}
-                  </Button>
-                </div>
-                <p className="mt-1 text-xs text-fg-muted">{t('admin.stores.commissionHint')}</p>
+                <p className="text-sm font-bold text-fg" dir="ltr">
+                  {PLATFORM_COMMISSION_BPS / 100}%
+                </p>
+                <p className="mt-1 text-xs text-fg-muted">{t('billing.admin.commission.storeHint')}</p>
               </div>
             </Card>
           )}

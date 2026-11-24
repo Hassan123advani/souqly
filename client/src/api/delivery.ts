@@ -101,12 +101,13 @@ export function useRiderCod() {
 // ---------------------------------------------------------------------------------------------
 export const trackingKey = (number: string) => ['tracking', number] as const;
 
-export function useOrderTracking(number: string, { enabled = true, poll = false }: { enabled?: boolean; poll?: boolean } = {}) {
+/** `pollMs`: refetch interval while the live socket room is unavailable (off when omitted). */
+export function useOrderTracking(number: string, { enabled = true, pollMs }: { enabled?: boolean; pollMs?: number } = {}) {
   return useQuery({
     queryKey: trackingKey(number),
     queryFn: () => get<OrderTrackingDTO>(`/orders/${encodeURIComponent(number)}/tracking`),
     enabled: enabled && !!number,
-    refetchInterval: poll ? 15_000 : false,
+    refetchInterval: pollMs ?? false,
   });
 }
 

@@ -88,6 +88,7 @@ describe('checkout', () => {
     const b = await makeBuyer();
     const s1 = await makeSeller('Split One');
     const s2 = await makeSeller('Split Two', 'Karachi');
+    // A legacy store rule is ignored: commission is a flat 15% for every store (docs/api-billing.md).
     await CommissionRule.create({ scope: 'store', storeId: s2.store._id, bps: 500 });
     const a = await makeItem(s1.store._id, 100_000, 5);
     const c = await makeItem(s2.store._id, 200_000, 5);
@@ -112,11 +113,12 @@ describe('checkout', () => {
     expect(co.orders[0].commission).toBeUndefined(); // buyer view hides commission
 
     const orders = await Order.find({ number: { $in: co.orders.map((o: { number: string }) => o.number) } }).sort({ number: 1 }).lean();
+    // Platform voucher is platform-funded: the base stays the full item value; shipping is excluded.
     expect(orders.map((o) => o.commission)).toEqual([
-      { bps: 1000, amount: 10_000 },
-      { bps: 500, amount: 10_000 },
+      { bps: 1500, amount: 15_000 },
+      { bps: 1500, amount: 30_000 },
     ]);
-    expect(orders[0]!.sellerNet).toBe(100_000 + 15_000 - 10_000);
+    expect(orders[0]!.sellerNet).toBe(100_000 + 15_000 - 15_000);
     expect(orders[0]!.timeline[0]).toMatchObject({ status: 'placed', actor: 'buyer' });
 
     expect(await stockOf(a.productId)).toBe(4);

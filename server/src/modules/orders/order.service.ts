@@ -16,7 +16,8 @@ import { restoreOrderStock } from './stock';
 import { notifyOrderStatus } from '../notifications/orderNotifications';
 import { refundOrderCoins } from '../loyalty/coinsRefund';
 import { creditAffiliateOnDelivery, voidAffiliateCommission } from '../affiliate/affiliate.service';
-import { ledgerOnDelivered } from '../finance/finance.service';
+import { ledgerOnDelivered, reconcileLedger } from '../finance/finance.service';
+import { syncOrderReversals } from '../billing/commission.service';
 import { onOrderDelivered } from '../loyalty/rewards.service';
 
 /** `SQ-YYMMDD-XXXXX` (UTC date + 5 unambiguous uppercase chars). */
@@ -169,6 +170,11 @@ export async function transitionOrder(
     await creditAffiliateOnDelivery(updated); // Phase 10: affiliate commission (idempotent, never throws)
   }
   if (to === 'cancelled') await voidAffiliateCommission(updated._id);
+  // Billing: commission reversal for return refunds / a forced cancel after delivery (idempotent, never throws).
+  if (to === 'refunded' || to === 'cancelled') {
+    await syncOrderReversals(updated._id);
+    await reconcileLedger(updated.storeId).catch((err) => logger.warn({ err, order: updated.number }, 'Ledger reconcile after refund failed (retried on next finance read / sweep)'));
+  }
   return updated;
 }
 

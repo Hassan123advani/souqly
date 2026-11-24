@@ -163,7 +163,7 @@ const storeIndexCache = new TtlCache<Map<string, PublicStoreInfo>>(30_000, 1);
 export async function getPublicStoreIndex(): Promise<Map<string, PublicStoreInfo>> {
   return storeIndexCache.get('all', async () => {
     const now = new Date();
-    const stores = await Store.find({ status: 'approved' }).select('slug name isMall address.city holidayMode').lean();
+    const stores = await Store.find({ status: 'approved', billingStatus: { $ne: 'suspended' } }).select('slug name isMall address.city holidayMode').lean();
     return new Map(
       stores.map((s) => {
         const onHoliday = !!s.holidayMode?.enabled && (!s.holidayMode.until || s.holidayMode.until > now);

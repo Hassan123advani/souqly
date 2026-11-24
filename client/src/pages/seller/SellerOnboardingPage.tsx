@@ -20,6 +20,7 @@ import type { SlugState } from '@/components/seller/onboarding/SlugField';
 import { StepBasics } from '@/components/seller/onboarding/StepBasics';
 import { StepBranding } from '@/components/seller/onboarding/StepBranding';
 import { StepContact } from '@/components/seller/onboarding/StepContact';
+import { StepPlan } from '@/components/seller/onboarding/StepPlan';
 import { StepReview } from '@/components/seller/onboarding/StepReview';
 import { WizardProgress } from '@/components/seller/onboarding/WizardProgress';
 
@@ -32,6 +33,7 @@ const STEPS: { key: string; fields: F[] }[] = [
   { key: 'business', fields: ['business'] },
   { key: 'payout', fields: ['payout'] },
   { key: 'policies', fields: ['policies'] },
+  { key: 'plan', fields: ['plan'] },
   { key: 'review', fields: ['acceptTerms'] },
 ];
 
@@ -64,6 +66,7 @@ function Wizard({ userId, email, phone, name }: { userId: string; email: string;
       business: { type: 'individual', legalName: '', cnicOrRegNo: '' },
       payout: { method: 'bank', accountTitle: '', accountNumber: '' },
       policies: {},
+      plan: 'free',
       ...draft?.values,
       acceptTerms: undefined as unknown as true,
     },
@@ -149,7 +152,8 @@ function Wizard({ userId, email, phone, name }: { userId: string; email: string;
                 <PayoutFields prefix="payout." />
               ))}
             {step === 6 && <PolicyFields />}
-            {step === 7 && <StepReview goTo={setStep} />}
+            {step === 7 && <StepPlan />}
+            {step === 8 && <StepReview goTo={setStep} />}
           </Card>
           <div className="sticky bottom-0 z-10 -mx-4 mt-4 flex items-center justify-between gap-2 border-t border-border bg-bg/90 px-4 py-3 backdrop-blur sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:px-0">
             <Button type="button" variant="ghost" leftIcon={<ArrowLeft className="flip-rtl size-4" />} onClick={() => setStep((s) => s - 1)}>

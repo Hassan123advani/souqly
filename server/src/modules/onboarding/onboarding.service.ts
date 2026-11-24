@@ -6,6 +6,7 @@ import { AppError } from '../../lib/AppError';
 import { logger } from '../../lib/logger';
 import { getEmail } from '../../services/email';
 import { audit } from '../audit/audit.service';
+import { startSubscription } from '../billing/billing.service';
 import { assertActiveCategories } from './categories';
 import { getSellerStore } from '../seller/store.service';
 import { checkSlug } from '../stores/slug.service';
@@ -62,6 +63,14 @@ export async function onboard(req: Request, input: OnboardingInput): Promise<Sel
     throw err;
   }
   await User.updateOne({ _id: userId }, { $set: { isSeller: true, activeMode: 'seller' } });
+  // Billing (docs/api-billing.md §3): every store starts on Free; a paid plan chosen in the wizard gets an
+  // upgrade invoice that activates the plan once paid. Never blocks onboarding.
+  try {
+    const inv = await startSubscription(store._id, input.plan);
+    if (inv) await audit({ action: 'billing.upgrade_requested', targetType: 'Invoice', targetId: inv._id, storeId: store._id, meta: { plan: input.plan, total: inv.total, number: inv.number, at: 'onboarding' }, req });
+  } catch (err) {
+    logger.error({ err, storeId: String(store._id) }, 'Could not start the subscription at onboarding');
+  }
   await audit({ action: 'store.onboarded', targetType: 'Store', targetId: store._id, storeId: store._id, meta: { slug: store.slug, name: store.name }, req });
 
   // Admin notification (in-app notifications arrive in Phase 7).

@@ -15,7 +15,7 @@ export type SeedStore = {
   city: string;
   isMall?: boolean;
   holiday?: string;
-  plan: 'free' | 'pro' | 'business';
+  plan: 'free' | 'pro' | 'premium';
 };
 
 export const SEED_STORES: SeedStore[] = [
@@ -31,7 +31,7 @@ export const SEED_STORES: SeedStore[] = [
     brands: ['Sitara', 'Riwaj'],
     city: 'Faisalabad',
     isMall: true,
-    plan: 'business',
+    plan: 'premium',
   },
   {
     name: 'Mehrab Menswear',
@@ -58,7 +58,7 @@ export const SEED_STORES: SeedStore[] = [
     brands: ['Shams', 'Qavi'],
     city: 'Karachi',
     isMall: true,
-    plan: 'business',
+    plan: 'premium',
   },
   {
     name: 'Tarang Audio Hub',
@@ -85,7 +85,7 @@ export const SEED_STORES: SeedStore[] = [
     brands: ['Lumora', 'Saya', 'Aangan', 'Chirag'],
     city: 'Lahore',
     isMall: true,
-    plan: 'business',
+    plan: 'premium',
   },
   {
     name: 'Dastarkhwan Kitchen',
@@ -178,7 +178,7 @@ export const SEED_STORES: SeedStore[] = [
     brands: ['Zarnaab', 'Hilal'],
     city: 'Hyderabad',
     isMall: true,
-    plan: 'business',
+    plan: 'premium',
   },
 ];
 

@@ -1,5 +1,6 @@
 import {
   PERMISSIONS,
+  PLATFORM_COMMISSION_BPS,
   adminCommissionRuleSchema,
   adminCommissionRuleUpdateSchema,
   adminFinanceReportQuerySchema,
@@ -9,7 +10,7 @@ import {
   formatMoney,
   objectIdSchema,
 } from '@souqly/shared';
-import { Router, type Request } from 'express';
+import { Router, type Request, type RequestHandler } from 'express';
 import { z } from 'zod';
 import { AppError, notFound } from '../../lib/AppError';
 import { asyncHandler } from '../../lib/asyncHandler';
@@ -18,6 +19,7 @@ import { cursorFilter, cursorSort, paginate } from '../../lib/pagination';
 import { validate } from '../../middleware/validate';
 import { audit } from '../audit/audit.service';
 import { CommissionRule } from '../commission/commission.model';
+import { reconcileLedger } from '../finance/finance.service';
 import { notify } from '../notifications/notification.service';
 import { Order } from '../orders/order.model';
 import { Payout, type PayoutLean, type PayoutStatus } from '../payouts/payout.model';
@@ -30,7 +32,11 @@ import { GMV_EXCLUDED, REVENUE_EXCLUDED } from './dashboard.routes';
 export const adminFinanceRouter = Router();
 const idParams = z.object({ id: objectIdSchema });
 
-// ---------------- commission rules ----------------
+// ---------------- commission rules (retired, D-079) ----------------
+// The flat PLATFORM_COMMISSION_BPS applies to every sale. Rules are kept for history but never applied,
+// and they can no longer be created, edited or deleted.
+const commissionLocked: RequestHandler = (_req, _res, next) =>
+  next(new AppError(409, 'COMMISSION_FIXED', `Commission is a flat ${PLATFORM_COMMISSION_BPS / 100}% on every sale for every plan`, { commissionBps: PLATFORM_COMMISSION_BPS }));
 type RuleLike = { _id: unknown; scope: string; categoryId?: unknown; storeId?: unknown; bps: number; isActive: boolean };
 const ruleDTO = (r: RuleLike) => ({
   id: String(r._id),
@@ -51,13 +57,14 @@ adminFinanceRouter.get(
   ...can(PERMISSIONS.ADMIN_FINANCE_VIEW),
   asyncHandler(async (_req, res) => {
     const rows = await CommissionRule.find().sort({ scope: 1, bps: -1 }).lean();
-    res.json({ data: await rulesWithNames(rows) });
+    res.json({ data: await rulesWithNames(rows), meta: { locked: true, commissionBps: PLATFORM_COMMISSION_BPS } });
   }),
 );
 
 adminFinanceRouter.post(
   '/commission-rules',
   ...can(PERMISSIONS.ADMIN_FINANCE_MANAGE),
+  commissionLocked,
   validate({ body: adminCommissionRuleSchema }),
   asyncHandler(async (req, res) => {
     const b = req.body as z.infer<typeof adminCommissionRuleSchema>;
@@ -70,6 +77,7 @@ adminFinanceRouter.post(
 adminFinanceRouter.patch(
   '/commission-rules/:id',
   ...can(PERMISSIONS.ADMIN_FINANCE_MANAGE),
+  commissionLocked,
   validate({ params: idParams, body: adminCommissionRuleUpdateSchema }),
   asyncHandler(async (req, res) => {
     const set: Record<string, unknown> = {};
@@ -85,6 +93,7 @@ adminFinanceRouter.patch(
 adminFinanceRouter.delete(
   '/commission-rules/:id',
   ...can(PERMISSIONS.ADMIN_FINANCE_MANAGE),
+  commissionLocked,
   validate({ params: idParams }),
   asyncHandler(async (req, res) => {
     const r = await CommissionRule.findByIdAndDelete(req.params.id).lean();
@@ -152,6 +161,7 @@ async function movePayout(req: Request, from: PayoutStatus[], to: PayoutStatus, 
     if (!(await Payout.exists({ _id: oid(req.params.id!) }))) throw notFound('Payout');
     throw new AppError(409, 'INVALID_PAYOUT_STATE', `Only ${from.join(' / ')} payouts can be moved to ${to}`);
   }
+  if (to === 'rejected') await reconcileLedger(p.storeId).catch(() => undefined); // payout_reversal credit right away
   await audit({ action: `admin.payout_${to}`, targetType: 'Payout', targetId: p._id, storeId: p.storeId, meta: { amount: p.amount, ...set }, req });
   const store = await Store.findById(p.storeId).select('ownerId').lean();
   if (store) {

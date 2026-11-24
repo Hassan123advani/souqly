@@ -73,6 +73,10 @@ export function StepReview({ goTo }: { goTo: (step: number) => void }) {
             .join(' · ') || t('seller.review.skipped')}
         </p>
       </Section>
+      <Section title={t('seller.wizard.steps.plan')} onEdit={() => goTo(7)}>
+        <p className="font-semibold text-fg">{t(`billing.planName.${v.plan ?? 'free'}`)}</p>
+        <p>{v.plan && v.plan !== 'free' ? t('billing.onboarding.paidNote') : t('billing.onboarding.freeNote')}</p>
+      </Section>
       <div className="mt-2 rounded-lg bg-surface-2 p-4">
         <Checkbox
           {...register('acceptTerms')}

@@ -1,4 +1,4 @@
-import type { PublicConfig } from '@souqly/shared';
+import { PLANS, PLATFORM_COMMISSION_BPS, type PublicConfig } from '@souqly/shared';
 import { Router } from 'express';
 import mongoose from 'mongoose';
 import { env, integrations, isProd } from '../../config/env';
@@ -36,6 +36,7 @@ configRouter.get(
         email: integrations.hasSmtp,
         sms: integrations.hasTwilio,
         webPush: integrations.hasVapid,
+        realtime: !env.SERVERLESS,
         ...(integrations.hasVapid ? { vapidPublicKey: env.VAPID_PUBLIC_KEY } : {}),
         // Wallet payments arrive with the wallet phase.
         // A method is offered only when its keys are present AND the admin has it enabled.
@@ -49,6 +50,8 @@ configRouter.get(
       },
       flags,
       devMode: !isProd,
+      // Seller plans + flat commission for the plan page and the Become-a-Seller wizard (docs/api-billing.md).
+      billing: { commissionBps: PLATFORM_COMMISSION_BPS, plans: Object.values(PLANS) },
     };
     res.setHeader('Cache-Control', 'public, max-age=30');
     res.json({ data });

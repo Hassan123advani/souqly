@@ -1,4 +1,4 @@
-import { assertProductLimit } from '../plans/plan.service';
+import { assertLiveProductLimit, assertProductLimit } from '../plans/plan.service';
 import type { ProductCreateInput, ProductUpdateInput, SellerProductBulkInput, SellerProductBulkResult, ProductVariantInput, SellerProduct, SellerProductListQuery, UploadResult } from '@souqly/shared';
 import { slugify } from '@souqly/shared';
 import type { Request } from 'express';
@@ -330,6 +330,9 @@ export async function publishProduct(req: Request, id: string): Promise<SellerPr
   if (!product.images.length) throw new AppError(400, 'IMAGES_REQUIRED', 'Add at least one image before publishing');
   if (!product.variants.some((v) => v.isActive)) throw new AppError(400, 'VARIANTS_REQUIRED', 'Add at least one active variant');
   if (product.status === 'published') return toSellerProduct(product);
+  // Billing-suspended stores cannot put new products live (docs/api-billing.md §3).
+  if (store.billingStatus === 'suspended') throw new AppError(403, 'BILLING_SUSPENDED', 'Your store is on hold for unpaid dues. Pay your invoice to publish products.');
+  if (product.status !== 'pending_review') await assertLiveProductLimit(store);
   const trusted = store.status === 'approved' && (store.isMall || (await getSetting<boolean>('autoApproveProducts')) === true);
   const wasPublished = !!product.publishedAt;
   product.status = trusted ? 'published' : 'pending_review';

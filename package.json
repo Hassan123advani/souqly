@@ -7,6 +7,7 @@
   "scripts": {
     "dev": "concurrently -n server,client -c cyan,magenta \"npm run dev -w server\" \"npm run dev -w client\"",
     "build": "npm run build -w server && npm run build -w client",
+    "build:vercel": "npm run build -w client && npm run build:vercel -w server",
     "start": "npm run start -w server",
     "seed": "npm run seed -w server",
     "seed:clear": "npm run seed:clear -w server",

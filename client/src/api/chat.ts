@@ -5,6 +5,7 @@ import { useActiveStoreId } from '@/components/seller/useActiveStore';
 import { acquireSocket, releaseSocket } from '@/lib/socket';
 import { useMe } from './auth';
 import { api } from './client';
+import { useRealtime } from './config';
 import { flatPages, getPage, nextCursor, storeCfg, type Page } from './social';
 
 /** `buyer` = my conversations with stores; `store` = the Seller Center inbox of the active store. */
@@ -21,6 +22,11 @@ function useScope(side: ChatSide) {
   };
 }
 
+/** Polling cadences used when realtime (Socket.io) is unavailable. */
+const POLL_MESSAGES_MS = 4_000;
+const POLL_LIST_MS = 15_000;
+const POLL_UNREAD_MS = 30_000;
+
 export const chatKeys = {
   all: ['chat'] as const,
   buyerUnread: ['chat', 'buyer', 'unread'] as const,
@@ -28,12 +34,14 @@ export const chatKeys = {
 
 export function useConversations(side: ChatSide) {
   const s = useScope(side);
+  const { poll } = useRealtime();
   return useInfiniteQuery({
     queryKey: [...s.key, 'list'],
     queryFn: ({ pageParam }) => getPage<ConversationDTO>(`${s.base}/conversations`, { cursor: pageParam, limit: 30 }, s.cfg),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: nextCursor,
     enabled: s.ready,
+    refetchInterval: poll ? POLL_LIST_MS : false,
   });
 }
 
@@ -51,6 +59,7 @@ export function useConversation(side: ChatSide, convId: string | undefined, plac
 
 export function useMessages(side: ChatSide, convId: string | undefined) {
   const s = useScope(side);
+  const { poll } = useRealtime();
   return useInfiniteQuery({
     queryKey: [...s.key, 'messages', convId],
     // Pages come newest-first; the thread reverses them for display.
@@ -58,6 +67,8 @@ export function useMessages(side: ChatSide, convId: string | undefined) {
     initialPageParam: undefined as string | undefined,
     getNextPageParam: nextCursor,
     enabled: s.ready && !!convId,
+    // Without a socket, poll while the thread is open (the observer unmounts when it closes).
+    refetchInterval: poll ? POLL_MESSAGES_MS : false,
   });
 }
 
@@ -114,20 +125,22 @@ export function useQuickReplies(enabled: boolean) {
   });
 }
 
-/** Unread conversations count for a side; refreshed live by `chat:conversation` socket events. */
+/** Unread conversations count for a side; refreshed live by `chat:conversation` socket events (polled without realtime). */
 export function useChatUnread(side: ChatSide, allowed = true) {
   const { data: me } = useMe();
   const s = useScope(side);
   const qc = useQueryClient();
+  const { live, poll } = useRealtime();
   const enabled = allowed && !!me && s.ready;
   const q = useQuery({
     queryKey: [...s.key, 'unread'],
     queryFn: async () => (await api.get<{ data: { unread: number } }>(`${s.base}/unread`, s.cfg)).data.data.unread,
     enabled,
-    staleTime: 60_000,
+    staleTime: poll ? POLL_UNREAD_MS / 2 : 60_000,
+    refetchInterval: poll ? POLL_UNREAD_MS : false,
   });
   useEffect(() => {
-    if (!enabled) return;
+    if (!enabled || !live) return;
     const socket = acquireSocket();
     const onConv = () => {
       void qc.invalidateQueries({ queryKey: [...s.key, 'unread'] });
@@ -138,17 +151,20 @@ export function useChatUnread(side: ChatSide, allowed = true) {
       socket.off('chat:conversation', onConv);
       releaseSocket();
     };
-  }, [enabled, qc, s.key.join('/')]);
+  }, [enabled, live, qc, s.key.join('/')]);
   return q.data ?? 0;
 }
 
 /**
  * Live thread: joins `conv:{id}`, merges `chat:message` into the cache, tracks the other side's
  * typing indicator and read receipts. Returns `{ otherTyping, setTyping }`.
+ * Without realtime, `useMessages` polls instead: `onIncoming` fires for messages from the other
+ * side that appear after the thread opened, and typing is never shown or sent.
  */
 export function useChatRoom(side: ChatSide, convId: string | undefined, onIncoming?: (m: MessageDTO) => void) {
   const s = useScope(side);
   const qc = useQueryClient();
+  const { live, poll } = useRealtime();
   const [otherTyping, setOtherTyping] = useState(false);
   const typingTimer = useRef<ReturnType<typeof setTimeout>>();
   const sentTyping = useRef<{ on: boolean; at: number }>({ on: false, at: 0 });
@@ -157,8 +173,21 @@ export function useChatRoom(side: ChatSide, convId: string | undefined, onIncomi
   incoming.current = onIncoming;
   const keyStr = s.key.join('/');
 
+  // Polling mode: detect newly arrived messages from the other side (same query, no extra fetch).
+  const polled = useMessages(side, poll ? convId : undefined);
+  const newestPolled = polled.data?.pages[0]?.data[0];
+  const seenNewest = useRef<{ convId: string; id: string } | null>(null);
   useEffect(() => {
-    if (!convId || !s.ready) return;
+    if (!poll || !convId || !newestPolled) return;
+    const prev = seenNewest.current;
+    seenNewest.current = { convId, id: newestPolled.id };
+    // The first page of a thread is history, not an incoming message.
+    if (!prev || prev.convId !== convId || prev.id === newestPolled.id) return;
+    if (newestPolled.senderSide !== side) incoming.current?.(newestPolled);
+  }, [poll, convId, side, newestPolled]);
+
+  useEffect(() => {
+    if (!convId || !s.ready || !live) return;
     const socket = acquireSocket();
     socketRef.current = socket;
     const msgKey = [...s.key, 'messages', convId];
@@ -199,7 +228,7 @@ export function useChatRoom(side: ChatSide, convId: string | undefined, onIncomi
       socketRef.current = null;
       releaseSocket();
     };
-  }, [convId, side, keyStr, s.ready, qc]);
+  }, [convId, side, keyStr, s.ready, live, qc]);
 
   /** Throttled: "typing" at most every 2s, "stopped" once. */
   const setTyping = (typing: boolean) => {

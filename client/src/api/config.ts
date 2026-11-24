@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { setRealtimeAvailable } from '@/lib/socket';
 import { get } from './client';
 import type { PublicConfig } from './types';
 
@@ -16,4 +17,18 @@ export function usePublicConfig() {
 export function useFlag(flag: string): boolean {
   const { data } = usePublicConfig();
   return !!data?.flags?.[flag];
+}
+
+/**
+ * Whether live updates come over Socket.io (`live`) or TanStack Query polling (`poll`).
+ * Serverless deployments report `integrations.realtime: false`; anything else (including a
+ * config that failed to load) keeps the socket. Both are false while the config is loading, so
+ * nothing connects before we know the socket server exists.
+ */
+export function useRealtime(): { live: boolean; poll: boolean } {
+  const { data, isPending } = usePublicConfig();
+  if (isPending) return { live: false, poll: false };
+  const enabled = data?.integrations.realtime !== false;
+  setRealtimeAvailable(enabled);
+  return { live: enabled, poll: !enabled };
 }

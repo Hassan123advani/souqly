@@ -1,10 +1,14 @@
-import { MongoMemoryServer } from 'mongodb-memory-server';
+import { MongoMemoryReplSet } from 'mongodb-memory-server';
 import type { GlobalSetupContext } from 'vitest/node';
 
-let mongod: MongoMemoryServer | undefined;
+let mongod: MongoMemoryReplSet | undefined;
 
+/**
+ * One single-node replica set for the whole run (each test file uses its own database). A replica
+ * set (wiredTiger) is required for multi-document transactions used by billing/finance (D-078).
+ */
 export async function setup({ provide }: GlobalSetupContext) {
-  mongod = await MongoMemoryServer.create();
+  mongod = await MongoMemoryReplSet.create({ replSet: { count: 1, storageEngine: 'wiredTiger' } });
   provide('mongoUri', mongod.getUri());
 }
 
