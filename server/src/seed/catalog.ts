@@ -14,22 +14,50 @@ import { StoreMember } from '../modules/stores/storeMember.model';
 import { User } from '../modules/users/user.model';
 import { generateReferralCode } from '../modules/users/user.service';
 import { getStorage } from '../services/storage';
-import { heroArt, productArt, storeBanner, storeLogo } from './data/art';
+import { escapeXml, heroArt, heroPhotoArt, productArt, storeBanner, storeBannerPhoto, storeLogo } from './data/art';
 import { SEED_BRANDS } from './data/brands';
 import { SEED_CATEGORIES, type SeedCategory } from './data/categories';
 import { HERO_SLIDES, HOME_SECTIONS, seedCampaigns } from './data/home';
 import { createRng, hashString, shortId, type Rng } from './data/prng';
 import { COLOR_HEX, COLORS, STYLE_WORDS, TEMPLATES, type ProductTemplate } from './data/productTemplates';
 import { TEMPLATES_2 } from './data/productTemplates2';
+import { REAL_PRODUCTS, type RealProduct } from './data/realProducts';
+import { loadSeedImage, realImagesEnabled } from './realImages';
 import { SEED_STORES, STORE_POLICIES, type SeedStore } from './data/stores';
 
 const ALL_TEMPLATES: Record<string, ProductTemplate[]> = { ...TEMPLATES, ...TEMPLATES_2 };
 const PRODUCTS_PER_STORE = 18;
 const DAY = 24 * 3600_000;
+/** Rough demo conversion for the USD prices in data/realProducts.ts. */
+const USD_TO_PKR = 280;
+/** Real brands that get a "featured" badge. */
+const FEATURED_REAL_BRANDS = new Set(['Apple', 'Samsung', 'Nike', 'Rolex', 'Dior', 'Chanel', 'Gucci', 'Dell', 'Lenovo', 'Oppo', 'Vivo', 'Realme', 'Kawasaki', 'Puma']);
+/** Sub-category slug → its top-level seed category. */
+const TOP_OF_SUB = new Map(SEED_CATEGORIES.flatMap((c) => c.children.map((s) => [s.slug, c] as const)));
 
 /** Writes seed art at a stable key (re-seeding overwrites instead of piling up files). */
 async function putSvg(key: string, svg: string): Promise<{ url: string; key: string }> {
   return getStorage().upload(Buffer.from(svg, 'utf8'), { folder: 'seed', filename: key, mimetype: 'image/svg+xml', fixedKey: key });
+}
+
+/** First photo of each named real product as a data: URI (embedded in banner SVGs). Empty when photos are off/unavailable. */
+async function photosByTitle(titles: string[]): Promise<string[]> {
+  if (!realImagesEnabled()) return [];
+  const out = await Promise.all(
+    titles.map(async (t) => {
+      const url = REAL_PRODUCTS.find((p) => p.title === t)?.images[0];
+      const img = url ? await loadSeedImage(url) : null;
+      return img ? `data:${img.mimetype};base64,${img.buffer.toString('base64')}` : null;
+    }),
+  );
+  return out.filter((x): x is string => !!x);
+}
+
+/** Three photos spread across a store's real products, for its banner. */
+function storePhotos(storeSlug: string): Promise<string[]> {
+  const items = REAL_PRODUCTS.filter((p) => p.store === storeSlug);
+  const step = Math.max(1, Math.floor(items.length / 3));
+  return photosByTitle(items.filter((_, i) => i % step === 0).slice(0, 3).map((p) => p.title));
 }
 
 /** Runs async tasks with limited concurrency. */
@@ -89,6 +117,13 @@ async function seedBrands(): Promise<Map<string, { _id: Types.ObjectId; name: st
     doc ??= await Brand.create({ name: b.name, slug, description: b.description, isFeatured: !!b.featured, demo: true });
     byName.set(b.name, { _id: doc._id, name: doc.name });
   }
+  for (const name of new Set(REAL_PRODUCTS.flatMap((p) => (p.brand ? [p.brand] : [])))) {
+    if (byName.has(name)) continue;
+    const slug = slugify(name);
+    let doc = await Brand.findOne({ slug });
+    doc ??= await Brand.create({ name, slug, description: `Original ${name} products from authorised sellers.`, isFeatured: FEATURED_REAL_BRANDS.has(name), demo: true });
+    byName.set(name, { _id: doc._id, name: doc.name });
+  }
   return byName;
 }
 
@@ -116,9 +151,10 @@ async function seedStore(s: SeedStore, index: number, passwordHash: string, cats
     const rng = createRng(hashString(`store:${s.slug}`));
     const [logo, banner] = await Promise.all([
       putSvg(`seed/stores/${s.slug}-logo.svg`, storeLogo(s.name, s.themeColor)),
-      putSvg(`seed/stores/${s.slug}-banner.svg`, storeBanner(s.name, s.tagline, s.themeColor, index)),
+      storePhotos(s.slug).then((photos) =>
+        putSvg(`seed/stores/${s.slug}-banner.svg`, photos.length >= 2 ? storeBannerPhoto(s.name, s.tagline, s.themeColor, photos) : storeBanner(s.name, s.tagline, s.themeColor, index)),
+      ),
     ]);
-    const seedCat = SEED_CATEGORIES.find((c) => c.slug === s.category)!;
     store = await Store.create({
       ownerId: owner._id,
       name: s.name,
@@ -128,7 +164,10 @@ async function seedStore(s: SeedStore, index: number, passwordHash: string, cats
       logo,
       banner,
       themeColor: s.themeColor,
-      categoryIds: [cats.get(s.category)!._id, ...seedCat.children.map((c) => cats.get(c.slug)!._id)],
+      categoryIds: [s.category, ...(s.extraCategories ?? [])].flatMap((slug) => {
+        const c = SEED_CATEGORIES.find((x) => x.slug === slug)!;
+        return [cats.get(c.slug)!._id, ...c.children.map((ch) => cats.get(ch.slug)!._id)];
+      }),
       status: 'approved',
       isMall: !!s.isMall,
       contact: { email: s.owner.email, phone: s.owner.phone, whatsapp: s.owner.phone },
@@ -346,14 +385,133 @@ async function generateProduct(ctx: GenContext, i: number): Promise<ProductDoc> 
   return product;
 }
 
+function realOptions(scheme: RealProduct['scheme']): OptionDef[] {
+  switch (scheme) {
+    case 'apparel':
+      return [{ key: 'size', name: 'Size', values: ['S', 'M', 'L', 'XL'], priceStep: [0, 0, 0, 0.05] }];
+    case 'shoe-men':
+      return [{ key: 'shoeSize', name: 'Size', values: ['40', '41', '42', '43', '44'] }];
+    case 'shoe-women':
+      return [{ key: 'shoeSize', name: 'Size', values: ['36', '37', '38', '39', '40'] }];
+    case 'none':
+      return [];
+  }
+}
+
+/** Stores a real photo (downloaded + re-hosted), or the SVG art when it is unavailable. */
+async function storeProductImage(url: string, key: string, art: () => string): Promise<{ url: string; key: string }> {
+  const img = realImagesEnabled() ? await loadSeedImage(url) : null;
+  if (!img) return putSvg(`${key}.svg`, art());
+  return getStorage().upload(img.buffer, { folder: 'seed', filename: key, mimetype: img.mimetype, fixedKey: `${key}.${img.ext}` });
+}
+
+/** A product from data/realProducts.ts (real photo), with the same demo mechanics as generateProduct. */
+async function buildRealProduct(ctx: GenContext, item: RealProduct, i: number, count: number): Promise<ProductDoc> {
+  const { store, seed, cats, brands, storeIndex } = ctx;
+  const rng = createRng(hashString(`real:${seed.slug}:${item.title}`));
+  const title = item.title;
+  const slug = `${slugify(title)}-${shortId(`real:${seed.slug}:${i}`)}`;
+  const topSeed = TOP_OF_SUB.get(item.sub)!;
+  const sub = cats.get(item.sub)!;
+  const top = cats.get(topSeed.slug)!;
+  const brand = item.brand ? brands.get(item.brand) : undefined;
+
+  // Pricing: USD list price → rupees; the listed discount becomes the compare-at price.
+  const listRupees = item.usd * USD_TO_PKR;
+  const base = roundPrice(listRupees * (1 - item.discountPct / 100));
+  const hasCompare = item.discountPct >= 3 && roundPrice(listRupees) > base;
+  const options = realOptions(item.scheme);
+
+  const roll = rng.next();
+  const stockProfile = roll < 0.05 ? 'out' : roll < 0.17 ? 'low' : 'normal';
+  const variants: Partial<IVariant>[] = combos(options).map((c, vi) => {
+    const price = roundPrice(base * c.factor) * 100;
+    return {
+      _id: new Types.ObjectId(),
+      sku: `${seed.slug.replace(/[^a-z]/g, '').slice(0, 5).toUpperCase()}-R${String(i + 1).padStart(3, '0')}-${vi + 1}`,
+      options: c.values,
+      price,
+      ...(hasCompare ? { compareAtPrice: roundPrice(listRupees * c.factor) * 100 } : {}),
+      stock: stockProfile === 'out' ? 0 : stockProfile === 'low' ? rng.int(1, 3) : rng.int(8, 120),
+      reserved: 0,
+      isActive: true,
+    };
+  });
+
+  const images = await Promise.all(
+    item.images.map(async (url, n) => {
+      const stored = await storeProductImage(url, `seed/products/${slug}-${n + 1}`, () =>
+        productArt({ kind: topSeed.art, palette: topSeed.palette, label: title, brand: brand?.name ?? seed.name, variant: n }),
+      );
+      return { ...stored, alt: `${title} — image ${n + 1}` };
+    }),
+  );
+
+  const soldCount = Math.floor(Math.pow(rng.next(), 3) * 4200);
+  const ratingCount = soldCount ? Math.max(1, Math.floor(soldCount * (0.05 + rng.next() * 0.25))) : 0;
+  const publishedAt = new Date(Date.now() - rng.int(1, 120) * DAY - rng.int(0, 86_000) * 1000);
+  const hasWarranty = ['mobiles-tablets', 'electronic-devices', 'vehicles', 'jewelry-watches'].includes(topSeed.slug);
+  const status = (storeIndex === 0 || storeIndex === 5) && i === count - 2 ? 'draft' : storeIndex === 1 && i === count - 3 ? 'pending_review' : 'published';
+  const preOrder = [2, 4, 11].includes(storeIndex) && i === count - 1;
+  const wholesale = topSeed.slug === 'groceries' && i % 4 === 0;
+  const tags = [...new Set([...item.tags, ...(brand ? [brand.name.toLowerCase()] : [])])];
+
+  const description = sanitizeRichText(
+    `<p>${escapeXml(item.description)}</p>` +
+      `<h3>Why you'll love it</h3><ul>${item.highlights.map((h) => `<li>${escapeXml(h)}</li>`).join('')}</ul>` +
+      `<p>Sold by ${escapeXml(seed.name)}, ${escapeXml(seed.city)}. Fast delivery across Pakistan; cash on delivery available on most orders.</p>`,
+  );
+
+  const product = new Product({
+    storeId: store._id,
+    title,
+    slug,
+    description,
+    highlights: item.highlights,
+    categoryId: sub._id,
+    categoryPath: [top._id, sub._id],
+    ...(brand ? { brandId: brand._id, brandName: brand.name } : {}),
+    images,
+    attributes: {},
+    options: options.map((o) => ({ key: o.key, name: o.name, values: o.values })),
+    variants,
+    status,
+    tags,
+    searchText: buildSearchText({ title, brandName: brand?.name, tags }, [top.name.en, top.name.ur, top.name.ar, sub.name.en, sub.name.ur, sub.name.ar]),
+    cod: topSeed.slug === 'vehicles' ? false : rng.chance(0.85),
+    freeShipping: rng.chance(seed.isMall ? 0.6 : 0.3),
+    shipping: { weightGrams: item.weightGrams, processingDays: rng.int(1, 3) },
+    ...(hasWarranty ? { warranty: { type: 'brand', period: item.warranty ?? '1 year' } } : {}),
+    returnPolicy: { days: 7, note: 'Unused items in original packaging.' },
+    ...(item.scheme === 'apparel' ? { sizeGuide: sizeGuideHtml() } : {}),
+    specs: [...(brand ? [{ label: 'Brand', value: brand.name }] : []), ...item.specs.map(([label, value]) => ({ label, value }))],
+    ...(wholesale ? { wholesaleTiers: [{ minQty: 10, price: Math.round(base * 0.92) * 100 }, { minQty: 50, price: Math.round(base * 0.85) * 100 }] } : {}),
+    ...(preOrder ? { preOrder: { enabled: true, shipsOn: new Date(Date.now() + 21 * DAY) } } : {}),
+    ratingAvg: ratingCount ? Math.round(Math.min(5, Math.max(3.6, item.rating)) * 10) / 10 : 0,
+    ratingCount,
+    soldCount,
+    viewCount: soldCount * rng.int(5, 20) + rng.int(40, 600),
+    wishlistCount: Math.floor(soldCount * rng.next() * 0.3),
+    isFeatured: rng.chance(0.12),
+    ...(status === 'published' ? { publishedAt } : {}),
+    demo: true,
+    createdAt: publishedAt,
+  });
+  product.recomputeDerived();
+  return product;
+}
+
 async function seedProductsForStore(ctx: GenContext): Promise<number> {
   if (await Product.exists({ storeId: ctx.store._id })) return 0;
+  // Stores with real products (photos) sell only those; the others keep the generated catalog + SVG art.
+  const real = REAL_PRODUCTS.filter((p) => p.store === ctx.seed.slug);
+  const count = real.length || PRODUCTS_PER_STORE;
   const docs: ProductDoc[] = [];
   await pool(
-    Array.from({ length: PRODUCTS_PER_STORE }, (_, i) => i),
+    Array.from({ length: count }, (_, i) => i),
     6,
     async (i) => {
-      docs.push(await generateProduct(ctx, i));
+      docs.push(real.length ? await buildRealProduct(ctx, real[i]!, i, count) : await generateProduct(ctx, i));
     },
   );
   await Product.insertMany(docs);
@@ -380,7 +538,12 @@ async function seedHome(): Promise<boolean> {
   if (await HomeContent.exists({ key: 'home' })) return false;
   const heroSlides = await Promise.all(
     HERO_SLIDES.map(async (h) => {
-      const img = await putSvg(`seed/home/hero-${h.key}.svg`, heroArt(h.title, h.subtitle, h.colors[0], h.colors[1], h.motif));
+      const photos = await photosByTitle(h.photos);
+      const svg =
+        photos.length >= 2
+          ? heroPhotoArt({ title: h.title, subtitle: h.subtitle, eyebrow: h.eyebrow, from: h.colors[0], to: h.colors[1], photos, badge: 'badge' in h ? h.badge : undefined })
+          : heroArt(h.title, h.subtitle, h.colors[0], h.colors[1], h.motif);
+      const img = await putSvg(`seed/home/hero-${h.key}.svg`, svg);
       return { image: img.url, title: h.title, subtitle: h.subtitle, ctaText: h.ctaText, ctaLink: h.ctaLink, theme: h.theme };
     }),
   );
@@ -434,7 +597,12 @@ async function seedCampaignDocs(cats: Map<string, CategoryDoc>): Promise<number>
   let created = 0;
   for (const c of seedCampaigns(new Date())) {
     if (await Campaign.exists({ slug: c.slug })) continue;
-    const banner = await putSvg(`seed/campaigns/${c.slug}.svg`, heroArt(c.name, c.description, c.colors[0], c.colors[1], c.motif));
+    const photos = await photosByTitle(c.photos);
+    const svg =
+      photos.length >= 2
+        ? heroPhotoArt({ title: c.name, subtitle: c.description, eyebrow: c.eyebrow, from: c.colors[0], to: c.colors[1], photos, badge: 'badge' in c ? c.badge : undefined })
+        : heroArt(c.name, c.description, c.colors[0], c.colors[1], c.motif);
+    const banner = await putSvg(`seed/campaigns/${c.slug}.svg`, svg);
     await Campaign.create({
       slug: c.slug,
       name: c.name,

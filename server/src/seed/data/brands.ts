@@ -1,4 +1,4 @@
-/** Original, invented brand names (generic Urdu/English words; no real trademarks). */
+/** Original, invented brand names (generic Urdu/English words). Real brands of the photo catalog come from data/realProducts.ts (D-093). */
 export const SEED_BRANDS: { name: string; description: string; featured?: boolean }[] = [
   { name: 'Aangan', description: 'Courtyard-inspired home textiles and decor.', featured: true },
   { name: 'Kohsar', description: 'Rugged outdoor and sports gear from the northern hills.' },

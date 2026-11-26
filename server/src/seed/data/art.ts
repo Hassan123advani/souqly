@@ -201,3 +201,97 @@ export function heroArt(title: string, subtitle: string, from: string, to: strin
 <text x="114" y="346" font-family="${FONT}" font-size="36" font-weight="500" fill="#FFF8EC" opacity=".88">${escapeXml(subtitle)}</text>
 </svg>`;
 }
+
+// ---------------------------------------------------------------------------------------------
+// Photo banners (D-093): real product photos (data: URIs) on white cards next to the headline.
+// ---------------------------------------------------------------------------------------------
+
+/** Greedy word wrap by character budget (system fonts, so an approximation is enough). */
+function wrap(s: string, maxChars: number, maxLines: number): string[] {
+  const lines: string[] = [];
+  let line = '';
+  for (const word of s.split(/\s+/)) {
+    if (line && (line + ' ' + word).length > maxChars) {
+      lines.push(line);
+      line = word;
+    } else line = line ? `${line} ${word}` : word;
+  }
+  if (line) lines.push(line);
+  if (lines.length > maxLines) {
+    const kept = lines.slice(0, maxLines);
+    kept[maxLines - 1] = truncate(`${kept[maxLines - 1]} ${lines.slice(maxLines).join(' ')}`, maxChars);
+    return kept;
+  }
+  return lines;
+}
+
+type Card = { x: number; y: number; w: number; h: number; photo: string; rotate?: number };
+
+function photoCard(c: Card, id: string): string {
+  const pad = Math.round(Math.min(c.w, c.h) * 0.08);
+  const r = Math.round(Math.min(c.w, c.h) * 0.1);
+  const rot = c.rotate ? ` transform="rotate(${c.rotate} ${c.x + c.w / 2} ${c.y + c.h / 2})"` : '';
+  return `<g${rot} filter="url(#shadow)"><rect x="${c.x}" y="${c.y}" width="${c.w}" height="${c.h}" rx="${r}" fill="#ffffff"/></g>
+<clipPath id="${id}"><rect x="${c.x + pad}" y="${c.y + pad}" width="${c.w - 2 * pad}" height="${c.h - 2 * pad}" rx="${Math.round(r / 2)}"/></clipPath>
+<g${rot}><image href="${c.photo}" x="${c.x + pad}" y="${c.y + pad}" width="${c.w - 2 * pad}" height="${c.h - 2 * pad}" preserveAspectRatio="xMidYMid meet" clip-path="url(#${id})"/></g>`;
+}
+
+const SHADOW = '<filter id="shadow" x="-20%" y="-20%" width="140%" height="150%"><feDropShadow dx="0" dy="18" stdDeviation="20" flood-color="#000000" flood-opacity=".28"/></filter>';
+
+/** Wide hero / campaign banner (1600×600) with up to 4 product photos. Leaves room bottom-left for the CTA the client overlays. */
+export function heroPhotoArt(opts: { title: string; subtitle: string; eyebrow: string; from: string; to: string; photos: string[]; badge?: string }): string {
+  const { from, to, photos } = opts;
+  const title = wrap(opts.title, 20, 2);
+  const sub = wrap(opts.subtitle, 44, 2);
+  const titleY = title.length > 1 ? 196 : 250;
+  const subY = titleY + (title.length - 1) * 84 + 70;
+  const layouts: Omit<Card, 'photo'>[] = [
+    { x: 1030, y: 110, w: 380, h: 380, rotate: -3 },
+    { x: 860, y: 300, w: 220, h: 220, rotate: 4 },
+    { x: 1350, y: 60, w: 190, h: 190, rotate: 6 },
+    { x: 1360, y: 360, w: 200, h: 200, rotate: -5 },
+  ];
+  const cards = photos
+    .slice(0, 4)
+    .map((photo, i) => ({ ...layouts[i]!, photo }))
+    // draw the big card last so it sits on top
+    .sort((a, b) => a.w - b.w)
+    .map((c, i) => photoCard(c, `hc${i}`))
+    .join('\n');
+  const badge = opts.badge
+    ? `<g transform="translate(1000 120) rotate(-10)"><circle r="74" fill="#D6453D"/><circle r="64" fill="none" stroke="#ffffff" stroke-width="2" stroke-dasharray="4 6" opacity=".7"/><text y="14" text-anchor="middle" font-family="${FONT}" font-size="${opts.badge.length > 4 ? 34 : 44}" font-weight="800" fill="#ffffff">${escapeXml(opts.badge)}</text></g>`
+    : '';
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 600" width="1600" height="600">
+<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${from}"/><stop offset="1" stop-color="${to}"/></linearGradient>
+<radialGradient id="glow" cx="78%" cy="45%" r="45%"><stop offset="0" stop-color="#FFE7A8" stop-opacity=".45"/><stop offset="1" stop-color="#FFE7A8" stop-opacity="0"/></radialGradient>
+<pattern id="p" width="40" height="40" patternUnits="userSpaceOnUse"><circle cx="20" cy="20" r="1.6" fill="#ffffff" opacity=".14"/></pattern>${SHADOW}</defs>
+<rect width="1600" height="600" fill="url(#g)"/><rect width="1600" height="600" fill="url(#p)"/><rect width="1600" height="600" fill="url(#glow)"/>
+<circle cx="1240" cy="300" r="250" fill="#ffffff" opacity=".07"/><circle cx="1240" cy="300" r="320" fill="none" stroke="#ffffff" stroke-width="2" opacity=".1"/>
+<rect x="110" y="${titleY - 118}" width="${opts.eyebrow.length * 13 + 44}" height="40" rx="20" fill="#F2A93B"/>
+<text x="132" y="${titleY - 91}" font-family="${FONT}" font-size="18" font-weight="800" letter-spacing="2" fill="#1B1408">${escapeXml(opts.eyebrow.toUpperCase())}</text>
+${title.map((l, i) => `<text x="106" y="${titleY + i * 84}" font-family="${FONT}" font-size="76" font-weight="800" fill="#FFF8EC">${escapeXml(l)}</text>`).join('')}
+${sub.map((l, i) => `<text x="110" y="${subY + i * 42}" font-family="${FONT}" font-size="30" font-weight="500" fill="#FFF8EC" opacity=".88">${escapeXml(l)}</text>`).join('')}
+${cards}
+${badge}
+</svg>`;
+}
+
+/** Store banner (1600×400): name + tagline with a shelf of the store's product photos. */
+export function storeBannerPhoto(name: string, tagline: string, color: string, photos: string[]): string {
+  const shown = photos.slice(0, 3);
+  const size = 220;
+  const gap = 28;
+  const startX = 1600 - 64 - shown.length * size - (shown.length - 1) * gap;
+  const cards = shown.map((photo, i) => photoCard({ x: startX + i * (size + gap), y: 74 + (i % 2) * 34, w: size, h: size, photo }, `sc${i}`)).join('\n');
+  const tag = wrap(tagline, 38, 2);
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 400" width="1600" height="400">
+<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${shade(color, -0.45)}"/><stop offset="1" stop-color="${shade(color, 0.05)}"/></linearGradient>
+<pattern id="p" width="36" height="36" patternUnits="userSpaceOnUse"><circle cx="18" cy="18" r="1.5" fill="#ffffff" opacity=".14"/></pattern>${SHADOW}</defs>
+<rect width="1600" height="400" fill="url(#g)"/><rect width="1600" height="400" fill="url(#p)"/>
+<circle cx="${startX + 300}" cy="200" r="300" fill="#ffffff" opacity=".06"/>
+<rect x="96" y="96" width="64" height="6" rx="3" fill="#F2A93B"/>
+<text x="92" y="186" font-family="${FONT}" font-size="${name.length > 16 ? 62 : 72}" font-weight="800" fill="#FFF8EC">${escapeXml(name)}</text>
+${tag.map((l, i) => `<text x="96" y="${246 + i * 40}" font-family="${FONT}" font-size="30" font-weight="500" fill="#FFF8EC" opacity=".85">${escapeXml(l)}</text>`).join('')}
+${cards}
+</svg>`;
+}

@@ -10,6 +10,8 @@ export type SeedStore = {
   layoutTemplate: StoreLayout;
   /** Top-level category slug the store sells in. */
   category: string;
+  /** Other top-level categories the store also sells in (e.g. shoes next to clothing). */
+  extraCategories?: string[];
   /** Brands this store carries (by name). */
   brands: string[];
   city: string;
@@ -28,6 +30,7 @@ export const SEED_STORES: SeedStore[] = [
     themeColor: '#B83C6B',
     layoutTemplate: 'boutique',
     category: 'womens-fashion',
+    extraCategories: ['shoes-bags'],
     brands: ['Sitara', 'Riwaj'],
     city: 'Faisalabad',
     isMall: true,
@@ -42,6 +45,7 @@ export const SEED_STORES: SeedStore[] = [
     themeColor: '#2F5D8A',
     layoutTemplate: 'classic',
     category: 'mens-fashion',
+    extraCategories: ['shoes-bags'],
     brands: ['Mehrab', 'Riwaj'],
     city: 'Lahore',
     plan: 'pro',
@@ -178,6 +182,19 @@ export const SEED_STORES: SeedStore[] = [
     brands: ['Zarnaab', 'Hilal'],
     city: 'Hyderabad',
     isMall: true,
+    plan: 'premium',
+  },
+  {
+    name: 'Raftar Motors',
+    slug: 'raftar-motors',
+    owner: { name: 'Faisal Raza', email: 'raftar@demo.souqly.pk', phone: '+923002220013' },
+    tagline: 'Bikes and cars, inspected and ready to ride',
+    description: 'Rawalpindi showroom for motorcycles, scooters and cars with documents verified and test rides on request.',
+    themeColor: '#3B4A5A',
+    layoutTemplate: 'bold',
+    category: 'vehicles',
+    brands: ['Barqi'],
+    city: 'Rawalpindi',
     plan: 'premium',
   },
 ];

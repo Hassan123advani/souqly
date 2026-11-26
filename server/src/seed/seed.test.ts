@@ -46,13 +46,13 @@ describe('demo seed', () => {
     const top = await Category.countDocuments({ demo: true, parentId: null });
     expect(top).toBeGreaterThanOrEqual(10);
     expect(await Brand.countDocuments({ demo: true })).toBeGreaterThanOrEqual(25);
-    expect(await Store.countDocuments({ demo: true, status: 'approved' })).toBe(12);
+    expect(await Store.countDocuments({ demo: true, status: 'approved' })).toBe(13);
     expect(await Store.countDocuments({ demo: true, isMall: true })).toBe(4);
     expect(await Store.countDocuments({ demo: true, status: 'pending' })).toBe(2);
     expect(await User.countDocuments({ demo: true, platformRole: 'MODERATOR' })).toBe(1);
     expect(await Store.countDocuments({ demo: true, 'holidayMode.enabled': true })).toBe(1);
-    expect(await StoreMember.countDocuments({ demo: true, role: 'OWNER' })).toBe(14); // 12 live + 2 pending applications (Phase 9 admin queue);
-    expect(await User.countDocuments({ demo: true, isSeller: true })).toBe(14);
+    expect(await StoreMember.countDocuments({ demo: true, role: 'OWNER' })).toBe(15); // 13 live + 2 pending applications (Phase 9 admin queue);
+    expect(await User.countDocuments({ demo: true, isSeller: true })).toBe(15);
     expect(await Product.countDocuments({ demo: true })).toBeGreaterThanOrEqual(200);
     expect(await Product.countDocuments({ demo: true, compareAtMin: { $exists: true } })).toBeGreaterThan(40);
     expect(await Product.countDocuments({ demo: true, totalStock: 0 })).toBeGreaterThan(0);
@@ -74,7 +74,7 @@ describe('demo seed', () => {
     const charges = await CommissionEntry.find({ demo: true, kind: 'charge' }).lean();
     expect(charges.length).toBeGreaterThan(0);
     expect(charges.every((c) => c.bps === 1500 && c.amount === Math.round((c.base * 1500) / 10_000))).toBe(true);
-    expect(await Subscription.countDocuments({ demo: true })).toBe(12);
+    expect(await Subscription.countDocuments({ demo: true })).toBe(13);
     expect(await Invoice.countDocuments({ demo: true, status: 'paid' })).toBe(1);
     expect(await Invoice.countDocuments({ demo: true, status: 'open' })).toBeGreaterThanOrEqual(1);
     expect(await Store.countDocuments({ demo: true, billingStatus: 'suspended', 'billingSuspension.reason': 'overdue' })).toBe(1);
@@ -92,7 +92,7 @@ describe('demo seed', () => {
     const before = await Product.find({ demo: true }).select('slug soldCount priceMin').sort({ slug: 1 }).lean();
     await runSeed();
     expect(await Product.countDocuments({ demo: true })).toBe(before.length);
-    expect(await Store.countDocuments({ demo: true })).toBe(14);
+    expect(await Store.countDocuments({ demo: true })).toBe(15);
     await runSeed({ reset: true });
     const after = await Product.find({ demo: true }).select('slug soldCount priceMin').sort({ slug: 1 }).lean();
     expect(after.map(({ slug, soldCount, priceMin }) => ({ slug, soldCount, priceMin }))).toEqual(

@@ -1,6 +1,6 @@
 # Progress
 
-_Last updated: 2026-11-24_
+_Last updated: 2026-11-26_
 
 ## How to run
 ```bash
@@ -55,7 +55,10 @@ Admin: souqly@gmail.com / souqly123 (from server/.env)
 - NEXT: billing frontend (seller billing/plans/finance pages, admin billing, wizard plan step; re-point growth 'not in your plan' card); backend follow-ups from Phase 10 FE: (1) /seller/health recommendations as i18n keys, (2) admin nominations list with product/store names, (3) sq_aff cookie (optional), (4) marketing lists should include product titles, (5) POS catalog updatedSince must report deleted ids; code + security review of Phase 10 + billing; commit; Phase 11; Phase 12; seed Atlas; push GitHub + Vercel deploy (owner asked explicitly on 2026-11-23).
 - WAITING ON OWNER: gh auth login / empty repo, vercel login, strong production ADMIN_PASSWORD (12+), bank details for manual invoice payments.
 
+- Automated store/product review by Claude (D-092) done, tests green, uncommitted: needs ANTHROPIC_API_KEY on Vercel + flag `aiAutoReview` on; code/security review pending.
 - Seller subscriptions + flat 15% commission + monthly billing BACKEND done (uncommitted): contract docs/api-billing.md, decisions D-078..D-089, module server/src/modules/billing, Mongo replica set for transactions. Needs: billing FRONTEND (seller plan/billing pages, admin billing panel, wizard plan step), owner input on open questions (POS commission, admin goodwill refunds), Stripe keys for card invoice payments.
+
+- Real products + photos in the demo seed (D-093, 2026-11-26): 194 real products (DummyJSON snapshot) with downloaded/re-hosted photos, new categories (Shoes/Bags/Eyewear, Motorbikes & Cars) and sub-categories, new store Raftar Motors, photo hero/campaign/store banners. Toys + books stores still use SVG art (no photo source yet).
 
 ## Previous in-progress notes
 - Backend: follow-ups (coins refund, unreadChats, select-store, COD race, google2fa next, product counts, bulk, riders list, all attributes, newOrderSound) + Phase 9 admin API (docs/api-admin.md).

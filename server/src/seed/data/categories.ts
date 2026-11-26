@@ -74,6 +74,7 @@ export const SEED_CATEGORIES: SeedCategory[] = [
       { slug: 'kurtas-kurtis', en: 'Kurtas & Kurtis', ur: 'کرتے اور کرتیاں', ar: 'كورتا نسائية', icon: 'Shirt' },
       { slug: 'dupattas-shawls', en: 'Dupattas & Shawls', ur: 'دوپٹے اور شالیں', ar: 'أوشحة وشالات', icon: 'Wind' },
       { slug: 'womens-bottoms', en: 'Trousers & Shalwars', ur: 'ٹراؤزر اور شلوار', ar: 'سراويل نسائية', icon: 'Ruler' },
+      { slug: 'womens-dresses', en: 'Dresses & Frocks', ur: 'ڈریسز اور فراکس', ar: 'فساتين', icon: 'Shirt' },
     ],
   },
   {
@@ -115,6 +116,7 @@ export const SEED_CATEGORIES: SeedCategory[] = [
       { slug: 'phone-cases', en: 'Cases & Covers', ur: 'کیسز اور کورز', ar: 'أغطية وحافظات', icon: 'Square' },
       { slug: 'chargers-cables', en: 'Chargers & Cables', ur: 'چارجرز اور کیبلز', ar: 'شواحن وكابلات', icon: 'Plug' },
       { slug: 'power-banks', en: 'Power Banks', ur: 'پاور بینک', ar: 'بطاريات متنقلة', icon: 'BatteryCharging' },
+      { slug: 'mobile-accessories', en: 'Selfie & Mobile Gear', ur: 'سیلفی اور موبائل لوازمات', ar: 'إكسسوارات الجوال والسيلفي', icon: 'Camera' },
     ],
   },
   {
@@ -132,6 +134,7 @@ export const SEED_CATEGORIES: SeedCategory[] = [
       { slug: 'smart-watches', en: 'Smart Watches', ur: 'اسمارٹ واچز', ar: 'ساعات ذكية', icon: 'Watch' },
       { slug: 'speakers', en: 'Speakers', ur: 'اسپیکرز', ar: 'مكبرات صوت', icon: 'Speaker' },
       { slug: 'computer-accessories', en: 'Computer Accessories', ur: 'کمپیوٹر لوازمات', ar: 'ملحقات الكمبيوتر', icon: 'Keyboard' },
+      { slug: 'laptops', en: 'Laptops', ur: 'لیپ ٹاپس', ar: 'حواسيب محمولة', icon: 'Laptop' },
     ],
   },
   {
@@ -149,6 +152,7 @@ export const SEED_CATEGORIES: SeedCategory[] = [
       { slug: 'bedding', en: 'Bedding', ur: 'بستر', ar: 'مفروشات السرير', icon: 'BedDouble' },
       { slug: 'home-decor', en: 'Home Decor', ur: 'گھر کی سجاوٹ', ar: 'ديكور المنزل', icon: 'Flower2' },
       { slug: 'rugs-cushions', en: 'Rugs & Cushions', ur: 'قالین اور کشن', ar: 'سجاد ووسائد', icon: 'Square' },
+      { slug: 'furniture', en: 'Furniture', ur: 'فرنیچر', ar: 'أثاث', icon: 'Sofa' },
     ],
   },
   {
@@ -166,6 +170,7 @@ export const SEED_CATEGORIES: SeedCategory[] = [
       { slug: 'dinnerware', en: 'Dinner Sets', ur: 'ڈنر سیٹ', ar: 'أطقم العشاء', icon: 'UtensilsCrossed' },
       { slug: 'kitchen-appliances', en: 'Small Appliances', ur: 'کچن آلات', ar: 'أجهزة المطبخ الصغيرة', icon: 'Blender' },
       { slug: 'storage-containers', en: 'Storage & Containers', ur: 'ڈبے اور کنٹینرز', ar: 'حافظات وعلب', icon: 'Archive' },
+      { slug: 'kitchen-tools', en: 'Kitchen Tools', ur: 'کچن کے اوزار', ar: 'أدوات المطبخ', icon: 'UtensilsCrossed' },
     ],
   },
   {
@@ -200,6 +205,9 @@ export const SEED_CATEGORIES: SeedCategory[] = [
       { slug: 'spices', en: 'Spices & Masalas', ur: 'مصالحے', ar: 'التوابل والبهارات', icon: 'Flame' },
       { slug: 'tea-beverages', en: 'Tea & Beverages', ur: 'چائے اور مشروبات', ar: 'الشاي والمشروبات', icon: 'Coffee' },
       { slug: 'dry-fruits', en: 'Dry Fruits & Honey', ur: 'خشک میوہ جات اور شہد', ar: 'المكسرات والعسل', icon: 'Nut' },
+      { slug: 'fresh-produce', en: 'Fruits & Vegetables', ur: 'پھل اور سبزیاں', ar: 'فواكه وخضروات', icon: 'ShoppingBasket' },
+      { slug: 'meat-dairy', en: 'Meat, Eggs & Dairy', ur: 'گوشت، انڈے اور دودھ', ar: 'لحوم وبيض وألبان', icon: 'Egg' },
+      { slug: 'household-pets', en: 'Household & Pet Care', ur: 'گھریلو اشیاء اور پالتو جانور', ar: 'مستلزمات المنزل والحيوانات الأليفة', icon: 'PawPrint' },
     ],
   },
   {
@@ -234,6 +242,7 @@ export const SEED_CATEGORIES: SeedCategory[] = [
       { slug: 'fitness', en: 'Fitness Equipment', ur: 'فٹنس کا سامان', ar: 'معدات اللياقة', icon: 'Dumbbell' },
       { slug: 'sportswear', en: 'Sportswear', ur: 'اسپورٹس ویئر', ar: 'ملابس رياضية', icon: 'Shirt' },
       { slug: 'camping', en: 'Camping & Travel', ur: 'کیمپنگ اور سفر', ar: 'التخييم والسفر', icon: 'Tent' },
+      { slug: 'ball-sports', en: 'Ball & Racket Sports', ur: 'گیند اور ریکٹ کے کھیل', ar: 'رياضات الكرة والمضرب', icon: 'Trophy' },
     ],
   },
   {
@@ -268,6 +277,38 @@ export const SEED_CATEGORIES: SeedCategory[] = [
       { slug: 'earrings', en: 'Earrings', ur: 'بالیاں', ar: 'أقراط', icon: 'Gem' },
       { slug: 'bangles-bracelets', en: 'Bangles & Bracelets', ur: 'چوڑیاں اور بریسلیٹ', ar: 'أساور', icon: 'Circle' },
       { slug: 'necklaces', en: 'Necklaces & Sets', ur: 'ہار اور سیٹ', ar: 'قلائد وأطقم', icon: 'Sparkle' },
+    ],
+  },
+  {
+    slug: 'shoes-bags',
+    en: 'Shoes, Bags & Eyewear',
+    ur: 'جوتے، بیگ اور چشمے',
+    ar: 'أحذية وحقائب ونظارات',
+    icon: 'Footprints',
+    color: '#8A4B2A',
+    palette: ['#F3DFD2', '#8A4B2A'],
+    art: 'shirt',
+    attributes: [COLOR],
+    children: [
+      { slug: 'mens-shoes', en: "Men's Shoes", ur: 'مردانہ جوتے', ar: 'أحذية رجالية', icon: 'Footprints' },
+      { slug: 'womens-shoes', en: "Women's Shoes", ur: 'زنانہ جوتے', ar: 'أحذية نسائية', icon: 'Footprints' },
+      { slug: 'handbags', en: 'Handbags & Backpacks', ur: 'ہینڈ بیگ اور بیک پیک', ar: 'حقائب يد وظهر', icon: 'Backpack' },
+      { slug: 'sunglasses', en: 'Sunglasses', ur: 'دھوپ کے چشمے', ar: 'نظارات شمسية', icon: 'Glasses' },
+    ],
+  },
+  {
+    slug: 'vehicles',
+    en: 'Motorbikes & Cars',
+    ur: 'موٹر سائیکلیں اور گاڑیاں',
+    ar: 'دراجات نارية وسيارات',
+    icon: 'Car',
+    color: '#3B4A5A',
+    palette: ['#DCE3EA', '#3B4A5A'],
+    art: 'ball',
+    attributes: [COLOR, WARRANTY],
+    children: [
+      { slug: 'motorcycles', en: 'Motorcycles & Scooters', ur: 'موٹر سائیکلیں اور اسکوٹر', ar: 'دراجات نارية وسكوترات', icon: 'Bike' },
+      { slug: 'cars', en: 'Cars', ur: 'گاڑیاں', ar: 'سيارات', icon: 'Car' },
     ],
   },
 ];

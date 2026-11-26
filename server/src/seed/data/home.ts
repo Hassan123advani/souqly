@@ -10,6 +10,8 @@ export const HERO_SLIDES = [
     theme: 'teal',
     colors: ['#0B4A47', '#0E5E5A'] as [string, string],
     motif: 'lanterns' as const,
+    eyebrow: 'Pakistan’s marketplace',
+    photos: ['iPhone 13 Pro', 'Apple Airpods', 'Nike Air Jordan 1 Red And Black', 'Gucci Bloom Eau de Parfum'],
   },
   {
     key: 'eid-festival',
@@ -20,6 +22,9 @@ export const HERO_SLIDES = [
     theme: 'saffron',
     colors: ['#8A4B0F', '#D98A1E'] as [string, string],
     motif: 'crescent' as const,
+    eyebrow: 'Festive deals',
+    badge: '-50%',
+    photos: ['Black Women\'s Gown', 'Watch Gold for Women', 'Green Crystal Earring', 'Golden Shoes Woman'],
   },
   {
     key: 'souqly-mall',
@@ -30,6 +35,8 @@ export const HERO_SLIDES = [
     theme: 'ink',
     colors: ['#1B2A29', '#2F4A47'] as [string, string],
     motif: 'arches' as const,
+    eyebrow: '100% authentic',
+    photos: ['Apple MacBook Pro 14 Inch Space Grey', 'Rolex Submariner Watch', "Dior J'adore Eau de Parfum", 'Samsung Galaxy S10'],
   },
   {
     key: 'sell-on-souqly',
@@ -40,6 +47,8 @@ export const HERO_SLIDES = [
     theme: 'pomegranate',
     colors: ['#7E1F1A', '#D6453D'] as [string, string],
     motif: 'stall' as const,
+    eyebrow: 'For sellers',
+    photos: ['Boxed Blender', 'Prada Women Bag', 'Cricket Bat', 'Table Lamp'],
   },
 ];
 
@@ -71,6 +80,9 @@ export function seedCampaigns(now: Date) {
       categories: ['womens-fashion', 'mens-fashion', 'jewelry-watches', 'kids-toys'],
       colors: ['#8A4B0F', '#D98A1E'] as [string, string],
       motif: 'crescent' as const,
+      eyebrow: 'Campaign',
+      badge: '-50%',
+      photos: ['Tartan Dress', 'Rolex Datejust Women', 'Calvin Klein Heel Shoes', 'Chanel Coco Noir Eau de Parfum'],
     },
     {
       slug: 'ramadan-bazaar',
@@ -82,6 +94,8 @@ export function seedCampaigns(now: Date) {
       categories: ['groceries', 'kitchen-dining', 'home-living'],
       colors: ['#0B4A47', '#1F8A5B'] as [string, string],
       motif: 'lanterns' as const,
+      eyebrow: 'Coming soon',
+      photos: ['Pure Honey Jar (500 g)', 'Silver Pot With Glass Cap', 'Long Grain Rice (5 kg)', 'Table Lamp'],
     },
     {
       slug: '11-11-mega-sale',
@@ -93,6 +107,9 @@ export function seedCampaigns(now: Date) {
       categories: ['mobiles-tablets', 'electronic-devices'],
       colors: ['#7E1F1A', '#D6453D'] as [string, string],
       motif: 'stall' as const,
+      eyebrow: 'Biggest sale',
+      badge: '11.11',
+      photos: ['Samsung Galaxy Tab S8 Plus Grey', 'Apple AirPods Max Silver', 'iPhone X', 'New DELL XPS 13 9300 Laptop'],
     },
   ];
 }
