@@ -1,6 +1,8 @@
 /** Feature flag defaults. The admin can override them at runtime (stored in the Settings collection). */
 export const FEATURE_FLAGS = {
   aiDescriptionHelper: false,
+  /** Claude reviews new stores and products and approves/rejects the clear cases (needs ANTHROPIC_API_KEY). */
+  aiAutoReview: false,
   liveSelling: false,
   groupBuy: false,
   games: false,

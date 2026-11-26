@@ -11,6 +11,7 @@ import { sanitizeRichText, stripHtml } from '../../lib/sanitize';
 import { escapeRegex } from '../../lib/text';
 import { getStorage } from '../../services/storage';
 import { checkProductAlerts } from '../alerts/alert.service';
+import { autoReviewProduct } from '../aiReview/aiReview.service';
 import { audit } from '../audit/audit.service';
 import { Brand } from '../catalog/brand.model';
 import { buildSearchText, categoryPathFor, invalidateStoreIndex } from '../catalog/catalog.service';
@@ -338,6 +339,7 @@ export async function publishProduct(req: Request, id: string): Promise<SellerPr
   product.status = trusted ? 'published' : 'pending_review';
   if (trusted) product.publishedAt ??= new Date();
   product.moderationNote = undefined;
+  product.aiReview = undefined; // every (re)submission gets a fresh automated review
   await product.save();
   if (trusted) {
     if (!wasPublished) await Store.updateOne({ _id: store._id }, { $inc: { productCount: 1 } });
@@ -345,6 +347,12 @@ export async function publishProduct(req: Request, id: string): Promise<SellerPr
     invalidateStoreIndex();
   }
   await audit({ action: 'product.publish_requested', targetType: 'Product', targetId: product._id, meta: { storeId: String(store._id), status: product.status }, req });
+  if (product.status === 'pending_review') {
+    // D-092: automated review of the clear cases; the response below reflects the outcome.
+    await autoReviewProduct(product._id);
+    const fresh = await Product.findById(product._id);
+    if (fresh) return toSellerProduct(fresh);
+  }
   return toSellerProduct(product);
 }
 

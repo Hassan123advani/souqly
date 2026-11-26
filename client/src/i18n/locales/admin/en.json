@@ -652,6 +652,7 @@
     },
     "flags": {
       "aiDescriptionHelper": { "title": "AI description helper", "desc": "Sellers can draft product descriptions with AI." },
+      "aiAutoReview": { "title": "AI store & product review", "desc": "Claude approves or rejects clear store and product submissions; unsure ones wait for an admin." },
       "liveSelling": { "title": "Live selling", "desc": "Stores can host live video shopping sessions." },
       "groupBuy": { "title": "Group buy", "desc": "Buyers team up to unlock a lower price." },
       "games": { "title": "Games", "desc": "Mini games that reward coins." },

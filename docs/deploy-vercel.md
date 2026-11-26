@@ -42,6 +42,7 @@ Set them for **Production** (and Preview if you use preview deployments; prefera
 | `CRON_SECRET` | random, ≥ 16 chars. Vercel Cron sends `Authorization: Bearer <CRON_SECRET>` automatically. Unset = the cron endpoint is 404 and sweeps never run. |
 | `ADMIN_EMAIL`, `ADMIN_PASSWORD` | Required by env validation in production: the password must be strong (12+ chars, not the default / deny-listed) or the function refuses to start. Only the seed uses them to create the Super Admin. |
 | `MONGOMS_DISABLE_POSTINSTALL` | `1` (already in `vercel.json`; harmless to repeat in the dashboard) |
+| `ANTHROPIC_API_KEY`, `AI_REVIEW_MODEL` | Optional. Enables automated store/product review (D-092) once the **AI store & product review** flag is switched on in Admin → Settings → Feature flags. Without a key everything waits for an admin. |
 | Optional | `SMTP_*`, `TWILIO_*`, `GOOGLE_CLIENT_ID/SECRET`, payment keys, `OPENAI_API_KEY`, `CORS_EXTRA_ORIGINS`, `LOG_LEVEL` — same meaning as in `server/.env.example`. |
 
 Do **not** set `SERVERLESS` (it defaults to on because Vercel sets `VERCEL=1`, and the function entry forces it anyway) or `DEV_OTP_ECHO` (refused in production). Client build vars (`VITE_*`, see `client/.env.example`) are read at build time; leave `VITE_API_URL` empty (same origin).

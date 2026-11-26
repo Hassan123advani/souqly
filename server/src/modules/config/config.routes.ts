@@ -27,6 +27,7 @@ configRouter.get(
     const [flags, site, toggles] = await Promise.all([getFeatureFlags(), getSiteSettings(), getPaymentToggles()]);
     // The AI description helper needs an API key even when the flag is on.
     if (!integrations.hasOpenAI) flags.aiDescriptionHelper = false;
+    if (!integrations.hasAnthropic) flags.aiAutoReview = false;
     const payments = paymentAvailability();
     const data: PublicConfig = {
       site,

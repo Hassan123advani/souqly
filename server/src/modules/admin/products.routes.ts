@@ -83,7 +83,7 @@ async function notifySeller(storeId: unknown, title: string, body: string, produ
 }
 
 /** Approves a pending product (conditional update: concurrent moderators cannot double-apply). */
-export async function approveProduct(req: Request, id: string) {
+export async function approveProduct(req: Request | null, id: string) {
   const now = new Date();
   const before = await Product.findOneAndUpdate(
     { _id: oid(id), status: 'pending_review', deletedAt: { $exists: false } },
@@ -99,13 +99,13 @@ export async function approveProduct(req: Request, id: string) {
   }
   invalidateVocabulary();
   invalidateStoreIndex();
-  await audit({ action: 'admin.product_approved', targetType: 'Product', targetId: before._id, storeId: before.storeId, req });
+  await audit({ action: req ? 'admin.product_approved' : 'ai.product_approved', targetType: 'Product', targetId: before._id, storeId: before.storeId, ...(req ? { req } : { actorRole: 'ai_reviewer' }) });
   await notifySeller(before.storeId, 'Product approved', `"${before.title}" is now live.`, before._id);
   return { id: String(before._id), status: 'published' };
 }
 
 /** Rejects a pending product or takes a live one down (hide) with a note the seller sees. */
-export async function rejectProduct(req: Request, id: string, note: string, from: ('pending_review' | 'published')[] = ['pending_review'], action = 'admin.product_rejected') {
+export async function rejectProduct(req: Request | null, id: string, note: string, from: ('pending_review' | 'published')[] = ['pending_review'], action = 'admin.product_rejected') {
   const before = await Product.findOneAndUpdate(
     { _id: oid(id), status: { $in: from }, deletedAt: { $exists: false } },
     { $set: { status: 'rejected', moderationNote: note, isFeatured: false } },
@@ -120,7 +120,7 @@ export async function rejectProduct(req: Request, id: string, note: string, from
     invalidateVocabulary();
     invalidateStoreIndex();
   }
-  await audit({ action, targetType: 'Product', targetId: before._id, storeId: before.storeId, meta: { note }, req });
+  await audit({ action: req ? action : 'ai.product_rejected', targetType: 'Product', targetId: before._id, storeId: before.storeId, meta: { note }, ...(req ? { req } : { actorRole: 'ai_reviewer' }) });
   await notifySeller(before.storeId, action === 'admin.product_hidden' ? 'Product taken down' : 'Product needs changes', `"${before.title}": ${note}`, before._id);
   return { id: String(before._id), status: 'rejected' };
 }

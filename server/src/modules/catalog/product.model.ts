@@ -41,6 +41,8 @@ export interface IProduct {
   totalStock: number;
   status: ProductStatus;
   moderationNote?: string;
+  /** Automated review bookkeeping (modules/aiReview): attempts stop after a few failures so a human decides. */
+  aiReview?: { attempts: number; lastAt: Date; decision?: string };
   tags: string[];
   searchText: string;
   cod: boolean;
@@ -110,6 +112,7 @@ const productSchema = new Schema<IProduct, ProductModel, IProductMethods>(
     totalStock: { type: Number, default: 0 },
     status: { type: String, enum: PRODUCT_STATUSES, default: 'draft' },
     moderationNote: String,
+    aiReview: { type: { attempts: Number, lastAt: Date, decision: String }, _id: false },
     tags: { type: [String], default: [] },
     searchText: { type: String, default: '' },
     cod: { type: Boolean, default: true },

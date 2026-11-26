@@ -6,6 +6,7 @@ import { AppError } from '../../lib/AppError';
 import { logger } from '../../lib/logger';
 import { getEmail } from '../../services/email';
 import { audit } from '../audit/audit.service';
+import { autoReviewStore } from '../aiReview/aiReview.service';
 import { startSubscription } from '../billing/billing.service';
 import { assertActiveCategories } from './categories';
 import { getSellerStore } from '../seller/store.service';
@@ -83,6 +84,9 @@ export async function onboard(req: Request, input: OnboardingInput): Promise<Sel
       html: `<p>A new store <strong>${escapeHtml(store.name)}</strong> (/${store.slug}) is waiting for approval.</p><p><a href="${reviewUrl}">Review it</a></p>`,
     })
     .catch((err) => logger.warn({ err }, 'admin store notification failed'));
+
+  // D-092: Claude decides the clear cases right away (approve/reject); unsure or failed reviews stay pending for an admin.
+  await autoReviewStore(store._id);
 
   const member = (await StoreMember.findOne({ storeId: store._id, userId }))!;
   return getSellerStore(store._id, member);

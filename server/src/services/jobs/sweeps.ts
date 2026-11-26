@@ -2,6 +2,7 @@ import { recomputeAllCategoryPaths } from '../../modules/admin/catalog.routes';
 import { releaseAffiliateCommissions } from '../../modules/affiliate/affiliate.service';
 import { runBillingEnforcement, runBillingSweep } from '../../modules/billing/billing.service';
 import { sweepAlerts } from '../../modules/alerts/alert.service';
+import { sweepAiReview } from '../../modules/aiReview/aiReview.service';
 import { recomputeAllHealth } from '../../modules/health/storeHealth.service';
 
 /** Result of one sweep: small numeric counters for logs and the cron response. */
@@ -31,6 +32,8 @@ export const SWEEPS = {
   'billing.daily': async () => runBillingSweep(),
   /** Affiliate commissions whose return window has passed are paid to the wallet (D-091). */
   'affiliate.release': async () => releaseAffiliateCommissions(),
+  /** Retries automated store/product reviews that failed or never ran (D-092). */
+  'aiReview.sweep': async () => sweepAiReview(),
 } satisfies Record<string, Sweep>;
 
 export type SweepName = keyof typeof SWEEPS;

@@ -17,6 +17,8 @@ export interface IStore {
   categoryIds: Types.ObjectId[];
   status: StoreStatus;
   rejectionReason?: string;
+  /** Automated review bookkeeping (modules/aiReview): attempts stop after a few failures so a human decides. */
+  aiReview?: { attempts: number; lastAt: Date; decision?: string };
   /** Set by an admin suspension (Phase 9). */
   suspension?: { reason: string; at: Date; by: Types.ObjectId };
   isMall: boolean;
@@ -70,6 +72,7 @@ const storeSchema = new Schema<IStore>(
     categoryIds: { type: [Schema.Types.ObjectId], default: [] },
     status: { type: String, enum: STORE_STATUSES, default: 'pending', index: true },
     rejectionReason: String,
+    aiReview: { type: { attempts: Number, lastAt: Date, decision: String }, _id: false },
     suspension: { type: { reason: String, at: Date, by: Schema.Types.ObjectId, _id: false }, default: undefined },
     isMall: { type: Boolean, default: false },
     mallRequested: { type: Boolean, default: false },

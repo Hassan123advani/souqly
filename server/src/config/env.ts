@@ -110,6 +110,9 @@ export const envSchema = z
     VAPID_PRIVATE_KEY: str(),
     VAPID_SUBJECT: str(),
     OPENAI_API_KEY: str(),
+    /** Automated store/product review (modules/aiReview). Unset = every submission waits for a human admin. */
+    ANTHROPIC_API_KEY: str(),
+    AI_REVIEW_MODEL: str(),
     /** Set by the Vercel runtime (build + functions). Only used to default SERVERLESS. */
     VERCEL: str(),
     /**
@@ -228,5 +231,6 @@ export const integrations = {
   hasEasyPaisa: !!(e.EASYPAISA_STORE_ID && e.EASYPAISA_HASH_KEY),
   hasVapid: !!(e.VAPID_PUBLIC_KEY && e.VAPID_PRIVATE_KEY),
   hasOpenAI: !!e.OPENAI_API_KEY,
+  hasAnthropic: !!e.ANTHROPIC_API_KEY,
 };
 export type Integrations = typeof integrations;
